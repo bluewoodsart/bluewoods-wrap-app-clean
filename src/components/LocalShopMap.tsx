@@ -75,14 +75,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({ customerData, onEmailQuote,
   const handleContactSubmit = (contactInfo: ContactInfo) => {
     console.log('Contact info submitted:', contactInfo);
     console.log('Customer data:', customerData);
-    
-    // Clear any cached state and force complete page refresh
-    // This prevents browser cache issues with stale UI state
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    // Force complete page replacement to avoid cache issues
-    window.location.replace('/confirmation');
+    onFinalConfirmation?.();
   };
 
   const handleActionClick = (type: 'email' | 'phone') => {
