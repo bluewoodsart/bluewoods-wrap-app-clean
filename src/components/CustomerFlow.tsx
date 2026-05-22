@@ -33,6 +33,8 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
   };
 
   const validateStep = (currentStep: number): boolean => {
+    const isPartialWrap = data.selectedService === 'Partial Vehicle Wraps';
+
     switch (currentStep) {
       case 1:
         if (!data.selectedService) {
@@ -51,14 +53,15 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
         }
         break;
       case 3:
-        if (data.selectedService === 'Partial Vehicle Wraps' && (!data.goal || data.goal.trim() === '')) {
+        if (isPartialWrap && (!data.goal || data.goal.trim() === '')) {
           alert('Please describe your project goal to continue.');
           return false;
         }
-        // For non-partial wraps, artwork selection is optional - users can proceed with any option including "later"
         break;
       case 4:
-        // Step 4 is now vehicle type selector (was step 5)
+        if (isPartialWrap) {
+          break;
+        }
         if (!data.vehicleType) {
           alert('Please select your vehicle type to continue.');
           return false;
@@ -69,34 +72,57 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
         }
         break;
       case 5:
-        // Step 5 is now vehicle information (was step 6)
+        if (isPartialWrap) {
+          if (!data.vehicleType) {
+            alert('Please select your vehicle type to continue.');
+            return false;
+          }
+          if (data.vehicleType === 'other' && (!data.otherVehicleDescription || data.otherVehicleDescription.trim() === '')) {
+            alert('Please describe your vehicle type to continue.');
+            return false;
+          }
+          break;
+        }
         if (!data.vehicle?.year || !data.vehicle?.make || !data.vehicle?.model) {
           alert('Please fill in all vehicle information fields (year, make, model) to continue.');
           return false;
         }
         break;
       case 6:
-        // Step 6 is now design complexity (was step 7)
+        if (isPartialWrap) {
+          if (!data.vehicle?.year || !data.vehicle?.make || !data.vehicle?.model) {
+            alert('Please fill in all vehicle information fields (year, make, model) to continue.');
+            return false;
+          }
+          break;
+        }
         if (!data.designComplexity) {
           alert('Please select a design complexity option to continue.');
           return false;
         }
         break;
       case 7:
-        // Step 7 is now file review notice (was step 8) - no validation needed
+        if (isPartialWrap && !data.designComplexity) {
+          alert('Please select a design complexity option to continue.');
+          return false;
+        }
         break;
       case 8:
-        // Step 8 is now budget (was step 9)
+        if (isPartialWrap) {
+          break;
+        }
         if (!data.budget) {
           alert('Please select a budget range to continue.');
           return false;
         }
         break;
       case 9:
-        // Step 9 is now quote submission (was step 10) - no validation needed
+        if (isPartialWrap && !data.budget) {
+          alert('Please select a budget range to continue.');
+          return false;
+        }
         break;
       case 10:
-        // Step 10 is now local shop map (was step 11) - no validation needed
         break;
      }
      return true;
