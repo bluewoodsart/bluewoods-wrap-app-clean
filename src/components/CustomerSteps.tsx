@@ -149,8 +149,8 @@ export const Step5: React.FC<StepProps> = ({ data, setData }) => {
 export const Step6: React.FC<StepProps> = ({ data, setData }) => {
   return <DesignComplexitySelector data={data} setData={setData} />;
 };
-export const Step7: React.FC<StepProps> = () => {
-  return <FileReviewNotice />;
+export const Step7: React.FC<StepProps> = ({ data, setData }) => {
+  return <FileReviewNotice data={data} setData={setData} />;
 };
 
 export const Step8: React.FC<StepProps> = ({ data, setData }) => {
