@@ -26,6 +26,13 @@ const FileReviewNotice: React.FC<FileReviewNoticeProps> = ({ data, setData }) =>
             Upload anything that helps explain your wrap: artwork, AI generations, logos, screenshots, mockups, photos, PDFs, or inspiration images.
           </p>
 
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <p className="font-semibold text-blue-900">Use this upload area for files up to 50MB.</p>
+            <p className="mt-1 text-sm text-blue-800">
+              For large print-ready production files like full-size Illustrator, EPS, PSD, or high-resolution PDFs, send a smaller preview here first. We will follow up with a secure large-file upload link for the final artwork.
+            </p>
+          </div>
+
           <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-4">
             <p className="font-semibold text-purple-900">AI-generated artwork is welcome.</p>
             <p className="mt-1 text-sm text-purple-800">
@@ -60,6 +67,7 @@ const FileReviewNotice: React.FC<FileReviewNoticeProps> = ({ data, setData }) =>
             quoteId={data.quoteId}
             acceptedTypes="image/*,.pdf,.ai,.eps,.svg,.psd"
             maxFiles={10}
+            maxFileSizeMB={50}
             onFilesUploaded={handleFilesUploaded}
           />
         </CardContent>

@@ -10,6 +10,7 @@ interface FileUploadProps {
   quoteId?: string;
   acceptedTypes?: string;
   maxFiles?: number;
+  maxFileSizeMB?: number;
   title?: string;
 }
 
@@ -28,6 +29,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   quoteId, 
   acceptedTypes = "image/*,.pdf,.svg",
   maxFiles = 10,
+  maxFileSizeMB = 50,
   title = "Upload Your Files"
 }) => {
   const [uploading, setUploading] = useState(false);
@@ -52,6 +54,18 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   const handleFileUpload = async (files: FileList) => {
     if (!files.length) return;
+
+    const maxFileSizeBytes = maxFileSizeMB * 1024 * 1024;
+    const oversizedFiles = Array.from(files).filter((file) => file.size > maxFileSizeBytes);
+
+    if (oversizedFiles.length) {
+      const fileNames = oversizedFiles.map((file) => file.name).join(', ');
+      setError(
+        `These files are over ${maxFileSizeMB}MB: ${fileNames}. Please upload a smaller preview/reference file here. For large print-ready files, we'll send you a separate secure upload link.`
+      );
+      setSuccess(null);
+      return;
+    }
     
     setUploading(true);
     setError(null);
@@ -77,6 +91,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
         if (uploadError) {
           console.error('Storage upload error:', uploadError);
+          if (uploadError.message.toLowerCase().includes('maximum allowed size')) {
+            throw new Error(
+              `That file is larger than the current ${maxFileSizeMB}MB upload limit. Please upload a smaller preview/reference file here. For large print-ready files, we'll send you a separate secure upload link.`
+            );
+          }
           throw new Error(`Storage upload failed: ${uploadError.message}`);
         }
 
