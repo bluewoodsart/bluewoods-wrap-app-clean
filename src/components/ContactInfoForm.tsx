@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ArrowLeft } from 'lucide-react';
 
 interface ContactInfoFormProps {
-  onSubmit: (contactInfo: ContactInfo) => void;
+  onSubmit: (contactInfo: ContactInfo) => void | Promise<void>;
   onBack: () => void;
   actionType: 'email' | 'phone';
 }
@@ -27,6 +27,8 @@ const ContactInfoForm: React.FC<ContactInfoFormProps> = ({ onSubmit, onBack, act
     preferredContact: actionType === 'email' ? 'email' : 'call'
   });
   const [errors, setErrors] = useState<Partial<ContactInfo>>({});
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
     const newErrors: Partial<ContactInfo> = {};
@@ -49,12 +51,21 @@ const ContactInfoForm: React.FC<ContactInfoFormProps> = ({ onSubmit, onBack, act
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (validateForm()) {
-      console.log('ContactInfoForm: calling onSubmit with data:', formData);
-      onSubmit(formData);
+      setSubmitError('');
+      setIsSubmitting(true);
+
+      try {
+        await onSubmit(formData);
+      } catch (error) {
+        console.error('Contact form submit failed:', error);
+        setSubmitError('Something went wrong saving your request. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -148,13 +159,25 @@ const ContactInfoForm: React.FC<ContactInfoFormProps> = ({ onSubmit, onBack, act
               </p>
             </div>
 
+            {submitError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {submitError}
+              </div>
+            )}
+
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={onBack} className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onBack}
+                disabled={isSubmitting}
+                className="flex items-center gap-2"
+              >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </Button>
-              <Button type="submit" className="flex-1">
-                Submit Request
+              <Button type="submit" disabled={isSubmitting} className="flex-1">
+                {isSubmitting ? 'Submitting...' : 'Submit Request'}
               </Button>
             </div>
           </form>

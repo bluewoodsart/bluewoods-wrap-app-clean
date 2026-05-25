@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MapPin, Phone } from 'lucide-react';
 import LeafletMap from './LeafletMap';
 import ContactInfoForm from './ContactInfoForm';
 import { supabase } from '@/lib/supabase';
+import { CustomerData, UploadedFile } from '@/types';
 
 interface Shop {
   id: number;
@@ -12,10 +13,9 @@ interface Shop {
   address: string;
   lat: number;
   lng: number;
-  phone: string;
+  phone?: string;
   services: string[];
   distance?: string;
-  rating?: number;
 }
 
 interface ContactInfo {
@@ -26,61 +26,82 @@ interface ContactInfo {
 }
 
 interface LocalShopMapProps {
-  customerData?: any;
+  customerData?: Partial<CustomerData>;
   onEmailQuote: () => void;
   onPhoneQuote: () => void;
   onFinalConfirmation?: () => void;
 }
 
-const LocalShopMap: React.FC<LocalShopMapProps> = ({ customerData, onEmailQuote, onPhoneQuote, onFinalConfirmation }) => {
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [loading, setLoading] = useState(true);
+const BLUE_WOODS_HQ: Shop = {
+  id: 1,
+  name: 'Blue Woods Headquarters',
+  address: '305 Etowah Trace, Suite 106, Fayetteville, GA 30214',
+  lat: 33.5055,
+  lng: -84.4331,
+  services: [
+    'Vehicle wraps',
+    'Print-ready artwork review',
+    'AI artwork cleanup',
+    'Large-format printing'
+  ]
+};
+
+const LocalShopMap: React.FC<LocalShopMapProps> = ({
+  customerData,
+  onFinalConfirmation
+}) => {
   const [showContactForm, setShowContactForm] = useState(false);
-  const [contactFormType, setContactFormType] = useState<'email' | 'phone'>('email');
+  const [submitError, setSubmitError] = useState('');
 
-  useEffect(() => {
-    fetchShops();
-  }, []);
+  const collectUploadedFiles = (): UploadedFile[] => {
+    return [
+      ...(customerData?.uploadedFiles ?? []),
+      ...(customerData?.artworkFiles ?? []),
+      ...(customerData?.vehiclePhotos ?? []),
+      ...(customerData?.logoFiles ?? [])
+    ];
+  };
 
-  const fetchShops = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('shops')
-        .select('*');
-      
-      if (error) {
-        console.error('Error fetching shops:', error);
-        setShops([]);
-      } else {
-        const transformedShops = (data || []).map((shop: any) => ({
-          id: shop.id,
-          name: shop.name || 'Shop Name',
-          address: shop.address || 'Address not available',
-          lat: shop.latitude || 33.7490,
-          lng: shop.longitude || -84.3880,
-          phone: shop.phone || '(555) 000-0000',
-          services: shop.services || ['Vehicle Wraps', 'PPF'],
-          rating: shop.rating || 4.5
-        }));
-        setShops(transformedShops);
-      }
-    } catch (error) {
-      console.error('Error fetching shops:', error);
-      setShops([]);
-    } finally {
-      setLoading(false);
+  const buildQuoteDetails = () => ({
+    quoteId: customerData?.quoteId,
+    quoteType: customerData?.quoteType,
+    selectedService: customerData?.selectedService,
+    partialWrapType: customerData?.partialWrapType,
+    partialWrapDescription: customerData?.partialWrapDescription,
+    goal: customerData?.goal,
+    hasArtwork: customerData?.hasArtwork,
+    vehicleType: customerData?.vehicleType,
+    otherVehicleDescription: customerData?.otherVehicleDescription,
+    vehicle: customerData?.vehicle,
+    designComplexity: customerData?.designComplexity,
+    budget: customerData?.budget,
+    uploadedFileCount: collectUploadedFiles().length
+  });
+
+  const handleContactSubmit = async (contactInfo: ContactInfo) => {
+    setSubmitError('');
+
+    const { error } = await supabase
+      .from('quote_requests')
+      .insert({
+        quote_id: customerData?.quoteId ?? null,
+        customer_name: contactInfo.name,
+        customer_email: contactInfo.email,
+        customer_phone: contactInfo.phone,
+        preferred_contact: contactInfo.preferredContact,
+        quote_data: buildQuoteDetails(),
+        uploaded_files: collectUploadedFiles(),
+        status: 'new',
+        source: 'bluewoods-wrap-app'
+      });
+
+    if (error) {
+      console.error('Quote request save failed:', error);
+      setSubmitError(error.message);
+      throw error;
     }
-  };
 
-  const handleContactSubmit = (contactInfo: ContactInfo) => {
-    console.log('Contact info submitted:', contactInfo);
-    console.log('Customer data:', customerData);
     onFinalConfirmation?.();
-  };
-
-  const handleActionClick = (type: 'email' | 'phone') => {
-    setContactFormType(type);
-    setShowContactForm(true);
   };
 
   if (showContactForm) {
@@ -88,104 +109,84 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({ customerData, onEmailQuote,
       <ContactInfoForm
         onSubmit={handleContactSubmit}
         onBack={() => setShowContactForm(false)}
-        actionType={contactFormType}
+        actionType="email"
       />
     );
   }
-
-  const hasShops = shops.length > 0;
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            📍 Quote Review & Next Steps
+            <MapPin className="w-5 h-5 text-blue-600" />
+            Quote Review & Next Steps
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-gray-700">
-            {hasShops ? "We've found shops near you who offer the services you requested." : "We're expanding our network in your area!"}
+            Your request is going directly to Blue Woods in Fayetteville for review.
           </p>
-          
-          <div className="relative">
-            {loading ? (
-              <div className="bg-gray-100 h-64 rounded-lg flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <MapPin className="w-12 h-12 mx-auto mb-2 animate-pulse" />
-                  <p>Loading map...</p>
-                </div>
-              </div>
-            ) : (
-              <LeafletMap 
-                shops={shops}
-                center={[33.7490, -84.3880]}
-                zoom={hasShops ? 10 : 8}
-                className="h-64 w-full rounded-lg z-10"
-              />
-            )}
-            
-            {!hasShops && !loading && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center z-20">
-                <div className="text-center text-white p-6">
-                  <h3 className="font-bold text-xl mb-4">We are processing your request</h3>
-                  <p className="text-sm">Our system communicates automatically with local pro shops.</p>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {hasShops && (
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Local Shops Near You:</h3>
-              {shops.map((shop) => (
-                <Card key={shop.id} className="border-l-4 border-l-blue-500">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{shop.name}</h4>
-                        <p className="text-sm text-gray-600">{shop.address}</p>
-                        {shop.distance && (
-                          <p className="text-sm text-blue-600">{shop.distance} away</p>
-                        )}
-                        {shop.rating && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-yellow-500">⭐</span>
-                            <span className="text-sm">{shop.rating}</span>
-                          </div>
-                        )}
-                      </div>
-                      <Button size="sm" className="flex items-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        {shop.phone}
-                      </Button>
+
+          <LeafletMap
+            shops={[BLUE_WOODS_HQ]}
+            center={[BLUE_WOODS_HQ.lat, BLUE_WOODS_HQ.lng]}
+            zoom={14}
+            className="h-64 w-full rounded-lg z-10"
+          />
+
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Blue Woods Location</h3>
+            <Card className="border-l-4 border-l-blue-500">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <h4 className="font-semibold">{BLUE_WOODS_HQ.name}</h4>
+                    <p className="text-sm text-gray-600">{BLUE_WOODS_HQ.address}</p>
+                    <p className="text-sm text-gray-700 mt-2">
+                      Your files and quote details will be reviewed by Blue Woods. After you add your contact info, we can follow up with questions, pricing, and large-file upload instructions.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {BLUE_WOODS_HQ.services.map((service) => (
+                        <span
+                          key={service}
+                          className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                        >
+                          {service}
+                        </span>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-          
-          {!hasShops && (
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-start gap-3">
-                <span className="text-blue-600">🚀</span>
-                <div>
-                  <p className="text-blue-700 text-sm">
-                    Your quote request has been saved and we'll notify you as soon as shops become available in your area.
-                  </p>
+                  </div>
+                  {BLUE_WOODS_HQ.phone && (
+                    <Button size="sm" className="flex items-center gap-2">
+                      <Phone className="w-4 h-4" />
+                      {BLUE_WOODS_HQ.phone}
+                    </Button>
+                  )}
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-blue-700 text-sm">
+              Your quote request has been saved. Next, add your contact info so Blue Woods can send your custom quote and follow-up questions.
+            </p>
+          </div>
+
+          {submitError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              We could not save the quote request yet: {submitError}
             </div>
           )}
-          
+
           <div className="space-y-3">
-            <Button 
-              onClick={() => handleActionClick('email')}
+            <Button
+              onClick={() => setShowContactForm(true)}
               className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
               size="lg"
             >
-              Submit Your Quote Request
+              Add Contact Info and Submit Request
             </Button>
           </div>
         </CardContent>
