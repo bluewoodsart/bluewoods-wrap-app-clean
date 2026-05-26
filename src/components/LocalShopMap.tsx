@@ -62,6 +62,16 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     ];
   };
 
+  const cleanUploadedFilesForDatabase = () =>
+    collectUploadedFiles().map((file) => ({
+      id: file.id,
+      name: file.name,
+      url: file.url,
+      type: file.type,
+      size: file.size,
+      tags: file.tags
+    }));
+
   const buildQuoteDetails = () => ({
     quoteId: customerData?.quoteId,
     quoteType: customerData?.quoteType,
@@ -92,7 +102,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
         customer_phone: contactInfo.phone,
         preferred_contact: contactInfo.preferredContact,
         quote_data: buildQuoteDetails(),
-        uploaded_files: collectUploadedFiles(),
+        uploaded_files: cleanUploadedFilesForDatabase(),
         status: 'new',
         source: 'bluewoods-wrap-app'
       });
