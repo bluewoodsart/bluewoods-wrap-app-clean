@@ -34,6 +34,13 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
 
   const validateStep = (currentStep: number): boolean => {
     const isPartialWrap = data.selectedService === 'Partial Vehicle Wraps';
+    const hasVehicleInfo = () => {
+      if (data.vehicleNotListed) {
+        return Boolean(data.customVehicleDescription?.trim());
+      }
+
+      return Boolean(data.vehicle?.year && data.vehicle?.make && data.vehicle?.model);
+    };
 
     switch (currentStep) {
       case 1:
@@ -83,15 +90,15 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
           }
           break;
         }
-        if (!data.vehicle?.year || !data.vehicle?.make || !data.vehicle?.model) {
-          alert('Please fill in all vehicle information fields (year, make, model) to continue.');
+        if (!hasVehicleInfo()) {
+          alert('Please select your year, make, and model, or choose "My vehicle is not listed" and describe it.');
           return false;
         }
         break;
       case 6:
         if (isPartialWrap) {
-          if (!data.vehicle?.year || !data.vehicle?.make || !data.vehicle?.model) {
-            alert('Please fill in all vehicle information fields (year, make, model) to continue.');
+          if (!hasVehicleInfo()) {
+            alert('Please select your year, make, and model, or choose "My vehicle is not listed" and describe it.');
             return false;
           }
           break;

@@ -72,6 +72,8 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     hasArtwork: customerData?.hasArtwork,
     vehicleType: customerData?.vehicleType,
     otherVehicleDescription: customerData?.otherVehicleDescription,
+    vehicleNotListed: customerData?.vehicleNotListed,
+    customVehicleDescription: customerData?.customVehicleDescription,
     vehicle: customerData?.vehicle,
     designComplexity: customerData?.designComplexity,
     budget: customerData?.budget,
