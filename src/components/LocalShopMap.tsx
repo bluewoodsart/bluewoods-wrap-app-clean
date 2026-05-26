@@ -34,7 +34,7 @@ interface LocalShopMapProps {
 
 const BLUE_WOODS_HQ: Shop = {
   id: 1,
-  name: 'Blue Woods Headquarters',
+  name: 'Blue Woods Brands Headquarters',
   address: '305 Etowah Trace, Suite 106, Fayetteville, GA 30214',
   lat: 33.5055,
   lng: -84.4331,
@@ -137,7 +137,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-gray-700">
-            Your request is going directly to Blue Woods in Fayetteville for review.
+            Your request is being processed by Blue Woods Brands headquarters in Fayetteville. Bringing Brands to Life.
           </p>
 
           <LeafletMap
@@ -148,7 +148,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
           />
 
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Blue Woods Location</h3>
+            <h3 className="font-semibold text-lg">Blue Woods Brands Headquarters</h3>
             <Card className="border-l-4 border-l-blue-500">
               <CardContent className="p-4">
                 <div className="flex justify-between items-start gap-4">
@@ -156,7 +156,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
                     <h4 className="font-semibold">{BLUE_WOODS_HQ.name}</h4>
                     <p className="text-sm text-gray-600">{BLUE_WOODS_HQ.address}</p>
                     <p className="text-sm text-gray-700 mt-2">
-                      Your files and quote details will be reviewed by Blue Woods. After you add your contact info, we can follow up with questions, pricing, and large-file upload instructions.
+                      Your quote details, artwork, and files go directly to Blue Woods Brands headquarters. After you add your contact info, we can follow up with questions, pricing, and large-file upload instructions.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {BLUE_WOODS_HQ.services.map((service) => (
@@ -182,7 +182,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
 
           <div className="bg-blue-50 p-4 rounded-lg">
             <p className="text-blue-700 text-sm">
-              Your quote request has been saved. Next, add your contact info so Blue Woods can send your custom quote and follow-up questions.
+              Your quote request has been saved. Next, add your contact info so Blue Woods Brands can send your custom quote and follow-up questions.
             </p>
           </div>
 
