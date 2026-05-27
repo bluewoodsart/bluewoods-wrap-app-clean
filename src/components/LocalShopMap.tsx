@@ -62,16 +62,6 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     ];
   };
 
-  const cleanUploadedFilesForDatabase = () =>
-    collectUploadedFiles().map((file) => ({
-      id: file.id,
-      name: file.name,
-      url: file.url,
-      type: file.type,
-      size: file.size,
-      tags: file.tags
-    }));
-
   const buildQuoteDetails = () => ({
     quoteId: customerData?.quoteId,
     quoteType: customerData?.quoteType,
@@ -92,6 +82,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
 
   const handleContactSubmit = async (contactInfo: ContactInfo) => {
     setSubmitError('');
+    const uploadedFiles = collectUploadedFiles();
 
     const { error } = await supabase
       .from('quote_requests')
@@ -102,7 +93,14 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
         customer_phone: contactInfo.phone,
         preferred_contact: contactInfo.preferredContact,
         quote_data: buildQuoteDetails(),
-        uploaded_files: cleanUploadedFilesForDatabase(),
+        uploaded_files: uploadedFiles.map((file) => ({
+          id: file.id,
+          name: file.name,
+          url: file.url,
+          type: file.type,
+          size: file.size,
+          tags: file.tags
+        })),
         status: 'new',
         source: 'bluewoods-wrap-app'
       });
@@ -111,6 +109,21 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
       console.error('Quote request save failed:', error);
       setSubmitError(error.message);
       throw error;
+    }
+
+    if (uploadedFiles.length > 0) {
+      const { error: fileContactError } = await supabase.rpc('attach_contact_to_customer_files', {
+        file_ids: uploadedFiles.map((file) => file.id),
+        submitted_quote_id: customerData?.quoteId ?? null,
+        submitted_customer_name: contactInfo.name,
+        submitted_customer_email: contactInfo.email,
+        submitted_customer_phone: contactInfo.phone,
+        submitted_preferred_contact: contactInfo.preferredContact
+      });
+
+      if (fileContactError) {
+        console.error('File contact update failed:', fileContactError);
+      }
     }
 
     onFinalConfirmation?.();

@@ -26,6 +26,11 @@ create index if not exists quote_requests_status_idx
 create table if not exists public.customer_files (
   id uuid primary key default gen_random_uuid(),
   project_id uuid,
+  quote_id text,
+  customer_name text,
+  customer_email text,
+  customer_phone text,
+  preferred_contact text check (preferred_contact is null or preferred_contact in ('email', 'text', 'call')),
   file_url text not null,
   file_name text not null,
   file_type text not null,
@@ -34,8 +39,18 @@ create table if not exists public.customer_files (
   created_at timestamptz not null default now()
 );
 
+alter table public.customer_files
+  add column if not exists quote_id text,
+  add column if not exists customer_name text,
+  add column if not exists customer_email text,
+  add column if not exists customer_phone text,
+  add column if not exists preferred_contact text;
+
 create index if not exists customer_files_project_id_idx
   on public.customer_files (project_id);
+
+create index if not exists customer_files_quote_id_idx
+  on public.customer_files (quote_id);
 
 create index if not exists customer_files_created_at_idx
   on public.customer_files (created_at desc);
@@ -65,6 +80,40 @@ with check (
   and file_size <= 52428800
   and length(file_name) between 1 and 255
 );
+
+create or replace function public.attach_contact_to_customer_files(
+  file_ids uuid[],
+  submitted_quote_id text,
+  submitted_customer_name text,
+  submitted_customer_email text,
+  submitted_customer_phone text,
+  submitted_preferred_contact text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.customer_files
+  set
+    quote_id = submitted_quote_id,
+    customer_name = submitted_customer_name,
+    customer_email = submitted_customer_email,
+    customer_phone = submitted_customer_phone,
+    preferred_contact = submitted_preferred_contact
+  where id = any(file_ids);
+end;
+$$;
+
+grant execute on function public.attach_contact_to_customer_files(
+  uuid[],
+  text,
+  text,
+  text,
+  text,
+  text
+) to anon;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
