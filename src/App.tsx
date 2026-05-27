@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import ThankYou from "./pages/ThankYou";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
@@ -59,6 +60,7 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index isPreviewMode={isPreviewMode} />} />
+              <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = '/'} />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

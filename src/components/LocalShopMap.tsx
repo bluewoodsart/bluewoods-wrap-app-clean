@@ -6,6 +6,7 @@ import LeafletMap from './LeafletMap';
 import ContactInfoForm from './ContactInfoForm';
 import { supabase } from '@/lib/supabase';
 import { CustomerData, UploadedFile } from '@/types';
+import { useNavigate } from 'react-router-dom';
 
 interface Shop {
   id: number;
@@ -47,9 +48,9 @@ const BLUE_WOODS_HQ: Shop = {
 };
 
 const LocalShopMap: React.FC<LocalShopMapProps> = ({
-  customerData,
-  onFinalConfirmation
+  customerData
 }) => {
+  const navigate = useNavigate();
   const [showContactForm, setShowContactForm] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -131,7 +132,11 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
       }
     }
 
-    onFinalConfirmation?.();
+    navigate('/thank-you', {
+      state: {
+        customerEmail: contactInfo.email
+      }
+    });
   };
 
   if (showContactForm) {
