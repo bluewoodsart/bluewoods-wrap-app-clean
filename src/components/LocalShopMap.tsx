@@ -62,6 +62,11 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     ];
   };
 
+  const dedupeUploadedFiles = (uploadedFiles: UploadedFile[]) =>
+    Array.from(
+      new Map(uploadedFiles.map((file) => [file.id || file.url, file])).values()
+    );
+
   const buildQuoteDetails = () => ({
     quoteId: customerData?.quoteId,
     quoteType: customerData?.quoteType,
@@ -82,7 +87,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
 
   const handleContactSubmit = async (contactInfo: ContactInfo) => {
     setSubmitError('');
-    const uploadedFiles = collectUploadedFiles();
+    const uploadedFiles = dedupeUploadedFiles(collectUploadedFiles());
 
     const { error } = await supabase
       .from('quote_requests')
