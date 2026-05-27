@@ -9,14 +9,13 @@ interface ImageSlideshowProps {
 
 const ImageSlideshow: React.FC<ImageSlideshowProps> = ({ 
   images = [
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730035053_85f1177a.png',
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730036350_49355481.png',
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730036733_36cd5890.png',
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730036981_0354d918.png',
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730037274_e559ed8a.png',
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730037550_810c5077.png',
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730037770_9680218d.png',
-    'https://d64gsuwffb70l.cloudfront.net/685431aa226522c36ce7c257_1753730038135_8f1a9f16.png'
+    '/homesliderpics/ChatGPT Image May 26, 2026, 01_11_56 PM.png',
+    '/homesliderpics/ChatGPT Image May 26, 2026, 01_12_41 PM.png',
+    '/homesliderpics/ChatGPT Image May 26, 2026, 01_12_47 PM.png',
+    '/homesliderpics/ChatGPT Image May 26, 2026, 01_12_52 PM.png',
+    '/homesliderpics/ChatGPT Image May 26, 2026, 01_12_59 PM.png',
+    '/homesliderpics/ChatGPT Image May 26, 2026, 01_13_25 PM.png',
+    '/homesliderpics/ChatGPT Image May 26, 2026, 01_13_34 PM.png'
   ],
   autoPlay = true, 
   interval = 4000 
@@ -48,7 +47,7 @@ const ImageSlideshow: React.FC<ImageSlideshowProps> = ({
           <div key={index} className="w-full h-full flex-shrink-0 flex items-center justify-center">
             <img 
               src={image} 
-              alt={`Vehicle wrap example ${index + 1}`}
+              alt={`Blue Woods infographic ${index + 1}`}
               className="max-w-full max-h-full object-contain"
             />
           </div>
