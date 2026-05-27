@@ -75,6 +75,7 @@ export const Step5: React.FC<StepProps> = ({ data, setData }) => {
   // Use vehicle data
   const years = generateYears();
   const availableModels = data.vehicle?.make ? vehicleModels[data.vehicle.make] || [] : [];
+  const manualVehicleDescription = data.manualVehicleDescription || '';
   
   return (
     <div className="card-gradient p-6 rounded-2xl space-y-6">
@@ -141,6 +142,19 @@ export const Step5: React.FC<StepProps> = ({ data, setData }) => {
             </SelectContent>
           </Select>
         </div>
+      </div>
+      <div>
+        <Label htmlFor="manualVehicleDescription" className={`font-medium text-emerald-700 ${isMobile ? 'text-sm' : 'text-base'}`}>
+          Don’t see your vehicle? Describe it here
+        </Label>
+        <Textarea
+          id="manualVehicleDescription"
+          placeholder="Example: 2007 Nissan Armada, 2019 Mercedes Sprinter 170 EXT, food truck, box truck, trailer, etc."
+          value={manualVehicleDescription}
+          onChange={(e) => setData({...data, manualVehicleDescription: e.target.value})}
+          className={`mt-3 border-2 border-emerald-200 focus:border-emerald-400 rounded-xl ${isMobile ? 'text-sm' : ''}`}
+          rows={3}
+        />
       </div>
     </div>
   );

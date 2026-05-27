@@ -55,6 +55,7 @@ export interface CustomerData {
   vehicleModel?: string;
   vehicleNotListed?: boolean;
   customVehicleDescription?: string;
+  manualVehicleDescription?: string;
   vehicleColor?: string;
   vehicleType?: string;
   specialVehicles?: string[];

@@ -102,6 +102,11 @@ const parseBody = (body: unknown): QuoteEmailRequest => {
   return (body ?? {}) as QuoteEmailRequest;
 };
 
+const getManualVehicleDescription = (quoteDetails: Record<string, unknown> = {}) =>
+  typeof quoteDetails.manualVehicleDescription === 'string'
+    ? quoteDetails.manualVehicleDescription.trim()
+    : '';
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -121,11 +126,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const customerName = contactInfo?.name || 'there';
+  const manualVehicleDescription = getManualVehicleDescription(quoteDetails);
+  const manualVehicleHtml = manualVehicleDescription
+    ? `<p><strong>Vehicle note:</strong> ${escapeHtml(manualVehicleDescription)}</p>`
+    : '';
+  const manualVehicleText = manualVehicleDescription
+    ? ` Vehicle note: ${manualVehicleDescription}.`
+    : '';
   const customerHtml = `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <h1>We received your wrap quote request</h1>
       <p>Hi ${escapeHtml(customerName)},</p>
       <p>Thank you for choosing SlapWrapz. We received your wrap quote request and will review your details.</p>
+      ${manualVehicleHtml}
       <p>Please check your email to confirm your details. You will see a proof within the next 30 minutes.</p>
       <p>Thank you for choosing Blue Woods Brands.</p>
     </div>
@@ -141,6 +154,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         <strong>Phone:</strong> ${escapeHtml(contactInfo?.phone)}<br />
         <strong>Preferred contact:</strong> ${escapeHtml(contactInfo?.preferredContact)}
       </p>
+      ${manualVehicleHtml}
       <h2>Quote details</h2>
       <table style="border-collapse:collapse;width:100%;border:1px solid #e5e7eb;">
         <tbody>${quoteRows(quoteDetails)}</tbody>
@@ -157,14 +171,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         to: customerEmail,
         subject: 'We received your wrap quote request',
         html: customerHtml,
-        text: `Hi ${customerName}, we received your wrap quote request. Check your email to confirm your details. You will see a proof within the next 30 minutes.`
+        text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. You will see a proof within the next 30 minutes.`
       }),
       sendEmail(apiKey, {
         from: FROM_EMAIL,
         to: BUSINESS_LEAD_EMAIL,
         subject: 'New SlapWrapz quote request',
         html: businessHtml,
-        text: `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.`
+        text: `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`
       })
     ]);
 

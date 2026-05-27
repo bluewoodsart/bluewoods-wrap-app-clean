@@ -35,11 +35,11 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
   const validateStep = (currentStep: number): boolean => {
     const isPartialWrap = data.selectedService === 'Partial Vehicle Wraps';
     const hasVehicleInfo = () => {
-      if (data.vehicleNotListed) {
-        return Boolean(data.customVehicleDescription?.trim());
-      }
+      const manualVehicleDescription = data.manualVehicleDescription || '';
+      const hasManualVehicle = manualVehicleDescription.trim().length > 0;
+      const hasDropdownVehicle = Boolean(data.vehicle?.year && data.vehicle?.make && data.vehicle?.model);
 
-      return Boolean(data.vehicle?.year && data.vehicle?.make && data.vehicle?.model);
+      return hasManualVehicle || hasDropdownVehicle;
     };
 
     switch (currentStep) {
@@ -91,14 +91,14 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
           break;
         }
         if (!hasVehicleInfo()) {
-          alert('Please select your year, make, and model, or choose "My vehicle is not listed" and describe it.');
+          alert('Please select your year, make, and model, or describe your vehicle manually.');
           return false;
         }
         break;
       case 6:
         if (isPartialWrap) {
           if (!hasVehicleInfo()) {
-            alert('Please select your year, make, and model, or choose "My vehicle is not listed" and describe it.');
+            alert('Please select your year, make, and model, or describe your vehicle manually.');
             return false;
           }
           break;

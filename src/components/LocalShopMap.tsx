@@ -80,6 +80,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     otherVehicleDescription: customerData?.otherVehicleDescription,
     vehicleNotListed: customerData?.vehicleNotListed,
     customVehicleDescription: customerData?.customVehicleDescription,
+    manualVehicleDescription: customerData?.manualVehicleDescription,
     vehicle: customerData?.vehicle,
     designComplexity: customerData?.designComplexity,
     budget: customerData?.budget,
@@ -215,6 +216,12 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
                     <p className="text-sm text-gray-700 mt-2">
                       Your quote details, artwork, and files go directly to Blue Woods Brands headquarters. After you add your contact info, we can follow up with questions, pricing, and large-file upload instructions.
                     </p>
+                    {customerData?.manualVehicleDescription?.trim() && (
+                      <div className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+                        <span className="font-semibold">Vehicle note:</span>{' '}
+                        {customerData.manualVehicleDescription}
+                      </div>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {BLUE_WOODS_HQ.services.map((service) => (
                         <span
