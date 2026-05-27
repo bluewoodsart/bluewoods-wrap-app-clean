@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Home, Mail, Palette, Timer } from 'lucide-react';
+import { CheckCircle, Home, Mail, Timer } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface ThankYouLocationState {
@@ -14,9 +14,9 @@ const ThankYou = () => {
   const thankYouImage = '/thankyou-your-information-has-been-saved-1/thankyou-your-information-has-been-saved-1.png';
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-10">
-      <section className="mx-auto flex w-full max-w-5xl flex-col items-center gap-8 text-center">
-        <div className="space-y-4 pt-4">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">
+      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl flex-col items-center justify-center gap-8 text-center">
+        <div className="space-y-4">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
             <CheckCircle className="h-9 w-9 text-emerald-600" />
           </div>
@@ -28,38 +28,11 @@ const ThankYou = () => {
           </div>
         </div>
 
-        <div className="w-full rounded-2xl border border-purple-100 bg-white p-6 text-center shadow-sm">
-          <h2 className="text-2xl font-bold text-gray-950">What Happens Next</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl bg-purple-50 p-5">
-              <Timer className="mx-auto h-7 w-7 text-purple-700" />
-              <h3 className="mt-3 font-semibold text-gray-950">Proof Review</h3>
-              <p className="mt-2 text-sm text-gray-700">
-                You will see a proof within the next 30 minutes.
-              </p>
-            </div>
-            <div className="rounded-xl bg-blue-50 p-5">
-              <Palette className="mx-auto h-7 w-7 text-blue-700" />
-              <h3 className="mt-3 font-semibold text-gray-950">Custom Design</h3>
-              <p className="mt-2 text-sm text-gray-700">
-                Our team will review your vehicle details and files.
-              </p>
-            </div>
-            <div className="rounded-xl bg-emerald-50 p-5">
-              <Mail className="mx-auto h-7 w-7 text-emerald-700" />
-              <h3 className="mt-3 font-semibold text-gray-950">We’ll Be in Touch</h3>
-              <p className="mt-2 text-sm text-gray-700">
-                We’ll follow up shortly to confirm the details.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="w-full overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xl aspect-[2.75/1]">
+        <div className="w-full overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xl">
           <img
             src={thankYouImage}
-            alt="Blue Woods vehicle wrap banner"
-            className="h-full w-full object-cover object-[center_70%]"
+            alt="Blue Woods vehicle wrap thank-you confirmation"
+            className="h-auto w-full object-cover"
           />
         </div>
 
