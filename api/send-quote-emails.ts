@@ -1,6 +1,6 @@
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
-const BUSINESS_LEAD_EMAIL = 'abussey@gmail.com';
+const BUSINESS_LEAD_EMAIL = 'quotes@slapwrapz.com';
 
 interface ApiRequest {
   method?: string;
@@ -180,6 +180,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const manualVehicleText = manualVehicleDescription
     ? ` Vehicle note: ${manualVehicleDescription}.`
     : '';
+
   const customerSummary = detailRows([
     ['Selected Service', quoteDetails.selectedService],
     ['Vehicle', vehicle.mainVehicle],
@@ -188,6 +189,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ['Budget', quoteDetails.budget],
     ['Uploaded File Count', quoteDetails.uploadedFileCount]
   ]);
+
   const customerHtml = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:680px;margin:0 auto;">
@@ -205,10 +207,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         ${section('Your Request Summary', customerSummary)}
 
         <div style="margin-top:20px;padding:18px;border-radius:12px;background:#ecfdf5;border:1px solid #bbf7d0;">
-          <p style="margin:0;color:#065f46;"><strong>What happens next:</strong> Please check your email to confirm your details. You will see a proof within the next 30 minutes.</p>
+          <p style="margin:0;color:#065f46;"><strong>What happens next:</strong> Please check your email to confirm your details. A team member will review your request and contact you with the next step.</p>
         </div>
 
-        <p style="margin:20px 0 0;color:#475569;font-size:14px;">Thank you for choosing Blue Woods Brands.</p>
+        <p style="margin:20px 0 0;color:#475569;font-size:14px;">Thank you for choosing SlapWrapz by Blue Woods Brands.</p>
       </div>
     </div>
   `;
@@ -219,6 +221,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ['Phone', contactInfo?.phone],
     ['Preferred Contact', contactInfo?.preferredContact]
   ]);
+
   const vehicleInfo = detailRows([
     ['Vehicle', vehicle.mainVehicle],
     ['Year', vehicle.manualVehicleDescription && !vehicle.dropdownVehicle ? '' : vehicle.year],
@@ -229,6 +232,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ['Other Vehicle Description', quoteDetails.otherVehicleDescription],
     ['Custom Vehicle Description', quoteDetails.customVehicleDescription]
   ]);
+
   const projectDetails = detailRows([
     ['Quote ID', quoteDetails.quoteId],
     ['Quote Type', quoteDetails.quoteType],
@@ -237,12 +241,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ['Partial Wrap Description', quoteDetails.partialWrapDescription],
     ['Design Complexity', quoteDetails.designComplexity]
   ]);
+
   const budgetGoals = detailRows([
     ['Project Goal', quoteDetails.goal],
     ['Budget', quoteDetails.budget],
     ['Has Artwork', quoteDetails.hasArtwork],
     ['Uploaded File Count', quoteDetails.uploadedFileCount]
   ]);
+
   const businessHtml = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:760px;margin:0 auto;">
@@ -267,7 +273,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         to: customerEmail,
         subject: 'We received your wrap quote request',
         html: customerHtml,
-        text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. You will see a proof within the next 30 minutes.`
+        text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
       }),
       sendEmail(apiKey, {
         from: FROM_EMAIL,
