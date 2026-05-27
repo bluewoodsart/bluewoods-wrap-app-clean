@@ -28,11 +28,11 @@ const ThankYou = () => {
           </div>
         </div>
 
-        <div className="w-full overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xl">
+        <div className="w-full overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xl aspect-[2.75/1]">
           <img
             src={thankYouImage}
-            alt="Blue Woods vehicle wrap thank-you confirmation"
-            className="h-auto w-full object-cover"
+            alt="Blue Woods vehicle wrap banner"
+            className="h-full w-full object-cover object-[center_70%]"
           />
         </div>
 
