@@ -86,9 +86,37 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     uploadedFileCount: collectUploadedFiles().length
   });
 
+  const sendQuoteEmails = async (
+    contactInfo: ContactInfo,
+    quoteDetails: ReturnType<typeof buildQuoteDetails>,
+    uploadedFiles: UploadedFile[]
+  ) => {
+    const response = await fetch('/api/send-quote-emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contactInfo,
+        quoteDetails,
+        uploadedFiles: uploadedFiles.map((file) => ({
+          name: file.name,
+          url: file.url,
+          type: file.type,
+          size: file.size
+        }))
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Quote request was saved, but email sending failed.');
+    }
+  };
+
   const handleContactSubmit = async (contactInfo: ContactInfo) => {
     setSubmitError('');
     const uploadedFiles = dedupeUploadedFiles(collectUploadedFiles());
+    const quoteDetails = buildQuoteDetails();
 
     const { error } = await supabase
       .from('quote_requests')
@@ -98,7 +126,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
         customer_email: contactInfo.email,
         customer_phone: contactInfo.phone,
         preferred_contact: contactInfo.preferredContact,
-        quote_data: buildQuoteDetails(),
+        quote_data: quoteDetails,
         uploaded_files: uploadedFiles.map((file) => ({
           id: file.id,
           name: file.name,
@@ -130,6 +158,12 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
       if (fileContactError) {
         console.error('File contact update failed:', fileContactError);
       }
+    }
+
+    try {
+      await sendQuoteEmails(contactInfo, quoteDetails, uploadedFiles);
+    } catch (emailError) {
+      console.error('Quote email send failed:', emailError);
     }
 
     navigate('/thank-you', {
