@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ThankYou from "./pages/ThankYou";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
+import ShortIntakeFlow from "./components/ShortIntakeFlow";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 
@@ -60,6 +61,7 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index isPreviewMode={isPreviewMode} />} />
+              <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
               <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = '/'} />} />
               <Route path="*" element={<NotFound />} />
