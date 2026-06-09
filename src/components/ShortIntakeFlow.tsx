@@ -8,17 +8,16 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import ArtworkUpload from './ArtworkUpload';
-import VehiclePhotoUpload from './VehiclePhotoUpload';
-import VehicleTypeSelector from './VehicleTypeSelector';
-import FileReviewNotice from './FileReviewNotice';
-import PartialWrapSelector from './PartialWrapSelector';
+import FileUpload from './FileUpload';
 import { supabase } from '@/lib/supabase';
 import { CustomerData, UploadedFile } from '@/types';
 import { vehicleMakes, vehicleModels, generateYears } from '@/data/vehicleData';
+import { getStoredRepSlug } from '@/lib/repTracking';
+import { getRepAttributionForSlug } from '@/lib/salesReps';
 
 interface ContactInfo {
   name: string;
+  companyName: string;
   email: string;
   phone: string;
   preferredContact: 'email' | 'text' | 'call';
@@ -31,6 +30,8 @@ const createInitialData = (): Partial<CustomerData> => ({
   services: [],
   vehicle: { year: '', make: '', model: '' },
   quoteType: 'short-intake-test',
+  intakeType: 'quick_quote',
+  repSlug: getStoredRepSlug(),
   goal: ''
 });
 
@@ -40,6 +41,7 @@ const ShortIntakeFlow: React.FC = () => {
   const [data, setData] = useState<Partial<CustomerData>>(createInitialData);
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
     name: '',
+    companyName: '',
     email: '',
     phone: '',
     preferredContact: 'email'
@@ -54,7 +56,6 @@ const ShortIntakeFlow: React.FC = () => {
   const collectUploadedFiles = (): UploadedFile[] => [
     ...(data.uploadedFiles ?? []),
     ...(data.artworkFiles ?? []),
-    ...(data.vehiclePhotos ?? []),
     ...(data.logoFiles ?? [])
   ];
 
@@ -66,21 +67,19 @@ const ShortIntakeFlow: React.FC = () => {
   const buildQuoteDetails = () => ({
     quoteId: data.quoteId,
     quoteType: data.quoteType,
+    intakeType: 'quick_quote',
+    companyName: contactInfo.companyName,
+    repSlug: data.repSlug || getStoredRepSlug(),
     selectedService: data.selectedService,
-    partialWrapType: data.partialWrapType,
-    partialWrapDescription: data.partialWrapDescription,
     goal: data.goal,
     hasArtwork: data.hasArtwork,
+    artworkStatus: data.hasArtwork,
     vehicleType: data.vehicleType,
-    otherVehicleDescription: data.otherVehicleDescription,
-    vehicleNotListed: data.vehicleNotListed,
-    customVehicleDescription: data.customVehicleDescription,
     manualVehicleDescription: data.manualVehicleDescription,
     vehicle: data.vehicle,
-    designComplexity: data.designComplexity,
     budget: data.budget,
     uploadedFileCount: collectUploadedFiles().length,
-    intakeFlow: 'short-test'
+    intakeFlow: 'quick_quote'
   });
 
   const hasValidContact = () =>
@@ -88,22 +87,17 @@ const ShortIntakeFlow: React.FC = () => {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactInfo.email.trim()) &&
     contactInfo.phone.trim().length > 0;
 
-  const hasVehicleInfo = () => {
-    const hasManualVehicle = (data.manualVehicleDescription || '').trim().length > 0;
-    const hasDropdownVehicle = Boolean(data.vehicle?.year && data.vehicle?.make && data.vehicle?.model);
-
-    return hasManualVehicle || hasDropdownVehicle;
-  };
-
   const savePartialLead = async () => {
     if (!hasValidContact() || partialLeadSaved || isSavingPartial) return;
 
     setIsSavingPartial(true);
+    const repAttribution = getRepAttributionForSlug(data.repSlug || getStoredRepSlug());
 
     const { error: partialError } = await supabase
       .from('quote_requests')
       .insert({
         quote_id: data.quoteId ?? null,
+        ...repAttribution,
         customer_name: contactInfo.name,
         customer_email: contactInfo.email,
         customer_phone: contactInfo.phone,
@@ -111,7 +105,9 @@ const ShortIntakeFlow: React.FC = () => {
         quote_data: {
           quoteId: data.quoteId,
           quoteType: data.quoteType,
-          intakeFlow: 'short-test',
+          intakeType: 'quick_quote',
+          intakeFlow: 'quick_quote',
+          companyName: contactInfo.companyName,
           partialLeadStage: 'contact-info'
         },
         uploaded_files: [],
@@ -140,20 +136,15 @@ const ShortIntakeFlow: React.FC = () => {
         setError('Please select a vehicle type.');
         return false;
       }
-
-      if (data.vehicleType === 'other' && !(data.otherVehicleDescription || '').trim()) {
-        setError('Please describe the vehicle type.');
-        return false;
-      }
-
-      if (!hasVehicleInfo()) {
-        setError('Please select year, make, and model, or describe the vehicle manually.');
-        return false;
-      }
     }
 
     if (step === 3 && !data.selectedService) {
-      setError('Please select a service type.');
+      setError('Please select the service requested.');
+      return false;
+    }
+
+    if (step === 4 && !data.hasArtwork) {
+      setError('Please select your artwork status.');
       return false;
     }
 
@@ -208,7 +199,10 @@ const ShortIntakeFlow: React.FC = () => {
     });
 
     if (!response.ok) {
-      throw new Error('Quote request was saved, but email sending failed.');
+      const responseBody = await response.text();
+      throw new Error(
+        `Quote request was saved, but email sending failed. Status: ${response.status}. Response: ${responseBody || 'No response body'}`
+      );
     }
   };
 
@@ -218,8 +212,10 @@ const ShortIntakeFlow: React.FC = () => {
 
     const uploadedFiles = dedupeUploadedFiles(collectUploadedFiles());
     const quoteDetails = buildQuoteDetails();
+    const repAttribution = getRepAttributionForSlug(quoteDetails.repSlug);
     const finalPayload = {
       quote_id: data.quoteId ?? null,
+      ...repAttribution,
       customer_name: contactInfo.name,
       customer_email: contactInfo.email,
       customer_phone: contactInfo.phone,
@@ -281,7 +277,13 @@ const ShortIntakeFlow: React.FC = () => {
     try {
       await sendQuoteEmails(contactInfo, quoteDetails, uploadedFiles);
     } catch (emailError) {
-      console.error('Quote email send failed:', emailError);
+      console.error('Quote email send failed after quote save:', {
+        error: emailError,
+        quoteId: data.quoteId,
+        customerEmail: contactInfo.email,
+        endpoint: '/api/send-quote-emails',
+        localTestingNote: 'Use npx vercel dev for local API function testing; npm run dev only starts Vite.'
+      });
     }
 
     setIsSubmitting(false);
@@ -304,22 +306,31 @@ const ShortIntakeFlow: React.FC = () => {
         />
       </div>
       <div>
+        <Label htmlFor="short-company">Company Name <span className="text-slate-500">(optional)</span></Label>
+        <Input
+          id="short-company"
+          value={contactInfo.companyName}
+          onChange={(event) => setContactInfo({ ...contactInfo, companyName: event.target.value })}
+          className="mt-2"
+        />
+      </div>
+      <div>
+        <Label htmlFor="short-phone">Phone *</Label>
+        <Input
+          id="short-phone"
+          type="tel"
+          value={contactInfo.phone}
+          onChange={(event) => setContactInfo({ ...contactInfo, phone: event.target.value })}
+          className="mt-2"
+        />
+      </div>
+      <div>
         <Label htmlFor="short-email">Email *</Label>
         <Input
           id="short-email"
           type="email"
           value={contactInfo.email}
           onChange={(event) => setContactInfo({ ...contactInfo, email: event.target.value })}
-          className="mt-2"
-        />
-      </div>
-      <div>
-        <Label htmlFor="short-phone">Phone Number *</Label>
-        <Input
-          id="short-phone"
-          type="tel"
-          value={contactInfo.phone}
-          onChange={(event) => setContactInfo({ ...contactInfo, phone: event.target.value })}
           className="mt-2"
         />
       </div>
@@ -347,7 +358,7 @@ const ShortIntakeFlow: React.FC = () => {
       </div>
       {partialLeadSaved && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          Contact info saved for this test flow.
+          Contact info saved for this quick quote.
         </div>
       )}
     </div>
@@ -359,12 +370,32 @@ const ShortIntakeFlow: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <VehicleTypeSelector data={data} setData={setData} />
+        <div>
+          <Label htmlFor="short-vehicle-type">Vehicle Type *</Label>
+          <Select
+            value={data.vehicleType || ''}
+            onValueChange={(value) => setData({ ...data, vehicleType: value })}
+          >
+            <SelectTrigger id="short-vehicle-type" className="mt-2">
+              <SelectValue placeholder="Select vehicle type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="car">Car</SelectItem>
+              <SelectItem value="truck">Truck</SelectItem>
+              <SelectItem value="van">Van</SelectItem>
+              <SelectItem value="suv">SUV</SelectItem>
+              <SelectItem value="trailer">Trailer</SelectItem>
+              <SelectItem value="boat">Boat</SelectItem>
+              <SelectItem value="fleet">Fleet / Multiple Vehicles</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="rounded-2xl border border-emerald-100 bg-white p-5">
-          <h3 className="mb-4 text-lg font-semibold text-emerald-900">Year, Make, and Model</h3>
+          <h3 className="mb-4 text-lg font-semibold text-emerald-900">Vehicle Details</h3>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <Label htmlFor="short-year">Year</Label>
+              <Label htmlFor="short-year">Year <span className="text-slate-500">(optional)</span></Label>
               <Select
                 value={data.vehicle?.year || ''}
                 onValueChange={(value) => setData({ ...data, vehicle: { ...data.vehicle, year: value } })}
@@ -380,7 +411,7 @@ const ShortIntakeFlow: React.FC = () => {
               </Select>
             </div>
             <div>
-              <Label htmlFor="short-make">Make</Label>
+              <Label htmlFor="short-make">Make <span className="text-slate-500">(optional)</span></Label>
               <Select
                 value={data.vehicle?.make || ''}
                 onValueChange={(value) => setData({ ...data, vehicle: { ...data.vehicle, make: value, model: '' } })}
@@ -396,7 +427,7 @@ const ShortIntakeFlow: React.FC = () => {
               </Select>
             </div>
             <div>
-              <Label htmlFor="short-model">Model</Label>
+              <Label htmlFor="short-model">Model <span className="text-slate-500">(optional)</span></Label>
               <Select
                 value={data.vehicle?.model || ''}
                 onValueChange={(value) => setData({ ...data, vehicle: { ...data.vehicle, model: value } })}
@@ -414,7 +445,7 @@ const ShortIntakeFlow: React.FC = () => {
             </div>
           </div>
           <div className="mt-4">
-            <Label htmlFor="short-manual-vehicle">Don’t see your vehicle? Describe it here</Label>
+            <Label htmlFor="short-manual-vehicle">Manual vehicle description</Label>
             <Textarea
               id="short-manual-vehicle"
               placeholder="Example: 2007 Nissan Armada, 2019 Mercedes Sprinter 170 EXT, food truck, box truck, trailer, etc."
@@ -437,8 +468,13 @@ const ShortIntakeFlow: React.FC = () => {
         className="space-y-3"
       >
         {[
-          'Custom Full Vehicle Wrap + Design',
-          'Partial Vehicle Wraps'
+          'Full Wrap',
+          'Partial Wrap',
+          'Commercial Fleet Graphics',
+          'Color Change',
+          'Trailer Wrap',
+          'Boat Wrap',
+          'Other'
         ].map((service) => (
           <div key={service} className="rounded-lg border p-4">
             <div className="flex items-center space-x-3">
@@ -450,17 +486,98 @@ const ShortIntakeFlow: React.FC = () => {
           </div>
         ))}
       </RadioGroup>
-      {data.selectedService === 'Partial Vehicle Wraps' && (
-        <PartialWrapSelector data={data} setData={setData} />
-      )}
     </div>
   );
 
   const renderUploadsStep = () => (
     <div className="space-y-6">
-      <VehiclePhotoUpload data={data} setData={setData} />
-      <ArtworkUpload data={data} setData={setData} />
-      <FileReviewNotice data={data} setData={setData} />
+      <div className="rounded-2xl border border-blue-100 bg-white p-5">
+        <h3 className="text-lg font-semibold text-slate-900">Do You Already Have Wrap Artwork?</h3>
+        <RadioGroup
+          value={data.hasArtwork || ''}
+          onValueChange={(value) => setData({ ...data, hasArtwork: value })}
+          className="mt-4 space-y-3"
+        >
+          {[
+            {
+              value: 'yes',
+              title: 'Yes, I have my own artwork',
+              description: "We'll review it and confirm it fits your vehicle."
+            },
+            {
+              value: 'no',
+              title: 'No, I need help designing it',
+              description: 'Design fees may apply depending on project complexity.'
+            },
+            {
+              value: 'not_sure',
+              title: 'Not sure',
+              description: "We'll review your project and recommend the best option."
+            }
+          ].map((option) => (
+            <div key={option.value} className="rounded-lg border p-4">
+              <div className="flex items-start space-x-3">
+                <RadioGroupItem value={option.value} id={`short-artwork-${option.value}`} className="mt-1" />
+                <Label htmlFor={`short-artwork-${option.value}`} className="cursor-pointer">
+                  <span className="block font-medium text-slate-900">{option.title}</span>
+                  <span className="mt-1 block text-sm text-slate-600">{option.description}</span>
+                </Label>
+              </div>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+        <h3 className="text-lg font-semibold text-slate-900">Optional File Upload</h3>
+        <p className="mt-2 text-sm text-slate-600">Upload anything helpful:</p>
+        <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+          {[
+            'Logos',
+            'Artwork',
+            'AI-generated concepts',
+            'Screenshots',
+            'Mockups',
+            'Inspiration images',
+            'PDFs'
+          ].map((item) => (
+            <div key={item} className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+              {item}
+            </div>
+          ))}
+        </div>
+        <div className="mt-5">
+          <FileUpload
+            onFilesUploaded={(files) => setData({ ...data, uploadedFiles: files })}
+            quoteId={data.quoteId}
+            acceptedTypes="image/*,.pdf,.ai,.eps,.svg,.psd"
+            maxFiles={10}
+            maxFileSizeMB={50}
+            title="Upload Optional Files"
+            showCameraButton={false}
+            additionalTags={['quick_quote_optional_file']}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="mt-5 w-full border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+          onClick={() => {
+            if (!data.hasArtwork) {
+              setError('Please select your artwork status.');
+              return;
+            }
+
+            setError('');
+            setStep(5);
+          }}
+        >
+          Skip Uploads and Continue
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 
@@ -515,10 +632,14 @@ const ShortIntakeFlow: React.FC = () => {
           <h3 className="mb-3 font-semibold text-slate-900">Review</h3>
           <div className="grid gap-3 text-sm md:grid-cols-2">
             <p><span className="font-medium">Customer:</span> {contactInfo.name}</p>
+            {contactInfo.companyName && (
+              <p><span className="font-medium">Company:</span> {contactInfo.companyName}</p>
+            )}
             <p><span className="font-medium">Email:</span> {contactInfo.email}</p>
             <p><span className="font-medium">Phone:</span> {contactInfo.phone}</p>
             <p><span className="font-medium">Vehicle:</span> {vehicleText}</p>
             <p><span className="font-medium">Service:</span> {data.selectedService}</p>
+            <p><span className="font-medium">Artwork:</span> {data.hasArtwork}</p>
             <p><span className="font-medium">Budget:</span> {data.budget}</p>
             <p><span className="font-medium">Files:</span> {uploadedFiles.length}</p>
           </div>
@@ -529,7 +650,7 @@ const ShortIntakeFlow: React.FC = () => {
           className="w-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white"
           size="lg"
         >
-          {isSubmitting ? 'Submitting...' : 'Submit Test Quote Request'}
+          {isSubmitting ? 'Submitting...' : 'Submit Quick Quote Request'}
         </Button>
       </div>
     );
@@ -538,8 +659,8 @@ const ShortIntakeFlow: React.FC = () => {
   const steps = [
     { title: 'Contact Info', icon: Mail, body: renderContactStep },
     { title: 'Vehicle Info', icon: ArrowRight, body: renderVehicleStep },
-    { title: 'Service Type', icon: CheckCircle, body: renderServiceStep },
-    { title: 'Uploads', icon: UploadCloud, body: renderUploadsStep },
+    { title: 'Service Requested', icon: CheckCircle, body: renderServiceStep },
+    { title: 'Artwork Status', icon: UploadCloud, body: renderUploadsStep },
     { title: 'Budget / Notes', icon: ArrowRight, body: renderBudgetNotesStep },
     { title: 'Submit', icon: CheckCircle, body: renderSubmitStep }
   ];
@@ -554,7 +675,7 @@ const ShortIntakeFlow: React.FC = () => {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-                  Test Flow
+                  Quick Quote
                 </p>
                 <CardTitle className="mt-1 flex items-center gap-2 text-2xl">
                   <ActiveIcon className="h-5 w-5 text-blue-600" />

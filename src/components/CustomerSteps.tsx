@@ -164,7 +164,12 @@ export const Step6: React.FC<StepProps> = ({ data, setData }) => {
   return <DesignComplexitySelector data={data} setData={setData} />;
 };
 export const Step7: React.FC<StepProps> = ({ data, setData }) => {
-  return <FileReviewNotice data={data} setData={setData} />;
+  return (
+    <div className="space-y-6">
+      <VehiclePhotoUpload data={data} setData={setData} />
+      <FileReviewNotice data={data} setData={setData} />
+    </div>
+  );
 };
 
 export const Step8: React.FC<StepProps> = ({ data, setData }) => {

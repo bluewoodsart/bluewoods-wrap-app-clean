@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { CustomerData, PriceEstimate } from '@/types';
-import { Step9, Step10, Step13 } from './CustomerSteps';
+import { Step9, Step10, Step12 } from './CustomerSteps';
 
 interface BannerFlowProps {
   onBack: () => void;
@@ -160,7 +160,7 @@ const BannerFlow: React.FC<BannerFlowProps> = ({ onBack }) => {
         );
       case 5: return <Step9 data={data} setData={setData} />;
       case 6: return <Step10 data={data} setData={setData} onEmailQuote={() => {}} onPhoneQuote={() => {}} />;
-      case 7: return <Step13 data={data} setData={setData} onEmailQuote={() => {}} onPhoneQuote={() => {}} />;
+      case 7: return <Step12 data={data} setData={setData} onEmailQuote={() => {}} onPhoneQuote={() => {}} />;
       default:
         return (
           <div className="space-y-4">

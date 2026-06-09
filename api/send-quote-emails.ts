@@ -1,4 +1,7 @@
-const RESEND_API_URL = 'https://api.resend.com/emails';
+import { request } from 'node:https';
+import { SALES_REPS } from '../src/lib/salesReps';
+
+const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
 const BUSINESS_LEAD_EMAIL = 'quotes@slapwrapz.com';
 
@@ -59,6 +62,11 @@ const formatSimpleValue = (value: unknown): string => {
   }
 
   return String(value);
+};
+
+const getEmailDomain = (value: unknown) => {
+  const email = Array.isArray(value) ? String(value[0] || '') : String(value || '');
+  return email.includes('@') ? email.split('@').pop() || 'unknown' : 'unknown';
 };
 
 const section = (title: string, body: string) => `
@@ -132,20 +140,58 @@ const uploadedFileList = (uploadedFiles: QuoteEmailRequest['uploadedFiles'] = []
   `;
 };
 
-const sendEmail = async (apiKey: string, payload: Record<string, unknown>) => {
-  const response = await fetch(RESEND_API_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
+const sendEmail = async (apiKey: string, label: string, payload: Record<string, unknown>) => {
+  if (RESEND_API_URL.protocol !== 'https:') {
+    throw new Error(`Invalid Resend API URL protocol: ${RESEND_API_URL.protocol}`);
+  }
+
+  const body = JSON.stringify(payload);
+  // TODO: Remove temporary email debug logs after local Resend delivery is confirmed.
+  console.log(`${label} email send start:`, {
+    toDomain: getEmailDomain(payload.to),
+    ccDomain: getEmailDomain(payload.cc),
+    subject: payload.subject
   });
 
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Resend email failed: ${response.status} ${details}`);
-  }
+  await new Promise<void>((resolve, reject) => {
+    const resendRequest = request(
+      RESEND_API_URL,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body).toString()
+        }
+      },
+      (response) => {
+        let responseBody = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => {
+          const statusCode = response.statusCode ?? 0;
+          console.log(`${label} email Resend response status:`, statusCode);
+          console.log(`${label} email Resend response body:`, responseBody || 'No response body');
+
+          if (statusCode < 200 || statusCode >= 300) {
+            console.error(`${label} email Resend error body:`, responseBody || 'No response body');
+            reject(new Error(`${label} Resend email failed: ${statusCode} ${responseBody}`));
+            return;
+          }
+
+          console.log(`${label} email send result: accepted by Resend`);
+          resolve();
+        });
+      }
+    );
+
+    resendRequest.on('error', reject);
+    resendRequest.write(body);
+    resendRequest.end();
+  });
 };
 
 const parseBody = (body: unknown): QuoteEmailRequest => {
@@ -163,18 +209,37 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
+  // TODO: Remove temporary email debug logs after local Resend delivery is confirmed.
+  console.log('RESEND_API_KEY present:', apiKey ? 'yes' : 'no');
   if (!apiKey) {
+    console.error('RESEND_API_KEY missing.');
     return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
   }
 
   const { contactInfo, quoteDetails = {}, uploadedFiles = [] } = parseBody(req.body);
   const customerEmail = contactInfo?.email?.trim();
+  // TODO: Remove temporary email debug logs after local Resend delivery is confirmed.
+  console.log('Customer email for quote email:', customerEmail || 'missing');
 
   if (!customerEmail) {
     return res.status(400).json({ error: 'Missing customer email' });
   }
 
   const customerName = contactInfo?.name || 'there';
+  const repSlug = typeof quoteDetails.repSlug === 'string'
+    ? quoteDetails.repSlug.trim().toLowerCase()
+    : '';
+  const assignedRep = repSlug ? SALES_REPS[repSlug] : undefined;
+  const leadRecipient = assignedRep?.email || BUSINESS_LEAD_EMAIL;
+  const leadCc = assignedRep ? BUSINESS_LEAD_EMAIL : undefined;
+
+  // TODO: Remove temporary email debug logs after local rep attribution is confirmed.
+  console.log('Sales rep attribution:', {
+    repSlug: repSlug || 'none',
+    matched: assignedRep ? 'yes' : 'no',
+    selectedRepEmailDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none'
+  });
+
   const vehicle = getVehicle(quoteDetails);
   const manualVehicleDescription = getManualVehicleDescription(quoteDetails);
   const manualVehicleText = manualVehicleDescription
@@ -237,6 +302,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ['Quote ID', quoteDetails.quoteId],
     ['Quote Type', quoteDetails.quoteType],
     ['Selected Service', quoteDetails.selectedService],
+    ['Sales Rep', assignedRep?.name],
+    ['Rep Slug', repSlug],
     ['Partial Wrap Type', quoteDetails.partialWrapType],
     ['Partial Wrap Description', quoteDetails.partialWrapDescription],
     ['Design Complexity', quoteDetails.designComplexity]
@@ -267,17 +334,22 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   `;
 
   try {
+    console.log('Business lead email routing:', {
+      toDomain: getEmailDomain(leadRecipient),
+      ccDomain: leadCc ? getEmailDomain(leadCc) : 'none'
+    });
     await Promise.all([
-      sendEmail(apiKey, {
+      sendEmail(apiKey, 'customer', {
         from: FROM_EMAIL,
         to: customerEmail,
         subject: 'We received your wrap quote request',
         html: customerHtml,
         text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
       }),
-      sendEmail(apiKey, {
+      sendEmail(apiKey, 'business', {
         from: FROM_EMAIL,
-        to: BUSINESS_LEAD_EMAIL,
+        to: leadRecipient,
+        ...(leadCc ? { cc: leadCc } : {}),
         subject: 'New SlapWrapz quote request',
         html: businessHtml,
         text: `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`

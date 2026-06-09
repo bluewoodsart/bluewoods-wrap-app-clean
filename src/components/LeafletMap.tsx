@@ -16,7 +16,7 @@ interface Shop {
   address: string;
   lat: number;
   lng: number;
-  phone: string;
+  phone?: string;
   services: string[];
   distance?: string;
 }
@@ -58,7 +58,7 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
         <div class="p-2">
           <h3 class="font-semibold text-lg">${shop.name}</h3>
           <p class="text-sm text-gray-600 mb-2">${shop.address}</p>
-          <p class="text-sm text-blue-600 mb-2">${shop.phone}</p>
+          ${shop.phone ? `<p class="text-sm text-blue-600 mb-2">${shop.phone}</p>` : ''}
           ${shop.distance ? `<p class="text-sm text-green-600">${shop.distance} away</p>` : ''}
           <div class="mt-2">
             <p class="text-xs font-medium">Services:</p>

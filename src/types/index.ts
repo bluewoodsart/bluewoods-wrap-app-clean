@@ -15,6 +15,14 @@ export interface UploadedFile {
   tags: string[];
 }
 
+export interface VehiclePhotoFiles {
+  front?: UploadedFile[];
+  rear?: UploadedFile[];
+  driverSide?: UploadedFile[];
+  passengerSide?: UploadedFile[];
+  roof?: UploadedFile[];
+}
+
 // Database types matching Supabase schema
 export interface Project {
   id: string;
@@ -66,14 +74,18 @@ export interface CustomerData {
   partialWrapType?: string;
   partialWrapDescription?: string;
   goal: string;
+  marketingAssistance?: string[];
   designVision: string;
   hasLogo: boolean;
   logoFile?: File;
   vehiclePhoto?: File;
   uploadedFiles?: UploadedFile[];
   vehiclePhotos?: UploadedFile[];
+  vehiclePhotoFiles?: VehiclePhotoFiles;
   logoFiles?: UploadedFile[];
   logoOption?: string;
+  logoServiceInterest?: 'yes' | 'no' | 'not_sure';
+  designServiceLevel?: 'artwork_ready' | 'minor_help' | 'full_design';
   hasArtwork?: string;
   artworkFiles?: UploadedFile[];
   hasQRCode?: string;
@@ -95,6 +107,8 @@ export interface CustomerData {
   signMounting?: string[];
   signLighting?: string;
   quoteType?: string;
+  intakeType?: 'quick_quote' | 'full_project';
+  repSlug?: string;
 }
 
 export interface ShopData {
