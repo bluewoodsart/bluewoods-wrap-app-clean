@@ -12,6 +12,8 @@ interface FileUploadProps {
   maxFiles?: number;
   maxFileSizeMB?: number;
   title?: string;
+  showCameraButton?: boolean;
+  additionalTags?: string[];
 }
 
 interface UploadedFile {
@@ -30,7 +32,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
   acceptedTypes = "image/*,.pdf,.svg",
   maxFiles = 10,
   maxFileSizeMB = 50,
-  title = "Upload Your Files"
+  title = "Upload Your Files",
+  showCameraButton = true,
+  additionalTags = []
 }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -108,7 +112,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
         console.log('Public URL:', publicUrl);
 
-        const tags = getFileTags(file.name, file.type);
+        const tags = Array.from(new Set([...getFileTags(file.name, file.type), ...additionalTags]));
 
         // Convert custom quoteId to valid UUID if provided
         const projectUuid = quoteId ? stringToUuid(quoteId) : null;
@@ -261,7 +265,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               {uploading ? 'Uploading...' : 'Choose Files'}
             </Button>
             
-            {acceptedTypes.includes('image') && (
+            {showCameraButton && acceptedTypes.includes('image') && (
               <Button 
                 variant="outline"
                 onClick={() => cameraInputRef.current?.click()}
@@ -282,7 +286,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
             className="hidden"
           />
           
-          {acceptedTypes.includes('image') && (
+          {showCameraButton && acceptedTypes.includes('image') && (
             <input
               ref={cameraInputRef}
               type="file"

@@ -7,7 +7,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ThankYou from "./pages/ThankYou";
+import AdminStatus from "./pages/AdminStatus";
+import FullProject from "./pages/FullProject";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
+import ShortIntakeFlow from "./components/ShortIntakeFlow";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 
@@ -60,6 +63,10 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index isPreviewMode={isPreviewMode} />} />
+              <Route path="/quick-quote" element={<ShortIntakeFlow />} />
+              <Route path="/full-project" element={<FullProject />} />
+              <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
+              <Route path="/admin-status" element={<AdminStatus />} />
               <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = '/'} />} />
               <Route path="*" element={<NotFound />} />

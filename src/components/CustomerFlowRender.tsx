@@ -1,4 +1,5 @@
 import React from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,8 +18,71 @@ interface RenderStepProps {
   onFinalConfirmation?: () => void;
 }
 
+const marketingAssistanceOptions = [
+  { id: 'logo', label: 'I need a logo' },
+  { id: 'qr_code', label: 'I need a QR code' },
+  { id: 'landing_page', label: 'I need a landing page' },
+  { id: 'branding_help', label: 'I need branding help' },
+  { id: 'not_sure', label: 'Not sure, please advise' }
+];
+
 export const renderStep = ({ step, data, setData, onEmailQuote, onPhoneQuote, onSubmitQuote, onFinalConfirmation }: RenderStepProps) => {
   const isMobile = useIsMobile();
+  const toggleMarketingAssistance = (optionId: string, checked: boolean) => {
+    const currentOptions = data.marketingAssistance ?? [];
+    setData({
+      ...data,
+      marketingAssistance: checked
+        ? Array.from(new Set([...currentOptions, optionId]))
+        : currentOptions.filter((option) => option !== optionId)
+    });
+  };
+
+  const renderVisionStep = () => (
+    <div className="space-y-4">
+      <h2 className={`font-bold ${
+        isMobile ? 'text-xl' : 'text-2xl'
+      }`}>Your Vision</h2>
+      <div>
+        <Label htmlFor="goal">Describe how you want your vehicle to look and what you want it to accomplish.</Label>
+        <Textarea
+          id="goal"
+          placeholder="Tell us what you want people to notice, remember, or do after seeing your vehicle."
+          value={data.goal || ''}
+          onChange={(e) => setData({...data, goal: e.target.value})}
+          className="mt-2"
+          rows={isMobile ? 3 : 4}
+        />
+      </div>
+      <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+        <p className="mb-2 text-sm font-medium text-blue-900">Examples:</p>
+        <ul className="space-y-1 text-sm text-blue-800">
+          <li>- Turn my white van into a rolling billboard</li>
+          <li>- Add logo, phone number, and QR code</li>
+          <li>- Modernize my company image</li>
+          <li>- Generate more calls and leads</li>
+          <li>- Match my company branding</li>
+        </ul>
+      </div>
+      <div>
+        <Label className="mb-3 block">Optional marketing assistance</Label>
+        <div className="space-y-3">
+          {marketingAssistanceOptions.map((option) => (
+            <div key={option.id} className="flex items-center space-x-2">
+              <Checkbox
+                id={`marketing-${option.id}`}
+                checked={(data.marketingAssistance ?? []).includes(option.id)}
+                onCheckedChange={(checked) => toggleMarketingAssistance(option.id, checked === true)}
+              />
+              <Label htmlFor={`marketing-${option.id}`} className="cursor-pointer">
+                {option.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   switch (step) {
     case 1:
@@ -60,9 +124,9 @@ export const renderStep = ({ step, data, setData, onEmailQuote, onPhoneQuote, on
         <div className="space-y-4">
           <h2 className={`font-bold ${
             isMobile ? 'text-xl' : 'text-2xl'
-          }`}>Project Goal</h2>
+          }`}>Your Vision</h2>
           <div>
-            <Label htmlFor="goal">What is your goal for this project?</Label>
+            <Label htmlFor="goal">Describe how you want your vehicle to look and what you want it to accomplish.</Label>
             <Textarea 
               id="goal" 
               placeholder="e.g. real estate wraps, business promotion, personal artwork, color change…"
@@ -72,6 +136,33 @@ export const renderStep = ({ step, data, setData, onEmailQuote, onPhoneQuote, on
               rows={isMobile ? 3 : 4}
             />
           </div>
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <p className="mb-2 text-sm font-medium text-blue-900">Examples:</p>
+            <ul className="space-y-1 text-sm text-blue-800">
+              <li>- Turn my white van into a rolling billboard</li>
+              <li>- Add logo, phone number, and QR code</li>
+              <li>- Modernize my company image</li>
+              <li>- Generate more calls and leads</li>
+              <li>- Match my company branding</li>
+            </ul>
+          </div>
+          <div>
+            <Label className="mb-3 block">Optional marketing assistance</Label>
+            <div className="space-y-3">
+              {marketingAssistanceOptions.map((option) => (
+                <div key={option.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`marketing-${option.id}`}
+                    checked={(data.marketingAssistance ?? []).includes(option.id)}
+                    onCheckedChange={(checked) => toggleMarketingAssistance(option.id, checked === true)}
+                  />
+                  <Label htmlFor={`marketing-${option.id}`} className="cursor-pointer">
+                    {option.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       );
     case 3:
@@ -80,9 +171,9 @@ export const renderStep = ({ step, data, setData, onEmailQuote, onPhoneQuote, on
           <div className="space-y-4">
             <h2 className={`font-bold ${
               isMobile ? 'text-xl' : 'text-2xl'
-            }`}>Project Goal</h2>
+            }`}>Your Vision</h2>
             <div>
-              <Label htmlFor="goal">What is your goal for this project?</Label>
+              <Label htmlFor="goal">Describe how you want your vehicle to look and what you want it to accomplish.</Label>
               <Textarea 
                 id="goal" 
                 placeholder="e.g. real estate wraps, business promotion, personal artwork, color change…"
@@ -91,6 +182,33 @@ export const renderStep = ({ step, data, setData, onEmailQuote, onPhoneQuote, on
                 className="mt-2"
                 rows={isMobile ? 3 : 4}
               />
+            </div>
+            <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+              <p className="mb-2 text-sm font-medium text-blue-900">Examples:</p>
+              <ul className="space-y-1 text-sm text-blue-800">
+                <li>- Turn my white van into a rolling billboard</li>
+                <li>- Add logo, phone number, and QR code</li>
+                <li>- Modernize my company image</li>
+                <li>- Generate more calls and leads</li>
+                <li>- Match my company branding</li>
+              </ul>
+            </div>
+            <div>
+              <Label className="mb-3 block">Optional marketing assistance</Label>
+              <div className="space-y-3">
+                {marketingAssistanceOptions.map((option) => (
+                  <div key={option.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`partial-marketing-${option.id}`}
+                      checked={(data.marketingAssistance ?? []).includes(option.id)}
+                      onCheckedChange={(checked) => toggleMarketingAssistance(option.id, checked === true)}
+                    />
+                    <Label htmlFor={`partial-marketing-${option.id}`} className="cursor-pointer">
+                      {option.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );

@@ -8,6 +8,7 @@ import QuoteConfirmation from './QuoteConfirmation';
 import QuoteConfirmationFinal from './QuoteConfirmationFinal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { renderStep } from './CustomerFlowRender';
+import { getStoredRepSlug } from '@/lib/repTracking';
 
 interface CustomerFlowProps {
   onBack: () => void;
@@ -24,7 +25,9 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
     quoteId: `${flowType}_${Date.now()}_${Math.random().toString(36).substring(2)}`,
     services: [],
     vehicle: { year: '', make: '', model: '' },
-    quoteType: flowType
+    quoteType: flowType,
+    intakeType: 'full_project',
+    repSlug: getStoredRepSlug()
   });
 
   const getStepCount = () => {
@@ -41,6 +44,15 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
 
       return hasManualVehicle || hasDropdownVehicle;
     };
+    const hasRequiredVehiclePhotos = () =>
+      Boolean(
+        data.vehiclePhotoFiles?.front?.length &&
+        data.vehiclePhotoFiles?.rear?.length &&
+        data.vehiclePhotoFiles?.driverSide?.length &&
+        data.vehiclePhotoFiles?.passengerSide?.length
+      );
+    const hasRequiredUploadQuestions = () =>
+      Boolean(data.logoServiceInterest && data.designServiceLevel);
 
     switch (currentStep) {
       case 1:
@@ -113,9 +125,27 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
           alert('Please select a design complexity option to continue.');
           return false;
         }
+        if (!isPartialWrap) {
+          if (!hasRequiredVehiclePhotos()) {
+            alert('Please upload front, rear, driver side, and passenger side vehicle photos.');
+            return false;
+          }
+          if (!hasRequiredUploadQuestions()) {
+            alert('Please answer the logo and design assistance questions.');
+            return false;
+          }
+        }
         break;
       case 8:
         if (isPartialWrap) {
+          if (!hasRequiredVehiclePhotos()) {
+            alert('Please upload front, rear, driver side, and passenger side vehicle photos.');
+            return false;
+          }
+          if (!hasRequiredUploadQuestions()) {
+            alert('Please answer the logo and design assistance questions.');
+            return false;
+          }
           break;
         }
         if (!data.budget) {
@@ -179,7 +209,9 @@ const CustomerFlow: React.FC<CustomerFlowProps> = ({ onBack, flowType }) => {
       quoteId: `${flowType}_${Date.now()}_${Math.random().toString(36).substring(2)}`,
       services: [],
       vehicle: { year: '', make: '', model: '' },
-      quoteType: flowType
+      quoteType: flowType,
+      intakeType: 'full_project',
+      repSlug: getStoredRepSlug()
     });
     onBack();
   };

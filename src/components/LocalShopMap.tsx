@@ -7,6 +7,8 @@ import ContactInfoForm from './ContactInfoForm';
 import { supabase } from '@/lib/supabase';
 import { CustomerData, UploadedFile } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import { getStoredRepSlug } from '@/lib/repTracking';
+import { getRepAttributionForSlug } from '@/lib/salesReps';
 
 interface Shop {
   id: number;
@@ -71,10 +73,13 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
   const buildQuoteDetails = () => ({
     quoteId: customerData?.quoteId,
     quoteType: customerData?.quoteType,
+    intakeType: customerData?.intakeType || 'full_project',
+    repSlug: customerData?.repSlug || getStoredRepSlug(),
     selectedService: customerData?.selectedService,
     partialWrapType: customerData?.partialWrapType,
     partialWrapDescription: customerData?.partialWrapDescription,
     goal: customerData?.goal,
+    marketingAssistance: customerData?.marketingAssistance,
     hasArtwork: customerData?.hasArtwork,
     vehicleType: customerData?.vehicleType,
     otherVehicleDescription: customerData?.otherVehicleDescription,
@@ -83,6 +88,14 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     manualVehicleDescription: customerData?.manualVehicleDescription,
     vehicle: customerData?.vehicle,
     designComplexity: customerData?.designComplexity,
+    logoServiceInterest: customerData?.logoServiceInterest,
+    designServiceLevel: customerData?.designServiceLevel,
+    vehiclePhotoRequirementsComplete: Boolean(
+      customerData?.vehiclePhotoFiles?.front?.length &&
+      customerData?.vehiclePhotoFiles?.rear?.length &&
+      customerData?.vehiclePhotoFiles?.driverSide?.length &&
+      customerData?.vehiclePhotoFiles?.passengerSide?.length
+    ),
     budget: customerData?.budget,
     uploadedFileCount: collectUploadedFiles().length
   });
@@ -110,7 +123,10 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     });
 
     if (!response.ok) {
-      throw new Error('Quote request was saved, but email sending failed.');
+      const responseBody = await response.text();
+      throw new Error(
+        `Quote request was saved, but email sending failed. Status: ${response.status}. Response: ${responseBody || 'No response body'}`
+      );
     }
   };
 
@@ -118,11 +134,13 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     setSubmitError('');
     const uploadedFiles = dedupeUploadedFiles(collectUploadedFiles());
     const quoteDetails = buildQuoteDetails();
+    const repAttribution = getRepAttributionForSlug(quoteDetails.repSlug);
 
     const { error } = await supabase
       .from('quote_requests')
       .insert({
         quote_id: customerData?.quoteId ?? null,
+        ...repAttribution,
         customer_name: contactInfo.name,
         customer_email: contactInfo.email,
         customer_phone: contactInfo.phone,
@@ -164,7 +182,13 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     try {
       await sendQuoteEmails(contactInfo, quoteDetails, uploadedFiles);
     } catch (emailError) {
-      console.error('Quote email send failed:', emailError);
+      console.error('Quote email send failed after quote save:', {
+        error: emailError,
+        quoteId: customerData?.quoteId,
+        customerEmail: contactInfo.email,
+        endpoint: '/api/send-quote-emails',
+        localTestingNote: 'Use npx vercel dev for local API function testing; npm run dev only starts Vite.'
+      });
     }
 
     navigate('/thank-you', {
