@@ -115,9 +115,15 @@ const UploadAssets = () => {
     setAttaching(false);
 
     if (attachError) {
-      console.error('Uploaded file attach failed:', attachError);
+      console.error('Uploaded file attach failed:', {
+        message: attachError.message,
+        details: attachError.details,
+        hint: attachError.hint,
+        code: attachError.code,
+        fileIds: files.map((file) => file.id)
+      });
       setSuccessMessage('');
-      setError('Your files uploaded, but we could not attach them to your quote. Please contact SlapWrapz.');
+      setError(`Your files uploaded, but we could not attach them to your quote. Supabase error: ${attachError.message}`);
       return;
     }
 
