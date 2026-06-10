@@ -417,7 +417,7 @@ const AdminStatus = () => {
 
     const { data, error: notesError } = await supabase
       .rpc('get_quote_internal_notes_admin', {
-        quote_request_id: quoteRequestId
+        p_quote_request_id: quoteRequestId
       });
 
     setLoadingNotes(false);
@@ -508,8 +508,8 @@ const AdminStatus = () => {
 
     const { error: saveNoteError } = await supabase
       .rpc('add_quote_internal_note_admin', {
-        quote_request_id: selectedQuote.id,
-        note_text: trimmedNote
+        p_quote_request_id: selectedQuote.id,
+        p_note_text: trimmedNote
       });
 
     setSavingNote(false);

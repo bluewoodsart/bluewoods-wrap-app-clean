@@ -299,7 +299,7 @@ grant execute on function public.get_quote_status_events_admin(uuid) to anon;
 
 drop function if exists public.get_quote_internal_notes_admin(uuid);
 create or replace function public.get_quote_internal_notes_admin(
-  quote_request_id uuid
+  p_quote_request_id uuid
 )
 returns table (
   id uuid,
@@ -319,7 +319,7 @@ as $$
     qin.created_by,
     qin.created_at
   from public.quote_internal_notes qin
-  where qin.quote_request_id = get_quote_internal_notes_admin.quote_request_id
+  where qin.quote_request_id = p_quote_request_id
   order by qin.created_at desc;
 $$;
 
@@ -327,8 +327,8 @@ grant execute on function public.get_quote_internal_notes_admin(uuid) to anon;
 
 drop function if exists public.add_quote_internal_note_admin(uuid, text);
 create or replace function public.add_quote_internal_note_admin(
-  quote_request_id uuid,
-  note_text text
+  p_quote_request_id uuid,
+  p_note_text text
 )
 returns table (
   id uuid,
@@ -342,16 +342,16 @@ security definer
 set search_path = public
 as $$
 begin
-  if trim(note_text) = '' then
+  if trim(p_note_text) = '' then
     raise exception 'Internal note cannot be empty.';
   end if;
 
   if not exists (
     select 1
     from public.quote_requests qr
-    where qr.id = quote_request_id
+    where qr.id = p_quote_request_id
   ) then
-    raise exception 'Quote request not found: %', quote_request_id;
+    raise exception 'Quote request not found: %', p_quote_request_id;
   end if;
 
   return query
@@ -361,8 +361,8 @@ begin
     created_by
   )
   values (
-    quote_request_id,
-    trim(note_text),
+    p_quote_request_id,
+    trim(p_note_text),
     'Staff'
   )
   returning
