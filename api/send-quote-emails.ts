@@ -1,9 +1,19 @@
 import { request } from 'node:https';
-import { SALES_REPS } from '../src/lib/salesReps';
 
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
 const BUSINESS_LEAD_EMAIL = 'quotes@slapwrapz.com';
+
+const SALES_REPS: Record<string, { name: string; email: string }> = {
+  ashley: {
+    name: 'Ashley',
+    email: 'abussey@gmail.com'
+  },
+  todd: {
+    name: 'Todd',
+    email: 'todd@slapwrapz.com'
+  }
+};
 
 interface ApiRequest {
   method?: string;
