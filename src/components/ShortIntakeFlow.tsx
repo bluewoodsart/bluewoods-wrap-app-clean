@@ -284,6 +284,9 @@ const ShortIntakeFlow: React.FC = () => {
         endpoint: '/api/send-quote-emails',
         localTestingNote: 'Use npx vercel dev for local API function testing; npm run dev only starts Vite.'
       });
+      setIsSubmitting(false);
+      setError('Your quote was saved, but the confirmation email could not be sent. Please try again or contact us directly.');
+      return;
     }
 
     setIsSubmitting(false);
