@@ -837,7 +837,7 @@ begin
     else '[]'::jsonb
   end;
   v_expires_in_days := greatest(coalesce(p_expires_in_days, 14), 1);
-  v_token := encode(gen_random_bytes(32), 'hex');
+  v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
 
   return query
   insert into public.quote_customer_upload_tokens (
