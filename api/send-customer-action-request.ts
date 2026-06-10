@@ -22,6 +22,7 @@ interface CustomerActionRequestBody {
   requestType?: string;
   requestTypes?: string[];
   message?: string;
+  uploadUrl?: string;
 }
 
 const escapeHtml = (value: unknown) =>
@@ -103,9 +104,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
   }
 
-  const { customerEmail, customerName, quoteId, requestType, requestTypes, message } = parseBody(req.body);
+  const { customerEmail, customerName, quoteId, requestType, requestTypes, message, uploadUrl } = parseBody(req.body);
   const trimmedCustomerEmail = customerEmail?.trim();
   const trimmedMessage = message?.trim();
+  const trimmedUploadUrl = uploadUrl?.trim();
   const selectedRequestTypes = Array.isArray(requestTypes)
     ? Array.from(new Set(requestTypes.map((type) => type.trim()).filter(Boolean)))
     : requestType?.trim()
@@ -142,7 +144,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
         <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
           <p style="margin:0 0 12px;">Hi ${escapeHtml(greetingName)},</p>
-          <p style="margin:0 0 12px;">We reviewed your wrap request and need a few more items to move your quote forward. Please reply to this email with the requested information or files.</p>
+          <p style="margin:0 0 12px;">We reviewed your wrap request and need a few more items to move your quote forward.</p>
+          ${trimmedUploadUrl ? `
+            <p style="margin:0 0 16px;">Please upload the requested files here:</p>
+            <p style="margin:0 0 18px;">
+              <a href="${escapeHtml(trimmedUploadUrl)}" style="display:inline-block;border-radius:10px;background:#0f4fa8;color:#ffffff;padding:12px 18px;text-decoration:none;font-weight:700;">Upload requested files</a>
+            </p>
+            <p style="margin:0 0 12px;color:#64748b;font-size:14px;">If the button does not work, copy and paste this link into your browser:<br><a href="${escapeHtml(trimmedUploadUrl)}" style="color:#2563eb;">${escapeHtml(trimmedUploadUrl)}</a></p>
+          ` : `
+            <p style="margin:0 0 12px;">Please reply to this email with the requested information or files.</p>
+          `}
+          <p style="margin:0 0 12px;">You can also reply to this email with questions.</p>
           <p style="margin:0 0 8px;color:#64748b;font-size:14px;">Requested items:</p>
           <ul style="margin:0 0 16px;padding-left:20px;font-weight:700;color:#0f172a;">${requestListHtml}</ul>
           <div style="white-space:pre-wrap;padding:16px;border-radius:12px;background:#f8fafc;border:1px solid #e5e7eb;color:#0f172a;">${escapeHtml(trimmedMessage)}</div>
@@ -157,14 +169,24 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     console.log('customer action request email attempt started:', {
       toDomain: trimmedCustomerEmail.includes('@') ? trimmedCustomerEmail.split('@').pop() : 'unknown',
       requestTypes: selectedRequestTypes,
-      quoteId: quoteId || 'none'
+      quoteId: quoteId || 'none',
+      hasUploadUrl: trimmedUploadUrl ? 'yes' : 'no'
     });
     await sendEmail(apiKey, {
       from: FROM_EMAIL,
       to: trimmedCustomerEmail,
       subject,
       html,
-      text: `Hi ${greetingName}, we reviewed your wrap request and need a few more items to move your quote forward. Please reply to this email with the requested information or files.\n\nRequested items:\n${requestListText}\n\n${trimmedMessage}`
+      text: [
+        `Hi ${greetingName}, we reviewed your wrap request and need a few more items to move your quote forward.`,
+        trimmedUploadUrl ? `Please upload the requested files here: ${trimmedUploadUrl}` : 'Please reply to this email with the requested information or files.',
+        'You can also reply to this email with questions.',
+        '',
+        'Requested items:',
+        requestListText,
+        '',
+        trimmedMessage
+      ].join('\n')
     });
     console.log('customer action request email result: sent');
 

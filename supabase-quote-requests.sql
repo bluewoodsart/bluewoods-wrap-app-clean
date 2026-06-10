@@ -102,6 +102,23 @@ create index if not exists quote_customer_action_requests_quote_request_id_creat
 alter table public.quote_customer_action_requests
   add column if not exists request_types jsonb not null default '[]'::jsonb;
 
+create table if not exists public.quote_customer_upload_tokens (
+  id uuid primary key default gen_random_uuid(),
+  quote_request_id uuid not null references public.quote_requests(id) on delete cascade,
+  token text not null unique,
+  requested_items jsonb not null default '[]'::jsonb,
+  status text not null default 'active' check (status in ('active', 'used', 'expired')),
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  used_at timestamptz
+);
+
+create index if not exists quote_customer_upload_tokens_token_idx
+  on public.quote_customer_upload_tokens (token);
+
+create index if not exists quote_customer_upload_tokens_quote_request_id_idx
+  on public.quote_customer_upload_tokens (quote_request_id);
+
 create table if not exists public.customer_files (
   id uuid primary key default gen_random_uuid(),
   project_id uuid,
@@ -139,6 +156,7 @@ alter table public.quote_status_events enable row level security;
 alter table public.quote_internal_notes enable row level security;
 alter table public.quote_follow_up_tasks enable row level security;
 alter table public.quote_customer_action_requests enable row level security;
+alter table public.quote_customer_upload_tokens enable row level security;
 alter table public.customer_files enable row level security;
 
 drop policy if exists "Allow public quote request inserts" on public.quote_requests;
@@ -781,6 +799,217 @@ $$;
 
 grant execute on function public.get_admin_quote_follow_up_summaries() to anon;
 
+drop function if exists public.create_quote_customer_upload_token_admin(uuid, jsonb, integer);
+create or replace function public.create_quote_customer_upload_token_admin(
+  p_quote_request_id uuid,
+  p_requested_items jsonb default '[]'::jsonb,
+  p_expires_in_days integer default 14
+)
+returns table (
+  id uuid,
+  quote_request_id uuid,
+  token text,
+  requested_items jsonb,
+  status text,
+  expires_at timestamptz,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_token text;
+  v_requested_items jsonb;
+  v_expires_in_days integer;
+begin
+  if not exists (
+    select 1
+    from public.quote_requests qr
+    where qr.id = p_quote_request_id
+  ) then
+    raise exception 'Quote request not found: %', p_quote_request_id;
+  end if;
+
+  v_requested_items := case
+    when jsonb_typeof(coalesce(p_requested_items, '[]'::jsonb)) = 'array'
+      then coalesce(p_requested_items, '[]'::jsonb)
+    else '[]'::jsonb
+  end;
+  v_expires_in_days := greatest(coalesce(p_expires_in_days, 14), 1);
+  v_token := encode(gen_random_bytes(32), 'hex');
+
+  return query
+  insert into public.quote_customer_upload_tokens (
+    quote_request_id,
+    token,
+    requested_items,
+    expires_at
+  )
+  values (
+    p_quote_request_id,
+    v_token,
+    v_requested_items,
+    now() + make_interval(days => v_expires_in_days)
+  )
+  returning
+    quote_customer_upload_tokens.id,
+    quote_customer_upload_tokens.quote_request_id,
+    quote_customer_upload_tokens.token,
+    quote_customer_upload_tokens.requested_items,
+    quote_customer_upload_tokens.status,
+    quote_customer_upload_tokens.expires_at,
+    quote_customer_upload_tokens.created_at;
+end;
+$$;
+
+grant execute on function public.create_quote_customer_upload_token_admin(uuid, jsonb, integer) to anon;
+
+drop function if exists public.get_quote_upload_token_public(text);
+create or replace function public.get_quote_upload_token_public(
+  p_token text
+)
+returns table (
+  valid boolean,
+  status text,
+  requested_items jsonb,
+  expires_at timestamptz,
+  customer_first_name text
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    qcut.status = 'active' and qcut.expires_at > now() as valid,
+    case
+      when qcut.expires_at <= now() then 'expired'
+      else qcut.status
+    end as status,
+    qcut.requested_items,
+    qcut.expires_at,
+    nullif(split_part(trim(qr.customer_name), ' ', 1), '') as customer_first_name
+  from public.quote_customer_upload_tokens qcut
+  join public.quote_requests qr
+    on qr.id = qcut.quote_request_id
+  where qcut.token = trim(coalesce(p_token, ''))
+  limit 1;
+$$;
+
+grant execute on function public.get_quote_upload_token_public(text) to anon;
+
+drop function if exists public.attach_uploaded_files_to_quote_public(text, uuid[]);
+create or replace function public.attach_uploaded_files_to_quote_public(
+  p_token text,
+  p_file_ids uuid[]
+)
+returns table (
+  attached_count integer
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_quote_request record;
+  v_file_summaries jsonb;
+  v_attached_count integer;
+begin
+  if trim(coalesce(p_token, '')) = '' then
+    raise exception 'Upload token is required.';
+  end if;
+
+  if p_file_ids is null or cardinality(p_file_ids) = 0 then
+    raise exception 'At least one uploaded file is required.';
+  end if;
+
+  select
+    qcut.id as upload_token_id,
+    qcut.status as upload_token_status,
+    qcut.expires_at,
+    qr.id as quote_request_id,
+    qr.quote_id,
+    qr.customer_name,
+    qr.customer_email,
+    qr.customer_phone,
+    qr.preferred_contact
+  into v_quote_request
+  from public.quote_customer_upload_tokens qcut
+  join public.quote_requests qr
+    on qr.id = qcut.quote_request_id
+  where qcut.token = trim(p_token)
+  limit 1
+  for update;
+
+  if v_quote_request.quote_request_id is null then
+    raise exception 'Upload link is invalid.';
+  end if;
+
+  if v_quote_request.upload_token_status <> 'active' then
+    raise exception 'Upload link is not active.';
+  end if;
+
+  if v_quote_request.expires_at <= now() then
+    update public.quote_customer_upload_tokens
+    set status = 'expired'
+    where id = v_quote_request.upload_token_id;
+
+    raise exception 'Upload link has expired.';
+  end if;
+
+  update public.customer_files cf
+  set
+    quote_id = v_quote_request.quote_id,
+    customer_name = v_quote_request.customer_name,
+    customer_email = v_quote_request.customer_email,
+    customer_phone = v_quote_request.customer_phone,
+    preferred_contact = v_quote_request.preferred_contact
+  where cf.id = any(p_file_ids);
+
+  select count(*)::integer
+  into v_attached_count
+  from public.customer_files cf
+  where cf.id = any(p_file_ids);
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', cf.id,
+        'name', cf.file_name,
+        'url', cf.file_url,
+        'type', cf.file_type,
+        'size', cf.file_size,
+        'tags', to_jsonb(cf.tags)
+      )
+      order by cf.created_at asc
+    ),
+    '[]'::jsonb
+  )
+  into v_file_summaries
+  from public.customer_files cf
+  where cf.id = any(p_file_ids);
+
+  update public.quote_requests qr
+  set uploaded_files = (
+    select coalesce(jsonb_agg(file_summary), '[]'::jsonb)
+    from (
+      select distinct on (file_summary->>'id') file_summary
+      from jsonb_array_elements(coalesce(qr.uploaded_files, '[]'::jsonb) || v_file_summaries) as files(file_summary)
+      order by file_summary->>'id'
+    ) deduped_files
+  )
+  where qr.id = v_quote_request.quote_request_id;
+
+  update public.quote_customer_upload_tokens
+  set used_at = coalesce(used_at, now())
+  where id = v_quote_request.upload_token_id;
+
+  return query select v_attached_count;
+end;
+$$;
+
+grant execute on function public.attach_uploaded_files_to_quote_public(text, uuid[]) to anon;
+
 drop function if exists public.get_quote_customer_action_requests_admin(uuid);
 create or replace function public.get_quote_customer_action_requests_admin(
   p_quote_request_id uuid
@@ -1040,7 +1269,11 @@ values (
     'image/webp',
     'image/gif',
     'image/svg+xml',
-    'application/pdf'
+    'application/pdf',
+    'application/postscript',
+    'application/illustrator',
+    'image/vnd.adobe.photoshop',
+    'application/octet-stream'
   ]
 )
 on conflict (id) do update set

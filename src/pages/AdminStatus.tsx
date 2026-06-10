@@ -280,6 +280,7 @@ const isArtworkFile = (file: UploadedFileSummary) => {
   const name = (file.name || '').toLowerCase();
   return (
     tags.some((tag) => ['logo', 'inspiration'].includes(tag)) ||
+    tags.some((tag) => ['artwork', 'better_quality_artwork', 'reference_image'].includes(tag)) ||
     name.includes('logo') ||
     name.includes('artwork') ||
     name.includes('mockup') ||
@@ -810,6 +811,32 @@ const AdminStatus = () => {
     setCustomerActionError('');
     setCustomerActionMessageStatus('Sending customer request...');
 
+    const { data: uploadTokenRows, error: uploadTokenError } = await supabase
+      .rpc('create_quote_customer_upload_token_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_requested_items: customerActionRequestTypes,
+        p_expires_in_days: 14
+      });
+
+    if (uploadTokenError) {
+      console.error('Customer upload token creation failed:', uploadTokenError);
+      setSendingCustomerAction(false);
+      setCustomerActionError('Upload link could not be created. The request was not sent.');
+      setCustomerActionMessageStatus('');
+      return;
+    }
+
+    const uploadToken = uploadTokenRows?.[0]?.token;
+    if (!uploadToken) {
+      console.error('Customer upload token creation returned no token.');
+      setSendingCustomerAction(false);
+      setCustomerActionError('Upload link could not be created. The request was not sent.');
+      setCustomerActionMessageStatus('');
+      return;
+    }
+
+    const uploadUrl = `${window.location.origin}/upload-assets/${uploadToken}`;
+
     const emailResponse = await fetch('/api/send-customer-action-request', {
       method: 'POST',
       headers: {
@@ -821,7 +848,8 @@ const AdminStatus = () => {
         quoteId: selectedQuote.quote_id,
         requestType: customerActionRequestTypes[0],
         requestTypes: customerActionRequestTypes,
-        message: trimmedMessage
+        message: trimmedMessage,
+        uploadUrl
       })
     });
 
