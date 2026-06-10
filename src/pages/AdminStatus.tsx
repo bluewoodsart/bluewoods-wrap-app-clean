@@ -72,6 +72,7 @@ interface QuoteRequestRow {
   customer_phone: string | null;
   preferred_contact: string | null;
   rep_slug: string | null;
+  rep_email: string | null;
   assigned_rep_name: string | null;
   status: string;
   quote_data: QuoteData | null;
@@ -389,7 +390,9 @@ const AdminStatus = () => {
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [newInternalNote, setNewInternalNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [notifySalesRep, setNotifySalesRep] = useState(false);
   const [noteMessage, setNoteMessage] = useState('');
+  const [noteWarning, setNoteWarning] = useState('');
   const [noteError, setNoteError] = useState('');
   const [followUpTasks, setFollowUpTasks] = useState<QuoteFollowUpTask[]>([]);
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
@@ -553,7 +556,9 @@ const AdminStatus = () => {
     setNewFollowUpDueDate('');
     setCustomerActionRequestTypes([]);
     setCustomerActionMessage(getDefaultCustomerActionMessage());
+    setNotifySalesRep(false);
     setNoteMessage('');
+    setNoteWarning('');
     setNoteError('');
     setFollowUpMessage('');
     setFollowUpError('');
@@ -573,11 +578,13 @@ const AdminStatus = () => {
     if (!trimmedNote) {
       setNoteError('Add a note before saving.');
       setNoteMessage('');
+      setNoteWarning('');
       return;
     }
 
     setSavingNote(true);
     setNoteError('');
+    setNoteWarning('');
     setNoteMessage('Saving note...');
 
     const { error: saveNoteError } = await supabase
@@ -592,12 +599,46 @@ const AdminStatus = () => {
       console.error('Admin internal note save failed:', saveNoteError);
       setNoteError(saveNoteError.message);
       setNoteMessage('');
+      setNoteWarning('');
       return;
     }
 
     setNewInternalNote('');
-    setNoteMessage('Note saved.');
     await loadInternalNotes(selectedQuote.id);
+
+    if (!notifySalesRep) {
+      setNoteMessage('Note saved.');
+      return;
+    }
+
+    const activeQuote = selectedQuoteDetail || selectedQuote;
+    const emailResponse = await fetch('/api/send-internal-note-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        repEmail: activeQuote.rep_email,
+        repSlug: activeQuote.rep_slug,
+        repName: activeQuote.assigned_rep_name,
+        quoteId: activeQuote.quote_id,
+        customerName: activeQuote.customer_name,
+        noteText: trimmedNote
+      })
+    });
+
+    if (!emailResponse.ok) {
+      const responseBody = await emailResponse.text();
+      console.error('Internal note sales rep notification failed:', {
+        status: emailResponse.status,
+        responseBody
+      });
+      setNoteMessage('');
+      setNoteWarning('Note saved, but sales rep notification failed.');
+      return;
+    }
+
+    setNoteMessage('Note saved and sales rep notified.');
   };
 
   const saveFollowUpTask = async () => {
@@ -911,7 +952,9 @@ const AdminStatus = () => {
               setNewFollowUpDueDate('');
               setCustomerActionRequestTypes([]);
               setCustomerActionMessage(getDefaultCustomerActionMessage());
+              setNotifySalesRep(false);
               setNoteMessage('');
+              setNoteWarning('');
               setNoteError('');
               setFollowUpMessage('');
               setFollowUpError('');
@@ -1240,12 +1283,27 @@ const AdminStatus = () => {
                         setNewInternalNote(event.target.value);
                         setNoteError('');
                         setNoteMessage('');
+                        setNoteWarning('');
                       }}
                       placeholder="Document calls, follow-ups, pricing discussions, design notes, or next steps."
                       rows={4}
                     />
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs text-slate-500">Internal only. Notes are timestamped and shown newest first.</p>
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-500">Internal only. Notes are timestamped and shown newest first.</p>
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                          <Checkbox
+                            checked={notifySalesRep}
+                            onCheckedChange={(checked) => {
+                              setNotifySalesRep(Boolean(checked));
+                              setNoteError('');
+                              setNoteMessage('');
+                              setNoteWarning('');
+                            }}
+                          />
+                          Notify assigned sales rep
+                        </label>
+                      </div>
                       <Button onClick={saveInternalNote} disabled={savingNote || !newInternalNote.trim()}>
                         {savingNote ? 'Saving...' : 'Add Note'}
                       </Button>
@@ -1253,6 +1311,11 @@ const AdminStatus = () => {
                     {noteMessage && (
                       <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                         {noteMessage}
+                      </div>
+                    )}
+                    {noteWarning && (
+                      <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        {noteWarning}
                       </div>
                     )}
                     {noteError && (

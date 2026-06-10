@@ -163,6 +163,7 @@ returns table (
   customer_phone text,
   preferred_contact text,
   rep_slug text,
+  rep_email text,
   assigned_rep_name text,
   status text,
   created_at timestamptz
@@ -179,6 +180,7 @@ as $$
     qr.customer_phone,
     qr.preferred_contact,
     qr.rep_slug,
+    qr.rep_email,
     qr.assigned_rep_name,
     qr.status,
     qr.created_at
@@ -201,6 +203,7 @@ returns table (
   customer_phone text,
   preferred_contact text,
   rep_slug text,
+  rep_email text,
   assigned_rep_name text,
   status text,
   quote_data jsonb,
@@ -219,6 +222,7 @@ as $$
     qr.customer_phone,
     qr.preferred_contact,
     qr.rep_slug,
+    qr.rep_email,
     qr.assigned_rep_name,
     qr.status,
     qr.quote_data,
