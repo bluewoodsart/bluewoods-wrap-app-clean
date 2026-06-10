@@ -213,50 +213,34 @@ const ShortIntakeFlow: React.FC = () => {
     const uploadedFiles = dedupeUploadedFiles(collectUploadedFiles());
     const quoteDetails = buildQuoteDetails();
     const repAttribution = getRepAttributionForSlug(quoteDetails.repSlug);
-    const finalPayload = {
-      quote_id: data.quoteId ?? null,
-      ...repAttribution,
-      customer_name: contactInfo.name,
-      customer_email: contactInfo.email,
-      customer_phone: contactInfo.phone,
-      preferred_contact: contactInfo.preferredContact,
-      quote_data: quoteDetails,
-      uploaded_files: uploadedFiles.map((file) => ({
-        id: file.id,
-        name: file.name,
-        url: file.url,
-        type: file.type,
-        size: file.size,
-        tags: file.tags
-      })),
-      status: 'new',
-      source: TEST_FLOW_SOURCE
-    };
+    const uploadedFilePayload = uploadedFiles.map((file) => ({
+      id: file.id,
+      name: file.name,
+      url: file.url,
+      type: file.type,
+      size: file.size,
+      tags: file.tags
+    }));
 
-    const { data: updatedRows, error: updateError } = partialLeadSaved
-      ? await supabase
-          .from('quote_requests')
-          .update(finalPayload)
-          .eq('quote_id', data.quoteId)
-          .eq('status', 'partial_lead')
-          .select('id')
-      : { data: [], error: null };
+    const { error: finalizeError } = await supabase
+      .rpc('finalize_quote_request_public', {
+        p_quote_id: data.quoteId ?? '',
+        p_customer_name: contactInfo.name,
+        p_customer_email: contactInfo.email,
+        p_customer_phone: contactInfo.phone,
+        p_preferred_contact: contactInfo.preferredContact,
+        p_rep_slug: repAttribution.rep_slug,
+        p_rep_email: repAttribution.rep_email,
+        p_assigned_rep_name: repAttribution.assigned_rep_name,
+        p_quote_data: quoteDetails,
+        p_uploaded_files: uploadedFilePayload
+      });
 
-    if (updateError) {
-      console.error('Partial lead update failed. Saving final quote as a new row instead:', updateError);
-    }
-
-    if (updateError || !updatedRows || updatedRows.length === 0) {
-      const { error: insertError } = await supabase
-        .from('quote_requests')
-        .insert(finalPayload);
-
-      if (insertError) {
-        console.error('Short intake quote save failed:', insertError);
-        setIsSubmitting(false);
-        setError(insertError.message);
-        return;
-      }
+    if (finalizeError) {
+      console.error('Short intake quote finalize failed:', finalizeError);
+      setIsSubmitting(false);
+      setError(finalizeError.message);
+      return;
     }
 
     if (uploadedFiles.length > 0) {

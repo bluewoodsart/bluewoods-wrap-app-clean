@@ -153,6 +153,153 @@ with check (
   and length(customer_phone) between 7 and 50
 );
 
+drop function if exists public.finalize_quote_request_public(text, text, text, text, text, text, text, text, jsonb, jsonb);
+create or replace function public.finalize_quote_request_public(
+  p_quote_id text,
+  p_customer_name text,
+  p_customer_email text,
+  p_customer_phone text,
+  p_preferred_contact text,
+  p_rep_slug text,
+  p_rep_email text,
+  p_assigned_rep_name text,
+  p_quote_data jsonb,
+  p_uploaded_files jsonb
+)
+returns table (
+  id uuid,
+  quote_id text,
+  customer_name text,
+  customer_email text,
+  customer_phone text,
+  preferred_contact text,
+  rep_slug text,
+  rep_email text,
+  assigned_rep_name text,
+  status text,
+  quote_data jsonb,
+  uploaded_files jsonb,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_partial_quote_request_id uuid;
+begin
+  if trim(coalesce(p_quote_id, '')) = '' then
+    raise exception 'Quote ID is required.';
+  end if;
+
+  if length(trim(coalesce(p_customer_name, ''))) < 1 or length(trim(coalesce(p_customer_name, ''))) > 200 then
+    raise exception 'Customer name is required.';
+  end if;
+
+  if length(trim(coalesce(p_customer_email, ''))) < 3 or length(trim(coalesce(p_customer_email, ''))) > 320 then
+    raise exception 'Customer email is required.';
+  end if;
+
+  if length(trim(coalesce(p_customer_phone, ''))) < 7 or length(trim(coalesce(p_customer_phone, ''))) > 50 then
+    raise exception 'Customer phone is required.';
+  end if;
+
+  if p_preferred_contact not in ('email', 'text', 'call') then
+    raise exception 'Invalid preferred contact: %', p_preferred_contact;
+  end if;
+
+  select qr.id
+  into v_partial_quote_request_id
+  from public.quote_requests qr
+  where qr.quote_id = trim(p_quote_id)
+    and qr.status = 'partial_lead'
+    and qr.source = 'bluewoods-wrap-app'
+  order by qr.created_at desc
+  limit 1
+  for update;
+
+  if v_partial_quote_request_id is not null then
+    return query
+    update public.quote_requests qr
+    set
+      customer_name = trim(p_customer_name),
+      customer_email = trim(p_customer_email),
+      customer_phone = trim(p_customer_phone),
+      preferred_contact = p_preferred_contact,
+      rep_slug = nullif(trim(coalesce(p_rep_slug, '')), ''),
+      rep_email = nullif(trim(coalesce(p_rep_email, '')), ''),
+      assigned_rep_name = nullif(trim(coalesce(p_assigned_rep_name, '')), ''),
+      quote_data = coalesce(p_quote_data, '{}'::jsonb),
+      uploaded_files = coalesce(p_uploaded_files, '[]'::jsonb),
+      status = 'new',
+      source = 'bluewoods-wrap-app'
+    where qr.id = v_partial_quote_request_id
+    returning
+      qr.id,
+      qr.quote_id,
+      qr.customer_name,
+      qr.customer_email,
+      qr.customer_phone,
+      qr.preferred_contact,
+      qr.rep_slug,
+      qr.rep_email,
+      qr.assigned_rep_name,
+      qr.status,
+      qr.quote_data,
+      qr.uploaded_files,
+      qr.created_at;
+
+    return;
+  end if;
+
+  return query
+  insert into public.quote_requests (
+    quote_id,
+    customer_name,
+    customer_email,
+    customer_phone,
+    preferred_contact,
+    rep_slug,
+    rep_email,
+    assigned_rep_name,
+    quote_data,
+    uploaded_files,
+    status,
+    source
+  )
+  values (
+    trim(p_quote_id),
+    trim(p_customer_name),
+    trim(p_customer_email),
+    trim(p_customer_phone),
+    p_preferred_contact,
+    nullif(trim(coalesce(p_rep_slug, '')), ''),
+    nullif(trim(coalesce(p_rep_email, '')), ''),
+    nullif(trim(coalesce(p_assigned_rep_name, '')), ''),
+    coalesce(p_quote_data, '{}'::jsonb),
+    coalesce(p_uploaded_files, '[]'::jsonb),
+    'new',
+    'bluewoods-wrap-app'
+  )
+  returning
+    quote_requests.id,
+    quote_requests.quote_id,
+    quote_requests.customer_name,
+    quote_requests.customer_email,
+    quote_requests.customer_phone,
+    quote_requests.preferred_contact,
+    quote_requests.rep_slug,
+    quote_requests.rep_email,
+    quote_requests.assigned_rep_name,
+    quote_requests.status,
+    quote_requests.quote_data,
+    quote_requests.uploaded_files,
+    quote_requests.created_at;
+end;
+$$;
+
+grant execute on function public.finalize_quote_request_public(text, text, text, text, text, text, text, text, jsonb, jsonb) to anon;
+
 drop function if exists public.get_admin_quote_requests();
 create or replace function public.get_admin_quote_requests()
 returns table (
