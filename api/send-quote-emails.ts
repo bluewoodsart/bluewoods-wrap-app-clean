@@ -216,7 +216,9 @@ const parseBody = (body: unknown): QuoteEmailRequest => {
   return (body ?? {}) as QuoteEmailRequest;
 };
 
-const sendLoggedEmail = async (apiKey: string, label: 'customer' | 'business', payload: Record<string, unknown>) => {
+type EmailLabel = 'customer' | 'business' | 'sales rep';
+
+const sendLoggedEmail = async (apiKey: string, label: EmailLabel, payload: Record<string, unknown>) => {
   console.log(`${label} email attempt started:`, {
     toDomain: getEmailDomain(payload.to),
     ccDomain: getEmailDomain(payload.cc),
@@ -260,8 +262,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ? quoteDetails.repSlug.trim().toLowerCase()
     : '';
   const assignedRep = repSlug ? SALES_REPS[repSlug] : undefined;
-  const leadRecipient = assignedRep?.email || BUSINESS_LEAD_EMAIL;
-  const leadCc = assignedRep ? BUSINESS_LEAD_EMAIL : undefined;
 
   // TODO: Remove temporary email debug logs after local rep attribution is confirmed.
   console.log('Sales rep attribution:', {
@@ -363,31 +363,92 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     </div>
   `;
 
+  const repLeadSummary = detailRows([
+    ['Quote ID', quoteDetails.quoteId],
+    ['Customer Name', contactInfo?.name],
+    ['Customer Email', contactInfo?.email],
+    ['Customer Phone', contactInfo?.phone],
+    ['Vehicle', vehicle.mainVehicle],
+    ['Selected Service', quoteDetails.selectedService],
+    ['Budget', quoteDetails.budget]
+  ]);
+
+  const repHtml = assignedRep ? `
+    <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+      <div style="max-width:720px;margin:0 auto;">
+        <div style="padding:24px;border-radius:16px;background:#0f172a;color:#ffffff;">
+          <h1 style="margin:0;font-size:24px;">New SlapWrapz lead assigned to you</h1>
+          <p style="margin:8px 0 0;color:#d1d5db;">This quote was submitted with your sales rep link.</p>
+        </div>
+
+        <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
+          <p style="margin:0 0 12px;">Hi ${escapeHtml(assignedRep.name)},</p>
+          <p style="margin:0;">A new SlapWrapz quote request was assigned to you. Customer and project details are below.</p>
+        </div>
+
+        ${section('Lead Details', repLeadSummary)}
+      </div>
+    </div>
+  ` : '';
+
   try {
     console.log('Business lead email routing:', {
-      toDomain: getEmailDomain(leadRecipient),
-      ccDomain: leadCc ? getEmailDomain(leadCc) : 'none'
+      toDomain: getEmailDomain(BUSINESS_LEAD_EMAIL),
+      ccDomain: 'none'
     });
-    const emailResults = await Promise.allSettled([
-      sendLoggedEmail(apiKey, 'business', {
-        from: FROM_EMAIL,
-        to: leadRecipient,
-        ...(leadCc ? { cc: leadCc } : {}),
-        subject: 'New SlapWrapz quote request',
-        html: businessHtml,
-        text: `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`
-      }),
-      sendLoggedEmail(apiKey, 'customer', {
-        from: FROM_EMAIL,
-        to: customerEmail,
-        subject: 'We received your wrap quote request',
-        html: customerHtml,
-        text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
-      })
-    ]);
+    console.log('Sales rep lead email routing:', {
+      sendRepEmail: assignedRep ? 'yes' : 'no',
+      toDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none'
+    });
+    const emailJobs: Array<{ label: EmailLabel; job: Promise<void> }> = [
+      {
+        label: 'business',
+        job: sendLoggedEmail(apiKey, 'business', {
+          from: FROM_EMAIL,
+          to: BUSINESS_LEAD_EMAIL,
+          subject: 'New SlapWrapz quote request',
+          html: businessHtml,
+          text: `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`
+        })
+      },
+      {
+        label: 'customer',
+        job: sendLoggedEmail(apiKey, 'customer', {
+          from: FROM_EMAIL,
+          to: customerEmail,
+          subject: 'We received your wrap quote request',
+          html: customerHtml,
+          text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
+        })
+      }
+    ];
+
+    if (assignedRep) {
+      emailJobs.push({
+        label: 'sales rep',
+        job: sendLoggedEmail(apiKey, 'sales rep', {
+          from: FROM_EMAIL,
+          to: assignedRep.email,
+          subject: 'New SlapWrapz lead assigned to you',
+          html: repHtml,
+          text: [
+            'New SlapWrapz lead assigned to you.',
+            `Quote ID: ${formatSimpleValue(quoteDetails.quoteId) || 'not provided'}`,
+            `Customer: ${formatSimpleValue(contactInfo?.name) || 'not provided'}`,
+            `Email: ${customerEmail}`,
+            `Phone: ${formatSimpleValue(contactInfo?.phone) || 'not provided'}`,
+            `Vehicle: ${vehicle.mainVehicle || 'not provided'}`,
+            `Service: ${formatSimpleValue(quoteDetails.selectedService) || 'not provided'}`,
+            `Budget: ${formatSimpleValue(quoteDetails.budget) || 'not provided'}`
+          ].join('\n')
+        })
+      });
+    }
+
+    const emailResults = await Promise.allSettled(emailJobs.map(({ job }) => job));
 
     const failedEmails = emailResults
-      .map((result, index) => ({ result, label: index === 0 ? 'business' : 'customer' }))
+      .map((result, index) => ({ result, label: emailJobs[index].label }))
       .filter(({ result }) => result.status === 'rejected');
 
     if (failedEmails.length > 0) {
@@ -400,7 +461,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       });
     }
 
-    console.log('Quote email send completed: customer and business emails sent.');
+    console.log('Quote email send completed:', {
+      sentEmails: emailJobs.map(({ label }) => label)
+    });
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error(error);
