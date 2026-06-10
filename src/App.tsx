@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -13,10 +14,15 @@ import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import ShortIntakeFlow from "./components/ShortIntakeFlow";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
+import { getStoredRepSlug } from "@/lib/repTracking";
 
 const queryClient = new QueryClient();
 
 const App = () => {
+  useEffect(() => {
+    getStoredRepSlug();
+  }, []);
+
   // Check if we're in preview mode (accessed via QR code)
   const isPreviewMode = window.location.search.includes('preview=true');
   

@@ -83,6 +83,9 @@ const getEmailDomain = (value: unknown) => {
   return email.includes('@') ? email.split('@').pop() || 'unknown' : 'unknown';
 };
 
+const getStringValue = (value: unknown) =>
+  typeof value === 'string' ? value.trim() : '';
+
 const section = (title: string, body: string) => `
   <div style="margin-top:20px;padding:18px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;">
     <h2 style="margin:0 0 12px;font-size:18px;color:#0f172a;">${escapeHtml(title)}</h2>
@@ -258,16 +261,35 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const customerName = contactInfo?.name || 'there';
-  const repSlug = typeof quoteDetails.repSlug === 'string'
-    ? quoteDetails.repSlug.trim().toLowerCase()
-    : '';
-  const assignedRep = repSlug ? SALES_REPS[repSlug] : undefined;
+  const repSlug = (
+    getStringValue(quoteDetails.repSlug) ||
+    getStringValue(quoteDetails.rep_slug)
+  ).toLowerCase();
+  const receivedRepEmail = getStringValue(quoteDetails.repEmail) || getStringValue(quoteDetails.rep_email);
+  const receivedRepName = getStringValue(quoteDetails.assignedRepName) || getStringValue(quoteDetails.assigned_rep_name);
+  const matchedRep = repSlug ? SALES_REPS[repSlug] : undefined;
+  const assignedRep = matchedRep || (
+    receivedRepEmail
+      ? {
+          name: receivedRepName || 'Assigned Sales Rep',
+          email: receivedRepEmail
+        }
+      : undefined
+  );
+
+  console.log('Received rep fields:', {
+    repSlug: repSlug || 'none',
+    repEmailDomain: receivedRepEmail ? getEmailDomain(receivedRepEmail) : 'none',
+    assignedRepName: receivedRepName || 'none'
+  });
 
   // TODO: Remove temporary email debug logs after local rep attribution is confirmed.
   console.log('Sales rep attribution:', {
     repSlug: repSlug || 'none',
+    matchedRepKey: matchedRep ? repSlug : 'none',
     matched: assignedRep ? 'yes' : 'no',
-    selectedRepEmailDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none'
+    selectedRepEmailDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none',
+    repEmailTarget: assignedRep?.email || 'none'
   });
 
   const vehicle = getVehicle(quoteDetails);
@@ -398,7 +420,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
     console.log('Sales rep lead email routing:', {
       sendRepEmail: assignedRep ? 'yes' : 'no',
-      toDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none'
+      toDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none',
+      target: assignedRep?.email || 'none'
     });
     const emailJobs: Array<{ label: EmailLabel; job: Promise<void> }> = [
       {

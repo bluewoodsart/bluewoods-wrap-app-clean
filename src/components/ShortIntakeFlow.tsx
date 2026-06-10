@@ -275,7 +275,7 @@ const ShortIntakeFlow: React.FC = () => {
     }
 
     try {
-      await sendQuoteEmails(contactInfo, quoteDetails, uploadedFiles);
+      await sendQuoteEmails(contactInfo, { ...quoteDetails, ...repAttribution }, uploadedFiles);
     } catch (emailError) {
       console.error('Quote email send failed after quote save:', {
         error: emailError,
