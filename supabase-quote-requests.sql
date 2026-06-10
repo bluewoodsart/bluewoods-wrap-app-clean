@@ -87,6 +87,7 @@ create table if not exists public.quote_customer_action_requests (
       'other'
     )
   ),
+  request_types jsonb not null default '[]'::jsonb,
   message text not null,
   customer_email text not null,
   status text not null default 'sent' check (status in ('sent', 'completed', 'canceled')),
@@ -97,6 +98,9 @@ create table if not exists public.quote_customer_action_requests (
 
 create index if not exists quote_customer_action_requests_quote_request_id_created_at_idx
   on public.quote_customer_action_requests (quote_request_id, created_at desc);
+
+alter table public.quote_customer_action_requests
+  add column if not exists request_types jsonb not null default '[]'::jsonb;
 
 create table if not exists public.customer_files (
   id uuid primary key default gen_random_uuid(),
@@ -556,6 +560,7 @@ returns table (
   id uuid,
   quote_request_id uuid,
   request_type text,
+  request_types jsonb,
   message text,
   customer_email text,
   status text,
@@ -571,6 +576,11 @@ as $$
     qcar.id,
     qcar.quote_request_id,
     qcar.request_type,
+    case
+      when jsonb_typeof(qcar.request_types) = 'array' and jsonb_array_length(qcar.request_types) > 0
+        then qcar.request_types
+      else jsonb_build_array(qcar.request_type)
+    end as request_types,
     qcar.message,
     qcar.customer_email,
     qcar.status,
@@ -585,17 +595,20 @@ $$;
 grant execute on function public.get_quote_customer_action_requests_admin(uuid) to anon;
 
 drop function if exists public.create_quote_customer_action_request_admin(uuid, text, text, text, boolean);
+drop function if exists public.create_quote_customer_action_request_admin(uuid, text, text, text, boolean, jsonb);
 create or replace function public.create_quote_customer_action_request_admin(
   p_quote_request_id uuid,
   p_request_type text,
   p_message text,
   p_customer_email text,
-  p_create_follow_up boolean default true
+  p_create_follow_up boolean default true,
+  p_request_types jsonb default '[]'::jsonb
 )
 returns table (
   id uuid,
   quote_request_id uuid,
   request_type text,
+  request_types jsonb,
   message text,
   customer_email text,
   status text,
@@ -610,15 +623,35 @@ as $$
 declare
   v_quote_status text;
   v_request_label text;
+  v_request_types jsonb;
+  v_primary_request_type text;
 begin
-  if p_request_type not in (
-    'vehicle_photos',
-    'logo_artwork',
-    'better_quality_artwork',
-    'measurements',
-    'other'
+  v_request_types := case
+    when jsonb_typeof(coalesce(p_request_types, '[]'::jsonb)) = 'array'
+      then coalesce(p_request_types, '[]'::jsonb)
+    else '[]'::jsonb
+  end;
+
+  if jsonb_array_length(v_request_types) = 0 and trim(coalesce(p_request_type, '')) <> '' then
+    v_request_types := jsonb_build_array(p_request_type);
+  end if;
+
+  if jsonb_array_length(v_request_types) = 0 then
+    raise exception 'At least one customer action request type is required.';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements_text(v_request_types) as selected_request_type(request_type)
+    where selected_request_type.request_type not in (
+      'vehicle_photos',
+      'logo_artwork',
+      'better_quality_artwork',
+      'measurements',
+      'other'
+    )
   ) then
-    raise exception 'Invalid customer action request type: %', p_request_type;
+    raise exception 'Invalid customer action request type.';
   end if;
 
   if trim(coalesce(p_message, '')) = '' then
@@ -638,25 +671,39 @@ begin
     raise exception 'Quote request not found: %', p_quote_request_id;
   end if;
 
-  v_request_label := case p_request_type
-    when 'vehicle_photos' then 'Vehicle photos'
-    when 'logo_artwork' then 'Logo / artwork'
-    when 'better_quality_artwork' then 'Better quality artwork'
-    when 'measurements' then 'Measurements'
-    else 'Other'
-  end;
+  select selected_request_type.request_type
+  into v_primary_request_type
+  from jsonb_array_elements_text(v_request_types) with ordinality as selected_request_type(request_type, sort_order)
+  order by selected_request_type.sort_order
+  limit 1;
+
+  select string_agg(
+    case selected_request_type.request_type
+      when 'vehicle_photos' then 'Vehicle photos'
+      when 'logo_artwork' then 'Logo / artwork'
+      when 'better_quality_artwork' then 'Better quality artwork'
+      when 'measurements' then 'Measurements'
+      else 'Other'
+    end,
+    ', '
+    order by selected_request_type.sort_order
+  )
+  into v_request_label
+  from jsonb_array_elements_text(v_request_types) with ordinality as selected_request_type(request_type, sort_order);
 
   return query
   insert into public.quote_customer_action_requests (
     quote_request_id,
     request_type,
+    request_types,
     message,
     customer_email,
     created_by
   )
   values (
     p_quote_request_id,
-    p_request_type,
+    v_primary_request_type,
+    v_request_types,
     trim(p_message),
     trim(p_customer_email),
     'Staff'
@@ -665,6 +712,7 @@ begin
     quote_customer_action_requests.id,
     quote_customer_action_requests.quote_request_id,
     quote_customer_action_requests.request_type,
+    quote_customer_action_requests.request_types,
     quote_customer_action_requests.message,
     quote_customer_action_requests.customer_email,
     quote_customer_action_requests.status,
@@ -694,7 +742,7 @@ begin
     )
     values (
       p_quote_request_id,
-      'Check whether customer replied with requested item: ' || v_request_label,
+      'Check whether customer replied with requested items: ' || v_request_label,
       current_date + 3,
       'Staff'
     );
@@ -702,7 +750,7 @@ begin
 end;
 $$;
 
-grant execute on function public.create_quote_customer_action_request_admin(uuid, text, text, text, boolean) to anon;
+grant execute on function public.create_quote_customer_action_request_admin(uuid, text, text, text, boolean, jsonb) to anon;
 
 notify pgrst, 'reload schema';
 

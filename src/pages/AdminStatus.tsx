@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Download, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -109,6 +110,7 @@ interface QuoteCustomerActionRequest {
   id: string;
   quote_request_id: string;
   request_type: CustomerActionRequestType;
+  request_types: CustomerActionRequestType[] | string[] | null;
   message: string;
   customer_email: string;
   status: string;
@@ -120,10 +122,19 @@ interface QuoteCustomerActionRequest {
 const getCustomerActionRequestLabel = (requestType: string) =>
   CUSTOMER_ACTION_REQUEST_OPTIONS.find((option) => option.value === requestType)?.label || formatStatusLabel(requestType);
 
-const getDefaultCustomerActionMessage = (requestType: CustomerActionRequestType) => {
-  const requestLabel = getCustomerActionRequestLabel(requestType).toLowerCase();
-  return `We reviewed your wrap request and need one more item to move your quote forward. Please reply to this email with your ${requestLabel}.`;
+const getCustomerActionRequestLabels = (requestTypes: string[]) =>
+  requestTypes.map(getCustomerActionRequestLabel);
+
+const getStoredCustomerActionRequestTypes = (request: QuoteCustomerActionRequest) => {
+  if (Array.isArray(request.request_types) && request.request_types.length > 0) {
+    return request.request_types;
+  }
+
+  return request.request_type ? [request.request_type] : [];
 };
+
+const getDefaultCustomerActionMessage = () =>
+  'We reviewed your wrap request and need a few more items to move your quote forward. Please reply to this email with the requested information or files.';
 
 const formatStatusLabel = (status: string) =>
   status
@@ -390,8 +401,8 @@ const AdminStatus = () => {
   const [followUpError, setFollowUpError] = useState('');
   const [customerActionRequests, setCustomerActionRequests] = useState<QuoteCustomerActionRequest[]>([]);
   const [loadingCustomerActions, setLoadingCustomerActions] = useState(false);
-  const [customerActionRequestType, setCustomerActionRequestType] = useState<CustomerActionRequestType>('vehicle_photos');
-  const [customerActionMessage, setCustomerActionMessage] = useState(getDefaultCustomerActionMessage('vehicle_photos'));
+  const [customerActionRequestTypes, setCustomerActionRequestTypes] = useState<CustomerActionRequestType[]>([]);
+  const [customerActionMessage, setCustomerActionMessage] = useState(getDefaultCustomerActionMessage());
   const [sendingCustomerAction, setSendingCustomerAction] = useState(false);
   const [customerActionMessageStatus, setCustomerActionMessageStatus] = useState('');
   const [customerActionError, setCustomerActionError] = useState('');
@@ -540,8 +551,8 @@ const AdminStatus = () => {
     setNewInternalNote('');
     setNewFollowUpTaskText('');
     setNewFollowUpDueDate('');
-    setCustomerActionRequestType('vehicle_photos');
-    setCustomerActionMessage(getDefaultCustomerActionMessage('vehicle_photos'));
+    setCustomerActionRequestTypes([]);
+    setCustomerActionMessage(getDefaultCustomerActionMessage());
     setNoteMessage('');
     setNoteError('');
     setFollowUpMessage('');
@@ -660,6 +671,12 @@ const AdminStatus = () => {
     if (!selectedQuote || sendingCustomerAction) return;
 
     const trimmedMessage = customerActionMessage.trim();
+    if (customerActionRequestTypes.length === 0) {
+      setCustomerActionError('Select at least one requested item before sending.');
+      setCustomerActionMessageStatus('');
+      return;
+    }
+
     if (!trimmedMessage) {
       setCustomerActionError('Add a message before sending.');
       setCustomerActionMessageStatus('');
@@ -685,7 +702,8 @@ const AdminStatus = () => {
         customerEmail: selectedQuote.customer_email,
         customerName: selectedQuote.customer_name,
         quoteId: selectedQuote.quote_id,
-        requestType: customerActionRequestType,
+        requestType: customerActionRequestTypes[0],
+        requestTypes: customerActionRequestTypes,
         message: trimmedMessage
       })
     });
@@ -705,10 +723,11 @@ const AdminStatus = () => {
     const { error: recordError } = await supabase
       .rpc('create_quote_customer_action_request_admin', {
         p_quote_request_id: selectedQuote.id,
-        p_request_type: customerActionRequestType,
+        p_request_type: customerActionRequestTypes[0],
         p_message: trimmedMessage,
         p_customer_email: selectedQuote.customer_email,
-        p_create_follow_up: true
+        p_create_follow_up: true,
+        p_request_types: customerActionRequestTypes
       });
 
     setSendingCustomerAction(false);
@@ -890,8 +909,8 @@ const AdminStatus = () => {
               setNewInternalNote('');
               setNewFollowUpTaskText('');
               setNewFollowUpDueDate('');
-              setCustomerActionRequestType('vehicle_photos');
-              setCustomerActionMessage(getDefaultCustomerActionMessage('vehicle_photos'));
+              setCustomerActionRequestTypes([]);
+              setCustomerActionMessage(getDefaultCustomerActionMessage());
               setNoteMessage('');
               setNoteError('');
               setFollowUpMessage('');
@@ -989,32 +1008,32 @@ const AdminStatus = () => {
                 <section>
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer Action Request</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
-                    <div className="grid gap-3 md:grid-cols-[14rem_1fr]">
+                    <div className="grid gap-3 md:grid-cols-[16rem_1fr]">
                       <div className="space-y-2">
-                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="customer-action-request-type">
-                          Request Type
-                        </label>
-                        <Select
-                          value={customerActionRequestType}
-                          onValueChange={(value) => {
-                            const nextType = value as CustomerActionRequestType;
-                            setCustomerActionRequestType(nextType);
-                            setCustomerActionMessage(getDefaultCustomerActionMessage(nextType));
-                            setCustomerActionError('');
-                            setCustomerActionMessageStatus('');
-                          }}
-                        >
-                          <SelectTrigger id="customer-action-request-type">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CUSTOMER_ACTION_REQUEST_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
+                        <p className="text-xs font-medium uppercase text-slate-500">Requested Items</p>
+                        <div className="space-y-2 rounded-md border border-slate-200 p-3">
+                          {CUSTOMER_ACTION_REQUEST_OPTIONS.map((option) => {
+                            const isChecked = customerActionRequestTypes.includes(option.value);
+
+                            return (
+                              <label key={option.value} className="flex cursor-pointer items-center gap-2 text-sm text-slate-900">
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    setCustomerActionRequestTypes((currentTypes) =>
+                                      checked
+                                        ? Array.from(new Set([...currentTypes, option.value]))
+                                        : currentTypes.filter((requestType) => requestType !== option.value)
+                                    );
+                                    setCustomerActionError('');
+                                    setCustomerActionMessageStatus('');
+                                  }}
+                                />
                                 {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-medium uppercase text-slate-500" htmlFor="customer-action-message">
@@ -1062,25 +1081,33 @@ const AdminStatus = () => {
                       <p className="text-sm text-slate-500">No customer action requests sent yet.</p>
                     ) : (
                       <div className="space-y-3">
-                        {customerActionRequests.map((request) => (
-                          <div key={request.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                            <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-medium text-slate-900">
-                                  {getCustomerActionRequestLabel(request.request_type)}
-                                </p>
-                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                  {formatStatusLabel(request.status)}
-                                </span>
+                        {customerActionRequests.map((request) => {
+                          const requestLabels = getCustomerActionRequestLabels(getStoredCustomerActionRequestTypes(request));
+
+                          return (
+                            <div key={request.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="flex flex-wrap gap-1">
+                                    {requestLabels.map((label) => (
+                                      <span key={label} className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                    {formatStatusLabel(request.status)}
+                                  </span>
+                                </div>
+                                <time className="text-xs text-slate-500">{formatDate(request.sent_at)}</time>
                               </div>
-                              <time className="text-xs text-slate-500">{formatDate(request.sent_at)}</time>
+                              <p className="whitespace-pre-wrap text-sm text-slate-900">{request.message}</p>
+                              <p className="mt-2 text-xs text-slate-500">
+                                Sent to {request.customer_email} by {request.created_by}
+                              </p>
                             </div>
-                            <p className="whitespace-pre-wrap text-sm text-slate-900">{request.message}</p>
-                            <p className="mt-2 text-xs text-slate-500">
-                              Sent to {request.customer_email} by {request.created_by}
-                            </p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

@@ -20,6 +20,7 @@ interface CustomerActionRequestBody {
   customerName?: string;
   quoteId?: string | null;
   requestType?: string;
+  requestTypes?: string[];
   message?: string;
 }
 
@@ -102,24 +103,33 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
   }
 
-  const { customerEmail, customerName, quoteId, requestType, message } = parseBody(req.body);
+  const { customerEmail, customerName, quoteId, requestType, requestTypes, message } = parseBody(req.body);
   const trimmedCustomerEmail = customerEmail?.trim();
   const trimmedMessage = message?.trim();
-  const trimmedRequestType = requestType?.trim();
+  const selectedRequestTypes = Array.isArray(requestTypes)
+    ? Array.from(new Set(requestTypes.map((type) => type.trim()).filter(Boolean)))
+    : requestType?.trim()
+      ? [requestType.trim()]
+      : [];
 
   if (!trimmedCustomerEmail) {
     return res.status(400).json({ error: 'Missing customerEmail' });
   }
 
-  if (!trimmedRequestType) {
-    return res.status(400).json({ error: 'Missing requestType' });
+  if (selectedRequestTypes.length === 0) {
+    return res.status(400).json({ error: 'Missing requestTypes' });
   }
 
   if (!trimmedMessage) {
     return res.status(400).json({ error: 'Missing message' });
   }
 
-  const requestLabel = formatRequestType(trimmedRequestType);
+  const requestLabels = selectedRequestTypes.map(formatRequestType);
+  const requestLabelText = requestLabels.join(', ');
+  const requestListHtml = requestLabels
+    .map((label) => `<li style="margin:6px 0;">${escapeHtml(label)}</li>`)
+    .join('');
+  const requestListText = requestLabels.map((label) => `- ${label}`).join('\n');
   const greetingName = customerName?.trim() || 'there';
   const subject = `Action needed for your SlapWrapz quote${quoteId ? ` ${quoteId}` : ''}`;
   const html = `
@@ -132,9 +142,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
         <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
           <p style="margin:0 0 12px;">Hi ${escapeHtml(greetingName)},</p>
-          <p style="margin:0 0 12px;">We reviewed your wrap request and need one more item to move your quote forward. Please reply to this email with the requested information or files.</p>
-          <p style="margin:0 0 8px;color:#64748b;font-size:14px;">Requested item:</p>
-          <p style="margin:0 0 16px;font-weight:700;color:#0f172a;">${escapeHtml(requestLabel)}</p>
+          <p style="margin:0 0 12px;">We reviewed your wrap request and need a few more items to move your quote forward. Please reply to this email with the requested information or files.</p>
+          <p style="margin:0 0 8px;color:#64748b;font-size:14px;">Requested items:</p>
+          <ul style="margin:0 0 16px;padding-left:20px;font-weight:700;color:#0f172a;">${requestListHtml}</ul>
           <div style="white-space:pre-wrap;padding:16px;border-radius:12px;background:#f8fafc;border:1px solid #e5e7eb;color:#0f172a;">${escapeHtml(trimmedMessage)}</div>
         </div>
 
@@ -146,7 +156,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     console.log('customer action request email attempt started:', {
       toDomain: trimmedCustomerEmail.includes('@') ? trimmedCustomerEmail.split('@').pop() : 'unknown',
-      requestType: trimmedRequestType,
+      requestTypes: selectedRequestTypes,
       quoteId: quoteId || 'none'
     });
     await sendEmail(apiKey, {
@@ -154,7 +164,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       to: trimmedCustomerEmail,
       subject,
       html,
-      text: `Hi ${greetingName}, we reviewed your wrap request and need one more item to move your quote forward. Please reply to this email with the requested information or files.\n\nRequested item: ${requestLabel}\n\n${trimmedMessage}`
+      text: `Hi ${greetingName}, we reviewed your wrap request and need a few more items to move your quote forward. Please reply to this email with the requested information or files.\n\nRequested items:\n${requestListText}\n\n${trimmedMessage}`
     });
     console.log('customer action request email result: sent');
 
