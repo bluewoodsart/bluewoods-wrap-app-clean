@@ -14,6 +14,7 @@ interface FileUploadProps {
   title?: string;
   showCameraButton?: boolean;
   additionalTags?: string[];
+  enforceMaxFilesError?: boolean;
 }
 
 interface UploadedFile {
@@ -34,7 +35,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxFileSizeMB = 50,
   title = "Upload Your Files",
   showCameraButton = true,
-  additionalTags = []
+  additionalTags = [],
+  enforceMaxFilesError = false
 }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -60,6 +62,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (!files.length) return;
 
     const maxFileSizeBytes = maxFileSizeMB * 1024 * 1024;
+    const remainingFileSlots = maxFiles - uploadedFiles.length;
+    if (enforceMaxFilesError && files.length > remainingFileSlots) {
+      setError(`You can upload up to ${maxFiles} files in one upload session. Please choose ${remainingFileSlots} or fewer file(s).`);
+      setSuccess(null);
+      return;
+    }
+
     const oversizedFiles = Array.from(files).filter((file) => file.size > maxFileSizeBytes);
 
     if (oversizedFiles.length) {

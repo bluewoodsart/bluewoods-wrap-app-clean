@@ -187,10 +187,11 @@ const UploadAssets = () => {
                   onFilesUploaded={attachUploadedFiles}
                   acceptedTypes="image/*,.pdf,.ai,.eps,.svg,.psd"
                   maxFiles={20}
-                  maxFileSizeMB={50}
+                  maxFileSizeMB={25}
                   title="Upload Requested Files"
                   showCameraButton={true}
                   additionalTags={uploadTags}
+                  enforceMaxFilesError={true}
                 />
 
                 {attaching && (

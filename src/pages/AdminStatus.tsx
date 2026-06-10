@@ -1552,6 +1552,11 @@ const AdminStatus = () => {
                 <section className="space-y-4">
                   <div>
                     <h3 className="mb-3 text-sm font-semibold text-slate-950">Uploaded Customer Files</h3>
+                    {uploadedFiles.length > 20 && (
+                      <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+                        Large upload set — review required.
+                      </div>
+                    )}
                     <FileList files={uploadedFiles} />
                   </div>
                   <div>
