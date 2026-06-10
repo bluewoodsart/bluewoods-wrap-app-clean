@@ -212,6 +212,22 @@ const parseBody = (body: unknown): QuoteEmailRequest => {
   return (body ?? {}) as QuoteEmailRequest;
 };
 
+const sendLoggedEmail = async (apiKey: string, label: 'customer' | 'business', payload: Record<string, unknown>) => {
+  console.log(`${label} email attempt started:`, {
+    toDomain: getEmailDomain(payload.to),
+    ccDomain: getEmailDomain(payload.cc),
+    subject: payload.subject
+  });
+
+  try {
+    await sendEmail(apiKey, label, payload);
+    console.log(`${label} email result: sent`);
+  } catch (error) {
+    console.error(`${label} email error:`, error instanceof Error ? error.message : error);
+    throw error;
+  }
+};
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -348,24 +364,39 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       toDomain: getEmailDomain(leadRecipient),
       ccDomain: leadCc ? getEmailDomain(leadCc) : 'none'
     });
-    await Promise.all([
-      sendEmail(apiKey, 'customer', {
-        from: FROM_EMAIL,
-        to: customerEmail,
-        subject: 'We received your wrap quote request',
-        html: customerHtml,
-        text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
-      }),
-      sendEmail(apiKey, 'business', {
+    const emailResults = await Promise.allSettled([
+      sendLoggedEmail(apiKey, 'business', {
         from: FROM_EMAIL,
         to: leadRecipient,
         ...(leadCc ? { cc: leadCc } : {}),
         subject: 'New SlapWrapz quote request',
         html: businessHtml,
         text: `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`
+      }),
+      sendLoggedEmail(apiKey, 'customer', {
+        from: FROM_EMAIL,
+        to: customerEmail,
+        subject: 'We received your wrap quote request',
+        html: customerHtml,
+        text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
       })
     ]);
 
+    const failedEmails = emailResults
+      .map((result, index) => ({ result, label: index === 0 ? 'business' : 'customer' }))
+      .filter(({ result }) => result.status === 'rejected');
+
+    if (failedEmails.length > 0) {
+      console.error('Quote email send failed:', {
+        failedEmails: failedEmails.map(({ label }) => label)
+      });
+      return res.status(502).json({
+        error: 'Email send failed',
+        failedEmails: failedEmails.map(({ label }) => label)
+      });
+    }
+
+    console.log('Quote email send completed: customer and business emails sent.');
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error(error);
