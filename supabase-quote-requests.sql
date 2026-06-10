@@ -75,6 +75,29 @@ create table if not exists public.quote_follow_up_tasks (
 create index if not exists quote_follow_up_tasks_quote_request_id_status_due_date_idx
   on public.quote_follow_up_tasks (quote_request_id, status, due_date);
 
+create table if not exists public.quote_customer_action_requests (
+  id uuid primary key default gen_random_uuid(),
+  quote_request_id uuid not null references public.quote_requests(id) on delete cascade,
+  request_type text not null check (
+    request_type in (
+      'vehicle_photos',
+      'logo_artwork',
+      'better_quality_artwork',
+      'measurements',
+      'other'
+    )
+  ),
+  message text not null,
+  customer_email text not null,
+  status text not null default 'sent' check (status in ('sent', 'completed', 'canceled')),
+  created_by text not null default 'Staff',
+  created_at timestamptz not null default now(),
+  sent_at timestamptz not null default now()
+);
+
+create index if not exists quote_customer_action_requests_quote_request_id_created_at_idx
+  on public.quote_customer_action_requests (quote_request_id, created_at desc);
+
 create table if not exists public.customer_files (
   id uuid primary key default gen_random_uuid(),
   project_id uuid,
@@ -111,6 +134,7 @@ alter table public.quote_requests enable row level security;
 alter table public.quote_status_events enable row level security;
 alter table public.quote_internal_notes enable row level security;
 alter table public.quote_follow_up_tasks enable row level security;
+alter table public.quote_customer_action_requests enable row level security;
 alter table public.customer_files enable row level security;
 
 drop policy if exists "Allow public quote request inserts" on public.quote_requests;
@@ -523,6 +547,164 @@ end;
 $$;
 
 grant execute on function public.complete_quote_follow_up_task_admin(uuid) to anon;
+
+drop function if exists public.get_quote_customer_action_requests_admin(uuid);
+create or replace function public.get_quote_customer_action_requests_admin(
+  p_quote_request_id uuid
+)
+returns table (
+  id uuid,
+  quote_request_id uuid,
+  request_type text,
+  message text,
+  customer_email text,
+  status text,
+  created_by text,
+  created_at timestamptz,
+  sent_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    qcar.id,
+    qcar.quote_request_id,
+    qcar.request_type,
+    qcar.message,
+    qcar.customer_email,
+    qcar.status,
+    qcar.created_by,
+    qcar.created_at,
+    qcar.sent_at
+  from public.quote_customer_action_requests qcar
+  where qcar.quote_request_id = p_quote_request_id
+  order by qcar.created_at desc;
+$$;
+
+grant execute on function public.get_quote_customer_action_requests_admin(uuid) to anon;
+
+drop function if exists public.create_quote_customer_action_request_admin(uuid, text, text, text, boolean);
+create or replace function public.create_quote_customer_action_request_admin(
+  p_quote_request_id uuid,
+  p_request_type text,
+  p_message text,
+  p_customer_email text,
+  p_create_follow_up boolean default true
+)
+returns table (
+  id uuid,
+  quote_request_id uuid,
+  request_type text,
+  message text,
+  customer_email text,
+  status text,
+  created_by text,
+  created_at timestamptz,
+  sent_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_quote_status text;
+  v_request_label text;
+begin
+  if p_request_type not in (
+    'vehicle_photos',
+    'logo_artwork',
+    'better_quality_artwork',
+    'measurements',
+    'other'
+  ) then
+    raise exception 'Invalid customer action request type: %', p_request_type;
+  end if;
+
+  if trim(coalesce(p_message, '')) = '' then
+    raise exception 'Customer action request message cannot be empty.';
+  end if;
+
+  if trim(coalesce(p_customer_email, '')) = '' then
+    raise exception 'Customer email is required.';
+  end if;
+
+  select qr.status
+  into v_quote_status
+  from public.quote_requests qr
+  where qr.id = p_quote_request_id;
+
+  if v_quote_status is null then
+    raise exception 'Quote request not found: %', p_quote_request_id;
+  end if;
+
+  v_request_label := case p_request_type
+    when 'vehicle_photos' then 'Vehicle photos'
+    when 'logo_artwork' then 'Logo / artwork'
+    when 'better_quality_artwork' then 'Better quality artwork'
+    when 'measurements' then 'Measurements'
+    else 'Other'
+  end;
+
+  return query
+  insert into public.quote_customer_action_requests (
+    quote_request_id,
+    request_type,
+    message,
+    customer_email,
+    created_by
+  )
+  values (
+    p_quote_request_id,
+    p_request_type,
+    trim(p_message),
+    trim(p_customer_email),
+    'Staff'
+  )
+  returning
+    quote_customer_action_requests.id,
+    quote_customer_action_requests.quote_request_id,
+    quote_customer_action_requests.request_type,
+    quote_customer_action_requests.message,
+    quote_customer_action_requests.customer_email,
+    quote_customer_action_requests.status,
+    quote_customer_action_requests.created_by,
+    quote_customer_action_requests.created_at,
+    quote_customer_action_requests.sent_at;
+
+  insert into public.quote_status_events (
+    quote_request_id,
+    event_type,
+    status,
+    message
+  )
+  values (
+    p_quote_request_id,
+    'customer_action_requested',
+    v_quote_status,
+    'Customer action requested: ' || v_request_label
+  );
+
+  if p_create_follow_up then
+    insert into public.quote_follow_up_tasks (
+      quote_request_id,
+      task_text,
+      due_date,
+      created_by
+    )
+    values (
+      p_quote_request_id,
+      'Check whether customer replied with requested item: ' || v_request_label,
+      current_date + 3,
+      'Staff'
+    );
+  end if;
+end;
+$$;
+
+grant execute on function public.create_quote_customer_action_request_admin(uuid, text, text, text, boolean) to anon;
+
+notify pgrst, 'reload schema';
 
 drop policy if exists "Allow public customer file inserts" on public.customer_files;
 create policy "Allow public customer file inserts"

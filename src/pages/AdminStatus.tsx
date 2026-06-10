@@ -42,7 +42,16 @@ const STATUS_OPTIONS = [
   'lost'
 ] as const;
 
+const CUSTOMER_ACTION_REQUEST_OPTIONS = [
+  { value: 'vehicle_photos', label: 'Vehicle photos' },
+  { value: 'logo_artwork', label: 'Logo / artwork' },
+  { value: 'better_quality_artwork', label: 'Better quality artwork' },
+  { value: 'measurements', label: 'Measurements' },
+  { value: 'other', label: 'Other' }
+] as const;
+
 type QuoteStatus = typeof STATUS_OPTIONS[number];
+type CustomerActionRequestType = typeof CUSTOMER_ACTION_REQUEST_OPTIONS[number]['value'];
 type QuoteData = Record<string, unknown>;
 
 interface UploadedFileSummary {
@@ -95,6 +104,26 @@ interface QuoteFollowUpTask {
   created_at: string;
   completed_at: string | null;
 }
+
+interface QuoteCustomerActionRequest {
+  id: string;
+  quote_request_id: string;
+  request_type: CustomerActionRequestType;
+  message: string;
+  customer_email: string;
+  status: string;
+  created_by: string;
+  created_at: string;
+  sent_at: string;
+}
+
+const getCustomerActionRequestLabel = (requestType: string) =>
+  CUSTOMER_ACTION_REQUEST_OPTIONS.find((option) => option.value === requestType)?.label || formatStatusLabel(requestType);
+
+const getDefaultCustomerActionMessage = (requestType: CustomerActionRequestType) => {
+  const requestLabel = getCustomerActionRequestLabel(requestType).toLowerCase();
+  return `We reviewed your wrap request and need one more item to move your quote forward. Please reply to this email with your ${requestLabel}.`;
+};
 
 const formatStatusLabel = (status: string) =>
   status
@@ -359,6 +388,13 @@ const AdminStatus = () => {
   const [completingFollowUpId, setCompletingFollowUpId] = useState<string | null>(null);
   const [followUpMessage, setFollowUpMessage] = useState('');
   const [followUpError, setFollowUpError] = useState('');
+  const [customerActionRequests, setCustomerActionRequests] = useState<QuoteCustomerActionRequest[]>([]);
+  const [loadingCustomerActions, setLoadingCustomerActions] = useState(false);
+  const [customerActionRequestType, setCustomerActionRequestType] = useState<CustomerActionRequestType>('vehicle_photos');
+  const [customerActionMessage, setCustomerActionMessage] = useState(getDefaultCustomerActionMessage('vehicle_photos'));
+  const [sendingCustomerAction, setSendingCustomerAction] = useState(false);
+  const [customerActionMessageStatus, setCustomerActionMessageStatus] = useState('');
+  const [customerActionError, setCustomerActionError] = useState('');
   const [pendingStatuses, setPendingStatuses] = useState<Record<string, QuoteStatus>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -453,6 +489,27 @@ const AdminStatus = () => {
     setFollowUpTasks(data ?? []);
   };
 
+  const loadCustomerActionRequests = async (quoteRequestId: string) => {
+    setLoadingCustomerActions(true);
+    setCustomerActionError('');
+
+    const { data, error: actionLoadError } = await supabase
+      .rpc('get_quote_customer_action_requests_admin', {
+        p_quote_request_id: quoteRequestId
+      });
+
+    setLoadingCustomerActions(false);
+
+    if (actionLoadError) {
+      console.error('Admin customer action requests load failed:', actionLoadError);
+      setCustomerActionError(actionLoadError.message);
+      setCustomerActionRequests([]);
+      return;
+    }
+
+    setCustomerActionRequests(data ?? []);
+  };
+
   const loadQuoteDetail = async (quoteRequestId: string) => {
     setLoadingDetail(true);
 
@@ -479,17 +536,23 @@ const AdminStatus = () => {
     setStatusEvents([]);
     setInternalNotes([]);
     setFollowUpTasks([]);
+    setCustomerActionRequests([]);
     setNewInternalNote('');
     setNewFollowUpTaskText('');
     setNewFollowUpDueDate('');
+    setCustomerActionRequestType('vehicle_photos');
+    setCustomerActionMessage(getDefaultCustomerActionMessage('vehicle_photos'));
     setNoteMessage('');
     setNoteError('');
     setFollowUpMessage('');
     setFollowUpError('');
+    setCustomerActionMessageStatus('');
+    setCustomerActionError('');
     void loadQuoteDetail(quote.id);
     void loadStatusEvents(quote.id);
     void loadInternalNotes(quote.id);
     void loadFollowUpTasks(quote.id);
+    void loadCustomerActionRequests(quote.id);
   };
 
   const saveInternalNote = async () => {
@@ -591,6 +654,78 @@ const AdminStatus = () => {
 
     setFollowUpMessage('Follow-up completed.');
     await loadFollowUpTasks(selectedQuote.id);
+  };
+
+  const sendCustomerActionRequest = async () => {
+    if (!selectedQuote || sendingCustomerAction) return;
+
+    const trimmedMessage = customerActionMessage.trim();
+    if (!trimmedMessage) {
+      setCustomerActionError('Add a message before sending.');
+      setCustomerActionMessageStatus('');
+      return;
+    }
+
+    if (!selectedQuote.customer_email) {
+      setCustomerActionError('This quote does not have a customer email.');
+      setCustomerActionMessageStatus('');
+      return;
+    }
+
+    setSendingCustomerAction(true);
+    setCustomerActionError('');
+    setCustomerActionMessageStatus('Sending customer request...');
+
+    const emailResponse = await fetch('/api/send-customer-action-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        customerEmail: selectedQuote.customer_email,
+        customerName: selectedQuote.customer_name,
+        quoteId: selectedQuote.quote_id,
+        requestType: customerActionRequestType,
+        message: trimmedMessage
+      })
+    });
+
+    if (!emailResponse.ok) {
+      const responseBody = await emailResponse.text();
+      console.error('Customer action request email failed:', {
+        status: emailResponse.status,
+        responseBody
+      });
+      setSendingCustomerAction(false);
+      setCustomerActionError('Email could not be sent. The request was not recorded.');
+      setCustomerActionMessageStatus('');
+      return;
+    }
+
+    const { error: recordError } = await supabase
+      .rpc('create_quote_customer_action_request_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_request_type: customerActionRequestType,
+        p_message: trimmedMessage,
+        p_customer_email: selectedQuote.customer_email,
+        p_create_follow_up: true
+      });
+
+    setSendingCustomerAction(false);
+
+    if (recordError) {
+      console.error('Customer action request record failed:', recordError);
+      setCustomerActionError('Email was sent, but the CRM record could not be saved.');
+      setCustomerActionMessageStatus('');
+      return;
+    }
+
+    setCustomerActionMessageStatus('Customer action request sent and recorded.');
+    await Promise.all([
+      loadStatusEvents(selectedQuote.id),
+      loadFollowUpTasks(selectedQuote.id),
+      loadCustomerActionRequests(selectedQuote.id)
+    ]);
   };
 
   const getSelectedStatus = (quote: QuoteRequestRow) =>
@@ -751,13 +886,18 @@ const AdminStatus = () => {
               setStatusEvents([]);
               setInternalNotes([]);
               setFollowUpTasks([]);
+              setCustomerActionRequests([]);
               setNewInternalNote('');
               setNewFollowUpTaskText('');
               setNewFollowUpDueDate('');
+              setCustomerActionRequestType('vehicle_photos');
+              setCustomerActionMessage(getDefaultCustomerActionMessage('vehicle_photos'));
               setNoteMessage('');
               setNoteError('');
               setFollowUpMessage('');
               setFollowUpError('');
+              setCustomerActionMessageStatus('');
+              setCustomerActionError('');
             }
           }}
         >
@@ -844,6 +984,106 @@ const AdminStatus = () => {
                       ))}
                     </div>
                   )}
+                </section>
+
+                <section>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer Action Request</h3>
+                  <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <div className="grid gap-3 md:grid-cols-[14rem_1fr]">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="customer-action-request-type">
+                          Request Type
+                        </label>
+                        <Select
+                          value={customerActionRequestType}
+                          onValueChange={(value) => {
+                            const nextType = value as CustomerActionRequestType;
+                            setCustomerActionRequestType(nextType);
+                            setCustomerActionMessage(getDefaultCustomerActionMessage(nextType));
+                            setCustomerActionError('');
+                            setCustomerActionMessageStatus('');
+                          }}
+                        >
+                          <SelectTrigger id="customer-action-request-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CUSTOMER_ACTION_REQUEST_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="customer-action-message">
+                          Message
+                        </label>
+                        <Textarea
+                          id="customer-action-message"
+                          value={customerActionMessage}
+                          onChange={(event) => {
+                            setCustomerActionMessage(event.target.value);
+                            setCustomerActionError('');
+                            setCustomerActionMessageStatus('');
+                          }}
+                          rows={4}
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-slate-500">
+                        Sends to {activeQuote.customer_email}. Customer should reply by email with the requested files or information.
+                      </p>
+                      <Button
+                        onClick={sendCustomerActionRequest}
+                        disabled={sendingCustomerAction || !customerActionMessage.trim()}
+                      >
+                        {sendingCustomerAction ? 'Sending...' : 'Send Request'}
+                      </Button>
+                    </div>
+                    {customerActionMessageStatus && (
+                      <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                        {customerActionMessageStatus}
+                      </div>
+                    )}
+                    {customerActionError && (
+                      <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {customerActionError}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    {loadingCustomerActions ? (
+                      <p className="text-sm text-slate-500">Loading customer action requests...</p>
+                    ) : customerActionRequests.length === 0 ? (
+                      <p className="text-sm text-slate-500">No customer action requests sent yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {customerActionRequests.map((request) => (
+                          <div key={request.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                            <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium text-slate-900">
+                                  {getCustomerActionRequestLabel(request.request_type)}
+                                </p>
+                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                  {formatStatusLabel(request.status)}
+                                </span>
+                              </div>
+                              <time className="text-xs text-slate-500">{formatDate(request.sent_at)}</time>
+                            </div>
+                            <p className="whitespace-pre-wrap text-sm text-slate-900">{request.message}</p>
+                            <p className="mt-2 text-xs text-slate-500">
+                              Sent to {request.customer_email} by {request.created_by}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </section>
 
                 <section>
