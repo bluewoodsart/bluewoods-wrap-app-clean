@@ -556,6 +556,84 @@ $$;
 
 grant execute on function public.complete_quote_follow_up_task_admin(uuid) to anon;
 
+drop function if exists public.get_admin_quote_follow_up_summaries();
+create or replace function public.get_admin_quote_follow_up_summaries()
+returns table (
+  quote_request_id uuid,
+  next_follow_up_task_id uuid,
+  next_follow_up_task_text text,
+  next_follow_up_due_date date,
+  open_follow_up_count integer,
+  overdue_follow_up_count integer,
+  due_today_follow_up_count integer,
+  upcoming_follow_up_count integer,
+  follow_up_bucket text
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with recent_quotes as (
+    select qr.id
+    from public.quote_requests qr
+    order by qr.created_at desc
+    limit 50
+  ),
+  open_tasks as (
+    select
+      qfut.id,
+      qfut.quote_request_id,
+      qfut.task_text,
+      qfut.due_date,
+      qfut.created_at
+    from public.quote_follow_up_tasks qfut
+    join recent_quotes rq on rq.id = qfut.quote_request_id
+    where qfut.status = 'open'
+  ),
+  ranked_tasks as (
+    select
+      ot.*,
+      row_number() over (
+        partition by ot.quote_request_id
+        order by ot.due_date asc, ot.created_at asc
+      ) as task_rank
+    from open_tasks ot
+  ),
+  counts as (
+    select
+      ot.quote_request_id,
+      count(*)::integer as open_follow_up_count,
+      count(*) filter (where ot.due_date < current_date)::integer as overdue_follow_up_count,
+      count(*) filter (where ot.due_date = current_date)::integer as due_today_follow_up_count,
+      count(*) filter (where ot.due_date > current_date)::integer as upcoming_follow_up_count
+    from open_tasks ot
+    group by ot.quote_request_id
+  )
+  select
+    rq.id as quote_request_id,
+    rt.id as next_follow_up_task_id,
+    rt.task_text as next_follow_up_task_text,
+    rt.due_date as next_follow_up_due_date,
+    coalesce(c.open_follow_up_count, 0) as open_follow_up_count,
+    coalesce(c.overdue_follow_up_count, 0) as overdue_follow_up_count,
+    coalesce(c.due_today_follow_up_count, 0) as due_today_follow_up_count,
+    coalesce(c.upcoming_follow_up_count, 0) as upcoming_follow_up_count,
+    case
+      when coalesce(c.overdue_follow_up_count, 0) > 0 then 'overdue'
+      when coalesce(c.due_today_follow_up_count, 0) > 0 then 'due_today'
+      when coalesce(c.open_follow_up_count, 0) > 0 then 'upcoming'
+      else 'none'
+    end as follow_up_bucket
+  from recent_quotes rq
+  left join ranked_tasks rt
+    on rt.quote_request_id = rq.id
+   and rt.task_rank = 1
+  left join counts c
+    on c.quote_request_id = rq.id;
+$$;
+
+grant execute on function public.get_admin_quote_follow_up_summaries() to anon;
+
 drop function if exists public.get_quote_customer_action_requests_admin(uuid);
 create or replace function public.get_quote_customer_action_requests_admin(
   p_quote_request_id uuid

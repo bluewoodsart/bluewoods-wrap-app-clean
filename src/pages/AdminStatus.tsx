@@ -54,6 +54,8 @@ const CUSTOMER_ACTION_REQUEST_OPTIONS = [
 type QuoteStatus = typeof STATUS_OPTIONS[number];
 type CustomerActionRequestType = typeof CUSTOMER_ACTION_REQUEST_OPTIONS[number]['value'];
 type QuoteData = Record<string, unknown>;
+type FollowUpBucket = 'overdue' | 'due_today' | 'upcoming' | 'none';
+type FollowUpFilter = 'all' | 'overdue' | 'due_today' | 'open' | 'none';
 
 interface UploadedFileSummary {
   id?: string;
@@ -107,6 +109,18 @@ interface QuoteFollowUpTask {
   completed_at: string | null;
 }
 
+interface QuoteFollowUpSummary {
+  quote_request_id: string;
+  next_follow_up_task_id: string | null;
+  next_follow_up_task_text: string | null;
+  next_follow_up_due_date: string | null;
+  open_follow_up_count: number;
+  overdue_follow_up_count: number;
+  due_today_follow_up_count: number;
+  upcoming_follow_up_count: number;
+  follow_up_bucket: FollowUpBucket;
+}
+
 interface QuoteCustomerActionRequest {
   id: string;
   quote_request_id: string;
@@ -158,6 +172,40 @@ const formatDueDate = (value: string) =>
     day: 'numeric',
     year: 'numeric'
   }).format(new Date(`${value}T00:00:00`));
+
+const FOLLOW_UP_FILTERS: Array<{ value: FollowUpFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'due_today', label: 'Due today' },
+  { value: 'open', label: 'Open follow-ups' },
+  { value: 'none', label: 'No follow-up' }
+];
+
+const getEmptyFollowUpSummary = (quoteRequestId: string): QuoteFollowUpSummary => ({
+  quote_request_id: quoteRequestId,
+  next_follow_up_task_id: null,
+  next_follow_up_task_text: null,
+  next_follow_up_due_date: null,
+  open_follow_up_count: 0,
+  overdue_follow_up_count: 0,
+  due_today_follow_up_count: 0,
+  upcoming_follow_up_count: 0,
+  follow_up_bucket: 'none'
+});
+
+const getFollowUpBucketLabel = (bucket: FollowUpBucket) => {
+  if (bucket === 'overdue') return 'Overdue';
+  if (bucket === 'due_today') return 'Due today';
+  if (bucket === 'upcoming') return 'Upcoming';
+  return 'No follow-up';
+};
+
+const getFollowUpBadgeClassName = (bucket: FollowUpBucket) => {
+  if (bucket === 'overdue') return 'bg-red-100 text-red-700';
+  if (bucket === 'due_today') return 'bg-amber-100 text-amber-800';
+  if (bucket === 'upcoming') return 'bg-blue-100 text-blue-700';
+  return 'bg-slate-100 text-slate-600';
+};
 
 const isFollowUpOverdue = (task: QuoteFollowUpTask) => {
   if (task.status !== 'open') return false;
@@ -402,6 +450,8 @@ const AdminStatus = () => {
   const [completingFollowUpId, setCompletingFollowUpId] = useState<string | null>(null);
   const [followUpMessage, setFollowUpMessage] = useState('');
   const [followUpError, setFollowUpError] = useState('');
+  const [followUpSummaries, setFollowUpSummaries] = useState<Record<string, QuoteFollowUpSummary>>({});
+  const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>('all');
   const [customerActionRequests, setCustomerActionRequests] = useState<QuoteCustomerActionRequest[]>([]);
   const [loadingCustomerActions, setLoadingCustomerActions] = useState(false);
   const [customerActionRequestTypes, setCustomerActionRequestTypes] = useState<CustomerActionRequestType[]>([]);
@@ -415,6 +465,25 @@ const AdminStatus = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const loadFollowUpSummaries = async () => {
+    const { data, error: summaryError } = await supabase
+      .rpc('get_admin_quote_follow_up_summaries');
+
+    if (summaryError) {
+      console.error('Admin follow-up summary load failed:', summaryError);
+      setError(summaryError.message);
+      setFollowUpSummaries({});
+      return;
+    }
+
+    const summariesByQuoteId = (data ?? []).reduce<Record<string, QuoteFollowUpSummary>>((summaries, summary) => {
+      summaries[summary.quote_request_id] = summary as QuoteFollowUpSummary;
+      return summaries;
+    }, {});
+
+    setFollowUpSummaries(summariesByQuoteId);
+  };
+
   const loadQuotes = async ({ clearMessage = true } = {}) => {
     setLoading(true);
     setError('');
@@ -425,16 +494,17 @@ const AdminStatus = () => {
     const { data, error: loadError } = await supabase
       .rpc('get_admin_quote_requests');
 
-    setLoading(false);
-
     if (loadError) {
       console.error('Admin status quote load failed:', loadError);
       setError(loadError.message);
+      setLoading(false);
       return;
     }
 
     setQuotes(data ?? []);
     setPendingStatuses({});
+    await loadFollowUpSummaries();
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -680,7 +750,10 @@ const AdminStatus = () => {
     setNewFollowUpTaskText('');
     setNewFollowUpDueDate('');
     setFollowUpMessage('Follow-up saved.');
-    await loadFollowUpTasks(selectedQuote.id);
+    await Promise.all([
+      loadFollowUpTasks(selectedQuote.id),
+      loadFollowUpSummaries()
+    ]);
   };
 
   const completeFollowUpTask = async (taskId: string) => {
@@ -705,7 +778,10 @@ const AdminStatus = () => {
     }
 
     setFollowUpMessage('Follow-up completed.');
-    await loadFollowUpTasks(selectedQuote.id);
+    await Promise.all([
+      loadFollowUpTasks(selectedQuote.id),
+      loadFollowUpSummaries()
+    ]);
   };
 
   const sendCustomerActionRequest = async () => {
@@ -784,7 +860,8 @@ const AdminStatus = () => {
     await Promise.all([
       loadStatusEvents(selectedQuote.id),
       loadFollowUpTasks(selectedQuote.id),
-      loadCustomerActionRequests(selectedQuote.id)
+      loadCustomerActionRequests(selectedQuote.id),
+      loadFollowUpSummaries()
     ]);
   };
 
@@ -835,6 +912,48 @@ const AdminStatus = () => {
     await loadQuotes({ clearMessage: false });
   };
 
+  const getFollowUpSummaryForQuote = (quoteId: string) =>
+    followUpSummaries[quoteId] || getEmptyFollowUpSummary(quoteId);
+
+  const followUpCounts = quotes.reduce(
+    (counts, quote) => {
+      const summary = getFollowUpSummaryForQuote(quote.id);
+
+      if (summary.follow_up_bucket === 'overdue') {
+        counts.overdue += 1;
+      }
+
+      if (summary.follow_up_bucket === 'due_today') {
+        counts.dueToday += 1;
+      }
+
+      if (summary.follow_up_bucket !== 'none') {
+        counts.open += 1;
+      } else {
+        counts.none += 1;
+      }
+
+      return counts;
+    },
+    { overdue: 0, dueToday: 0, open: 0, none: 0 }
+  );
+
+  const getFollowUpFilterCount = (filter: FollowUpFilter) => {
+    if (filter === 'overdue') return followUpCounts.overdue;
+    if (filter === 'due_today') return followUpCounts.dueToday;
+    if (filter === 'open') return followUpCounts.open;
+    if (filter === 'none') return followUpCounts.none;
+    return quotes.length;
+  };
+
+  const filteredQuotes = quotes.filter((quote) => {
+    const summary = getFollowUpSummaryForQuote(quote.id);
+
+    if (followUpFilter === 'all') return true;
+    if (followUpFilter === 'open') return summary.follow_up_bucket !== 'none';
+    return summary.follow_up_bucket === followUpFilter;
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -861,15 +980,52 @@ const AdminStatus = () => {
           </div>
         )}
 
+        <div className="grid gap-3 md:grid-cols-4">
+          {[
+            { filter: 'overdue' as FollowUpFilter, label: 'Overdue', count: followUpCounts.overdue, className: 'border-red-200 bg-red-50 text-red-800' },
+            { filter: 'due_today' as FollowUpFilter, label: 'Due today', count: followUpCounts.dueToday, className: 'border-amber-200 bg-amber-50 text-amber-900' },
+            { filter: 'open' as FollowUpFilter, label: 'Open follow-ups', count: followUpCounts.open, className: 'border-blue-200 bg-blue-50 text-blue-800' },
+            { filter: 'none' as FollowUpFilter, label: 'No follow-up set', count: followUpCounts.none, className: 'border-slate-200 bg-white text-slate-700' }
+          ].map((item) => (
+            <button
+              key={item.filter}
+              type="button"
+              onClick={() => setFollowUpFilter(item.filter)}
+              className={`rounded-lg border p-4 text-left shadow-sm transition hover:shadow ${
+                followUpFilter === item.filter ? 'ring-2 ring-blue-500' : ''
+              } ${item.className}`}
+            >
+              <p className="text-sm font-medium">{item.label}</p>
+              <p className="mt-1 text-3xl font-semibold">{item.count}</p>
+            </button>
+          ))}
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Recent Quote Requests</CardTitle>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <CardTitle className="text-lg">Recent Quote Requests</CardTitle>
+              <div className="flex flex-wrap gap-2">
+                {FOLLOW_UP_FILTERS.map((filter) => (
+                  <Button
+                    key={filter.value}
+                    size="sm"
+                    variant={followUpFilter === filter.value ? 'default' : 'outline'}
+                    onClick={() => setFollowUpFilter(filter.value)}
+                  >
+                    {filter.label} ({getFollowUpFilterCount(filter.value)})
+                  </Button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="py-10 text-center text-sm text-slate-600">Loading quote requests...</div>
             ) : quotes.length === 0 ? (
               <div className="py-10 text-center text-sm text-slate-600">No quote requests found.</div>
+            ) : filteredQuotes.length === 0 ? (
+              <div className="py-10 text-center text-sm text-slate-600">No quote requests match this follow-up filter.</div>
             ) : (
               <Table>
                 <TableHeader>
@@ -879,14 +1035,16 @@ const AdminStatus = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Rep Slug</TableHead>
                     <TableHead>Assigned Rep</TableHead>
+                    <TableHead>Follow-Up</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {quotes.map((quote) => {
+                  {filteredQuotes.map((quote) => {
                     const selectedStatus = getSelectedStatus(quote);
                     const isSaving = savingId === quote.id;
+                    const followUpSummary = getFollowUpSummaryForQuote(quote.id);
 
                     return (
                       <TableRow
@@ -899,6 +1057,23 @@ const AdminStatus = () => {
                         <TableCell>{quote.customer_email}</TableCell>
                         <TableCell>{quote.rep_slug || '-'}</TableCell>
                         <TableCell>{quote.assigned_rep_name || '-'}</TableCell>
+                        <TableCell>
+                          <div className="max-w-xs space-y-1">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpBadgeClassName(followUpSummary.follow_up_bucket)}`}
+                            >
+                              {getFollowUpBucketLabel(followUpSummary.follow_up_bucket)}
+                            </span>
+                            {followUpSummary.next_follow_up_task_text && followUpSummary.next_follow_up_due_date ? (
+                              <div className="space-y-0.5">
+                                <p className="line-clamp-2 text-sm text-slate-900">{followUpSummary.next_follow_up_task_text}</p>
+                                <p className="text-xs text-slate-500">Due {formatDueDate(followUpSummary.next_follow_up_due_date)}</p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-500">No open task</p>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <div className="space-y-1">
                             <Select
