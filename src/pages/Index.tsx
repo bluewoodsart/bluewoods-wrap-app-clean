@@ -24,11 +24,11 @@ const Index: React.FC<IndexProps> = () => {
         </Link>
 
         <nav className="flex items-center gap-2">
-          <Button variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white" disabled>
-            Login
+          <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+            <Link to="/login">Login</Link>
           </Button>
-          <Button className="bg-cyan-400 text-slate-950 hover:bg-cyan-300" disabled>
-            Register
+          <Button asChild className="bg-cyan-400 text-slate-950 hover:bg-cyan-300">
+            <Link to="/register">Register</Link>
           </Button>
         </nav>
       </header>
@@ -54,8 +54,8 @@ const Index: React.FC<IndexProps> = () => {
               <Button asChild className="h-12 bg-white text-base font-bold text-slate-950 hover:bg-slate-100">
                 <Link to="/banners">Get Banner Quote</Link>
               </Button>
-              <Button className="h-12 border border-white/30 bg-white/10 text-base font-bold text-white hover:bg-white/20" disabled>
-                Upload Artwork
+              <Button asChild className="h-12 border border-white/30 bg-white/10 text-base font-bold text-white hover:bg-white/20">
+                <Link to="/wraps">Start Quote to Upload</Link>
               </Button>
             </div>
 

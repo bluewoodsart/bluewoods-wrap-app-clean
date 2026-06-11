@@ -11,6 +11,8 @@ import ThankYou from "./pages/ThankYou";
 import AdminStatus from "./pages/AdminStatus";
 import FullProject from "./pages/FullProject";
 import UploadAssets from "./pages/UploadAssets";
+import LoginPlaceholder from "./pages/LoginPlaceholder";
+import RegisterPlaceholder from "./pages/RegisterPlaceholder";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import ShortIntakeFlow from "./components/ShortIntakeFlow";
 import BannerQuoteFlow from "./components/BannerQuoteFlow";
@@ -87,6 +89,8 @@ const App = () => {
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />
               <Route path="/full-project" element={<FullProject />} />
               <Route path="/banners" element={<BannerQuoteFlow />} />
+              <Route path="/login" element={<LoginPlaceholder />} />
+              <Route path="/register" element={<RegisterPlaceholder />} />
               <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
               <Route path="/admin-status" element={<AdminStatus />} />
               <Route path="/upload-assets/:token" element={<UploadAssets />} />
