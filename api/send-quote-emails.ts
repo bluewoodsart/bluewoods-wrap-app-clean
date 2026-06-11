@@ -1,9 +1,23 @@
 import { request } from 'node:https';
-import { SALES_REPS } from '../src/lib/salesReps';
 
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
 const BUSINESS_LEAD_EMAIL = 'quotes@slapwrapz.com';
+
+const SALES_REPS: Record<string, { name: string; email: string }> = {
+  ashley: {
+    name: 'Ashley',
+    email: 'abussey@gmail.com'
+  },
+  todd: {
+    name: 'Todd Wheeler',
+    email: 'trapstarcustoms@gmail.com'
+  },
+  test: {
+    name: 'Test Sales Rep',
+    email: 'pressplayadvertising@gmail.com'
+  }
+};
 
 interface ApiRequest {
   method?: string;
@@ -69,6 +83,34 @@ const getEmailDomain = (value: unknown) => {
   return email.includes('@') ? email.split('@').pop() || 'unknown' : 'unknown';
 };
 
+const getStringValue = (value: unknown) =>
+  typeof value === 'string' ? value.trim() : '';
+
+const getObjectValue = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+
+const getQuoteData = (quoteDetails: Record<string, unknown> = {}) =>
+  getObjectValue(quoteDetails.quote_data);
+
+const getBannerDetails = (quoteDetails: Record<string, unknown> = {}) => {
+  const quoteData = getQuoteData(quoteDetails);
+  return getObjectValue(quoteDetails.banner || quoteData.banner);
+};
+
+const isBannerQuote = (quoteDetails: Record<string, unknown> = {}) => {
+  const quoteData = getQuoteData(quoteDetails);
+  const productType = (
+    getStringValue(quoteDetails.product_type) ||
+    getStringValue(quoteDetails.productType) ||
+    getStringValue(quoteData.product_type) ||
+    getStringValue(quoteData.productType)
+  ).toLowerCase();
+
+  return productType === 'banner' || Object.keys(getBannerDetails(quoteDetails)).length > 0;
+};
+
 const section = (title: string, body: string) => `
   <div style="margin-top:20px;padding:18px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;">
     <h2 style="margin:0 0 12px;font-size:18px;color:#0f172a;">${escapeHtml(title)}</h2>
@@ -93,6 +135,63 @@ const detailRows = (items: Array<[string, unknown]>) => {
   return rows
     ? `<table style="border-collapse:collapse;width:100%;font-size:14px;"><tbody>${rows}</tbody></table>`
     : '<p style="margin:0;color:#64748b;">Not provided.</p>';
+};
+
+const getBannerDetailRows = (
+  quoteDetails: Record<string, unknown> = {},
+  uploadedFileCount?: number
+) => {
+  const banner = getBannerDetails(quoteDetails);
+
+  return detailRows([
+    ['Width', banner.width],
+    ['Height', banner.height],
+    ['Unit', banner.unit],
+    ['Quantity', banner.quantity],
+    ['Indoor / Outdoor', banner.indoorOutdoor],
+    ['Sides', banner.sides],
+    ['Grommets', banner.grommets],
+    ['Hemmed Edges', banner.hemmedEdges],
+    ['Pole Pockets', banner.polePockets],
+    ['Material Preference', banner.materialPreference],
+    ['Design Needed', banner.designNeeded],
+    ['Banner Text', banner.bannerText],
+    ['Brand Colors', banner.brandColors],
+    ['Deadline', banner.deadline],
+    ['Delivery Method', banner.deliveryMethod],
+    ['Notes', banner.notes],
+    ['Uploaded File Count', quoteDetails.uploadedFileCount ?? uploadedFileCount]
+  ]);
+};
+
+const getBannerDetailText = (
+  quoteDetails: Record<string, unknown> = {},
+  uploadedFileCount?: number
+) => {
+  const banner = getBannerDetails(quoteDetails);
+
+  return [
+    ['Width', banner.width],
+    ['Height', banner.height],
+    ['Unit', banner.unit],
+    ['Quantity', banner.quantity],
+    ['Indoor / Outdoor', banner.indoorOutdoor],
+    ['Sides', banner.sides],
+    ['Grommets', banner.grommets],
+    ['Hemmed Edges', banner.hemmedEdges],
+    ['Pole Pockets', banner.polePockets],
+    ['Material Preference', banner.materialPreference],
+    ['Design Needed', banner.designNeeded],
+    ['Banner Text', banner.bannerText],
+    ['Brand Colors', banner.brandColors],
+    ['Deadline', banner.deadline],
+    ['Delivery Method', banner.deliveryMethod],
+    ['Notes', banner.notes],
+    ['Uploaded File Count', quoteDetails.uploadedFileCount ?? uploadedFileCount]
+  ]
+    .map(([label, value]) => [label, formatSimpleValue(value)] as [string, string])
+    .filter(([, value]) => value.trim().length > 0)
+    .map(([label, value]) => `${label}: ${value}`);
 };
 
 const getManualVehicleDescription = (quoteDetails: Record<string, unknown> = {}) =>
@@ -202,6 +301,24 @@ const parseBody = (body: unknown): QuoteEmailRequest => {
   return (body ?? {}) as QuoteEmailRequest;
 };
 
+type EmailLabel = 'customer' | 'business' | 'sales rep';
+
+const sendLoggedEmail = async (apiKey: string, label: EmailLabel, payload: Record<string, unknown>) => {
+  console.log(`${label} email attempt started:`, {
+    toDomain: getEmailDomain(payload.to),
+    ccDomain: getEmailDomain(payload.cc),
+    subject: payload.subject
+  });
+
+  try {
+    await sendEmail(apiKey, label, payload);
+    console.log(`${label} email result: sent`);
+  } catch (error) {
+    console.error(`${label} email error:`, error instanceof Error ? error.message : error);
+    throw error;
+  }
+};
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -226,18 +343,35 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const customerName = contactInfo?.name || 'there';
-  const repSlug = typeof quoteDetails.repSlug === 'string'
-    ? quoteDetails.repSlug.trim().toLowerCase()
-    : '';
-  const assignedRep = repSlug ? SALES_REPS[repSlug] : undefined;
-  const leadRecipient = assignedRep?.email || BUSINESS_LEAD_EMAIL;
-  const leadCc = assignedRep ? BUSINESS_LEAD_EMAIL : undefined;
+  const repSlug = (
+    getStringValue(quoteDetails.repSlug) ||
+    getStringValue(quoteDetails.rep_slug)
+  ).toLowerCase();
+  const receivedRepEmail = getStringValue(quoteDetails.repEmail) || getStringValue(quoteDetails.rep_email);
+  const receivedRepName = getStringValue(quoteDetails.assignedRepName) || getStringValue(quoteDetails.assigned_rep_name);
+  const matchedRep = repSlug ? SALES_REPS[repSlug] : undefined;
+  const assignedRep = matchedRep || (
+    receivedRepEmail
+      ? {
+          name: receivedRepName || 'Assigned Sales Rep',
+          email: receivedRepEmail
+        }
+      : undefined
+  );
+
+  console.log('Received rep fields:', {
+    repSlug: repSlug || 'none',
+    repEmailDomain: receivedRepEmail ? getEmailDomain(receivedRepEmail) : 'none',
+    assignedRepName: receivedRepName || 'none'
+  });
 
   // TODO: Remove temporary email debug logs after local rep attribution is confirmed.
   console.log('Sales rep attribution:', {
     repSlug: repSlug || 'none',
+    matchedRepKey: matchedRep ? repSlug : 'none',
     matched: assignedRep ? 'yes' : 'no',
-    selectedRepEmailDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none'
+    selectedRepEmailDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none',
+    repEmailTarget: assignedRep?.email || 'none'
   });
 
   const vehicle = getVehicle(quoteDetails);
@@ -245,40 +379,71 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const manualVehicleText = manualVehicleDescription
     ? ` Vehicle note: ${manualVehicleDescription}.`
     : '';
+  const isBannerRequest = isBannerQuote(quoteDetails);
+  const uploadedFileCount = uploadedFiles.length || Number(quoteDetails.uploadedFileCount) || 0;
+  const bannerDetails = getBannerDetailRows(quoteDetails, uploadedFileCount);
+  const bannerDetailText = getBannerDetailText(quoteDetails, uploadedFileCount);
 
-  const customerSummary = detailRows([
-    ['Selected Service', quoteDetails.selectedService],
-    ['Vehicle', vehicle.mainVehicle],
-    ['Manual Vehicle Description', vehicle.dropdownVehicle ? manualVehicleDescription : ''],
-    ['Project Goal', quoteDetails.goal],
-    ['Budget', quoteDetails.budget],
-    ['Uploaded File Count', quoteDetails.uploadedFileCount]
-  ]);
+  const customerSummary = isBannerRequest
+    ? bannerDetails
+    : detailRows([
+        ['Selected Service', quoteDetails.selectedService],
+        ['Vehicle', vehicle.mainVehicle],
+        ['Manual Vehicle Description', vehicle.dropdownVehicle ? manualVehicleDescription : ''],
+        ['Project Goal', quoteDetails.goal],
+        ['Budget', quoteDetails.budget],
+        ['Uploaded File Count', quoteDetails.uploadedFileCount]
+      ]);
 
-  const customerHtml = `
-    <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
-      <div style="max-width:680px;margin:0 auto;">
-        <div style="padding:24px;border-radius:16px;background:#0f4fa8;color:#ffffff;">
-          <h1 style="margin:0;font-size:26px;">SlapWrapz</h1>
-          <p style="margin:8px 0 0;font-size:16px;">We received your wrap quote request.</p>
+  const customerHtml = isBannerRequest
+    ? `
+      <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+        <div style="max-width:680px;margin:0 auto;">
+          <div style="padding:24px;border-radius:16px;background:#0f4fa8;color:#ffffff;">
+            <h1 style="margin:0;font-size:26px;">Blue Woods Brands</h1>
+            <p style="margin:8px 0 0;font-size:16px;">We received your banner quote request.</p>
+          </div>
+
+          <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
+            <p style="margin:0 0 12px;">Hi ${escapeHtml(customerName)},</p>
+            <p style="margin:0 0 12px;">Thanks for reaching out. Blue Woods Brands received your banner quote request and our team will review the size, quantity, artwork/files, deadline, and design needs.</p>
+            <p style="margin:0;">If we need more information, we may send a customer action request or a secure upload link so we can keep your project moving.</p>
+          </div>
+
+          ${section('Your Banner Request Summary', customerSummary)}
+
+          <div style="margin-top:20px;padding:18px;border-radius:12px;background:#ecfdf5;border:1px solid #bbf7d0;">
+            <p style="margin:0;color:#065f46;"><strong>What happens next:</strong> A team member will review your banner details and follow up with the next step.</p>
+          </div>
+
+          <p style="margin:20px 0 0;color:#475569;font-size:14px;">Thank you for choosing Blue Woods Brands for your printed brand experience.</p>
         </div>
-
-        <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
-          <p style="margin:0 0 12px;">Hi ${escapeHtml(customerName)},</p>
-          <p style="margin:0 0 12px;">Thanks for reaching out. We received your quote request and our team will review the details, vehicle information, and uploaded files.</p>
-          <p style="margin:0;">Someone will follow up shortly with next steps.</p>
-        </div>
-
-        ${section('Your Request Summary', customerSummary)}
-
-        <div style="margin-top:20px;padding:18px;border-radius:12px;background:#ecfdf5;border:1px solid #bbf7d0;">
-          <p style="margin:0;color:#065f46;"><strong>What happens next:</strong> Please check your email to confirm your details. A team member will review your request and contact you with the next step.</p>
-        </div>
-
-        <p style="margin:20px 0 0;color:#475569;font-size:14px;">Thank you for choosing SlapWrapz by Blue Woods Brands.</p>
       </div>
-    </div>
-  `;
+    `
+    : `
+      <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+        <div style="max-width:680px;margin:0 auto;">
+          <div style="padding:24px;border-radius:16px;background:#0f4fa8;color:#ffffff;">
+            <h1 style="margin:0;font-size:26px;">SlapWrapz</h1>
+            <p style="margin:8px 0 0;font-size:16px;">We received your wrap quote request.</p>
+          </div>
+
+          <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
+            <p style="margin:0 0 12px;">Hi ${escapeHtml(customerName)},</p>
+            <p style="margin:0 0 12px;">Thanks for reaching out. We received your quote request and our team will review the details, vehicle information, and uploaded files.</p>
+            <p style="margin:0;">Someone will follow up shortly with next steps.</p>
+          </div>
+
+          ${section('Your Request Summary', customerSummary)}
+
+          <div style="margin-top:20px;padding:18px;border-radius:12px;background:#ecfdf5;border:1px solid #bbf7d0;">
+            <p style="margin:0;color:#065f46;"><strong>What happens next:</strong> Please check your email to confirm your details. A team member will review your request and contact you with the next step.</p>
+          </div>
+
+          <p style="margin:20px 0 0;color:#475569;font-size:14px;">Thank you for choosing SlapWrapz by Blue Woods Brands.</p>
+        </div>
+      </div>
+    `;
 
   const customerInfo = detailRows([
     ['Name', contactInfo?.name],
@@ -316,7 +481,20 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ['Uploaded File Count', quoteDetails.uploadedFileCount]
   ]);
 
-  const businessHtml = `
+  const businessHtml = isBannerRequest ? `
+    <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+      <div style="max-width:760px;margin:0 auto;">
+        <div style="padding:24px;border-radius:16px;background:#111827;color:#ffffff;">
+          <h1 style="margin:0;font-size:24px;">New Banner Quote Request</h1>
+          <p style="margin:8px 0 0;color:#d1d5db;">A new banner quote request was submitted through Blue Woods Brands.</p>
+        </div>
+
+        ${section('Customer Info', customerInfo)}
+        ${section('Banner Details', bannerDetails)}
+        ${section('Uploaded Files', uploadedFileList(uploadedFiles))}
+      </div>
+    </div>
+  ` : `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:760px;margin:0 auto;">
         <div style="padding:24px;border-radius:16px;background:#111827;color:#ffffff;">
@@ -333,29 +511,133 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     </div>
   `;
 
+  const repLeadSummary = isBannerRequest
+    ? detailRows([
+        ['Quote ID', quoteDetails.quoteId],
+        ['Customer Name', contactInfo?.name],
+        ['Customer Email', contactInfo?.email],
+        ['Customer Phone', contactInfo?.phone],
+        ['Request Type', 'Banner Quote']
+      ])
+    : detailRows([
+        ['Quote ID', quoteDetails.quoteId],
+        ['Customer Name', contactInfo?.name],
+        ['Customer Email', contactInfo?.email],
+        ['Customer Phone', contactInfo?.phone],
+        ['Vehicle', vehicle.mainVehicle],
+        ['Selected Service', quoteDetails.selectedService],
+        ['Budget', quoteDetails.budget]
+      ]);
+
+  const repHtml = assignedRep ? `
+    <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+      <div style="max-width:720px;margin:0 auto;">
+        <div style="padding:24px;border-radius:16px;background:#0f172a;color:#ffffff;">
+          <h1 style="margin:0;font-size:24px;">${isBannerRequest ? 'New Banner Quote Request Assigned to You' : 'New SlapWrapz lead assigned to you'}</h1>
+          <p style="margin:8px 0 0;color:#d1d5db;">This quote was submitted with your sales rep link.</p>
+        </div>
+
+        <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
+          <p style="margin:0 0 12px;">Hi ${escapeHtml(assignedRep.name)},</p>
+          <p style="margin:0;">${isBannerRequest ? 'A new banner quote request was assigned to you. Customer and banner details are below.' : 'A new SlapWrapz quote request was assigned to you. Customer and project details are below.'}</p>
+        </div>
+
+        ${section('Lead Details', repLeadSummary)}
+        ${isBannerRequest ? section('Banner Details', bannerDetails) : ''}
+      </div>
+    </div>
+  ` : '';
+
   try {
     console.log('Business lead email routing:', {
-      toDomain: getEmailDomain(leadRecipient),
-      ccDomain: leadCc ? getEmailDomain(leadCc) : 'none'
+      toDomain: getEmailDomain(BUSINESS_LEAD_EMAIL),
+      ccDomain: 'none'
     });
-    await Promise.all([
-      sendEmail(apiKey, 'customer', {
-        from: FROM_EMAIL,
-        to: customerEmail,
-        subject: 'We received your wrap quote request',
-        html: customerHtml,
-        text: `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
-      }),
-      sendEmail(apiKey, 'business', {
-        from: FROM_EMAIL,
-        to: leadRecipient,
-        ...(leadCc ? { cc: leadCc } : {}),
-        subject: 'New SlapWrapz quote request',
-        html: businessHtml,
-        text: `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`
-      })
-    ]);
+    console.log('Sales rep lead email routing:', {
+      sendRepEmail: assignedRep ? 'yes' : 'no',
+      toDomain: assignedRep ? getEmailDomain(assignedRep.email) : 'none',
+      target: assignedRep?.email || 'none'
+    });
+    const emailJobs: Array<{ label: EmailLabel; job: Promise<void> }> = [
+      {
+        label: 'business',
+        job: sendLoggedEmail(apiKey, 'business', {
+          from: FROM_EMAIL,
+          to: BUSINESS_LEAD_EMAIL,
+          subject: isBannerRequest ? 'New Banner Quote Request' : 'New SlapWrapz quote request',
+          html: businessHtml,
+          text: isBannerRequest
+            ? [
+                `New Banner Quote Request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.`,
+                ...bannerDetailText
+              ].join('\n')
+            : `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`
+        })
+      },
+      {
+        label: 'customer',
+        job: sendLoggedEmail(apiKey, 'customer', {
+          from: FROM_EMAIL,
+          to: customerEmail,
+          subject: isBannerRequest ? 'We received your banner quote request' : 'We received your wrap quote request',
+          html: customerHtml,
+          text: isBannerRequest
+            ? `Hi ${customerName}, Blue Woods Brands received your banner quote request. Our team will review the banner size, quantity, artwork/files, deadline, and design needs. If we need more information, we may send a customer action request or secure upload link. A team member will follow up with the next step.`
+            : `Hi ${customerName}, we received your wrap quote request.${manualVehicleText} Check your email to confirm your details. A team member will review your request and contact you with the next step.`
+        })
+      }
+    ];
 
+    if (assignedRep) {
+      emailJobs.push({
+        label: 'sales rep',
+        job: sendLoggedEmail(apiKey, 'sales rep', {
+          from: FROM_EMAIL,
+          to: assignedRep.email,
+          subject: isBannerRequest ? 'New Banner Quote Request assigned to you' : 'New SlapWrapz lead assigned to you',
+          html: repHtml,
+          text: isBannerRequest
+            ? [
+                'New Banner Quote Request assigned to you.',
+                `Quote ID: ${formatSimpleValue(quoteDetails.quoteId) || 'not provided'}`,
+                `Customer: ${formatSimpleValue(contactInfo?.name) || 'not provided'}`,
+                `Email: ${customerEmail}`,
+                `Phone: ${formatSimpleValue(contactInfo?.phone) || 'not provided'}`,
+                ...bannerDetailText
+              ].join('\n')
+            : [
+                'New SlapWrapz lead assigned to you.',
+                `Quote ID: ${formatSimpleValue(quoteDetails.quoteId) || 'not provided'}`,
+                `Customer: ${formatSimpleValue(contactInfo?.name) || 'not provided'}`,
+                `Email: ${customerEmail}`,
+                `Phone: ${formatSimpleValue(contactInfo?.phone) || 'not provided'}`,
+                `Vehicle: ${vehicle.mainVehicle || 'not provided'}`,
+                `Service: ${formatSimpleValue(quoteDetails.selectedService) || 'not provided'}`,
+                `Budget: ${formatSimpleValue(quoteDetails.budget) || 'not provided'}`
+              ].join('\n')
+        })
+      });
+    }
+
+    const emailResults = await Promise.allSettled(emailJobs.map(({ job }) => job));
+
+    const failedEmails = emailResults
+      .map((result, index) => ({ result, label: emailJobs[index].label }))
+      .filter(({ result }) => result.status === 'rejected');
+
+    if (failedEmails.length > 0) {
+      console.error('Quote email send failed:', {
+        failedEmails: failedEmails.map(({ label }) => label)
+      });
+      return res.status(502).json({
+        error: 'Email send failed',
+        failedEmails: failedEmails.map(({ label }) => label)
+      });
+    }
+
+    console.log('Quote email send completed:', {
+      sentEmails: emailJobs.map(({ label }) => label)
+    });
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error(error);

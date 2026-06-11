@@ -180,7 +180,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     }
 
     try {
-      await sendQuoteEmails(contactInfo, quoteDetails, uploadedFiles);
+      await sendQuoteEmails(contactInfo, { ...quoteDetails, ...repAttribution }, uploadedFiles);
     } catch (emailError) {
       console.error('Quote email send failed after quote save:', {
         error: emailError,
@@ -189,6 +189,8 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
         endpoint: '/api/send-quote-emails',
         localTestingNote: 'Use npx vercel dev for local API function testing; npm run dev only starts Vite.'
       });
+      setSubmitError('Your quote was saved, but the confirmation email could not be sent. Please try again or contact us directly.');
+      throw emailError;
     }
 
     navigate('/thank-you', {

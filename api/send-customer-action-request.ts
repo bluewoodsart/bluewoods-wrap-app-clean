@@ -1,0 +1,198 @@
+import { request } from 'node:https';
+
+const RESEND_API_URL = new URL('https://api.resend.com/emails');
+const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
+
+interface ApiRequest {
+  method?: string;
+  body: unknown;
+}
+
+interface ApiResponse {
+  setHeader: (name: string, value: string) => void;
+  status: (code: number) => {
+    json: (body: Record<string, unknown>) => void;
+  };
+}
+
+interface CustomerActionRequestBody {
+  customerEmail?: string;
+  customerName?: string;
+  quoteId?: string | null;
+  requestType?: string;
+  requestTypes?: string[];
+  message?: string;
+  uploadUrl?: string;
+}
+
+const escapeHtml = (value: unknown) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const formatRequestType = (requestType: string) =>
+  requestType
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+    .replace('Logo Artwork', 'Logo / Artwork');
+
+const parseBody = (body: unknown): CustomerActionRequestBody => {
+  if (typeof body === 'string') {
+    return JSON.parse(body) as CustomerActionRequestBody;
+  }
+
+  return (body ?? {}) as CustomerActionRequestBody;
+};
+
+const sendEmail = async (apiKey: string, payload: Record<string, unknown>) => {
+  if (RESEND_API_URL.protocol !== 'https:') {
+    throw new Error(`Invalid Resend API URL protocol: ${RESEND_API_URL.protocol}`);
+  }
+
+  const body = JSON.stringify(payload);
+
+  await new Promise<void>((resolve, reject) => {
+    const resendRequest = request(
+      RESEND_API_URL,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body).toString()
+        }
+      },
+      (response) => {
+        let responseBody = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => {
+          const statusCode = response.statusCode ?? 0;
+
+          if (statusCode < 200 || statusCode >= 300) {
+            reject(new Error(`Customer action request email failed: ${statusCode} ${responseBody}`));
+            return;
+          }
+
+          resolve();
+        });
+      }
+    );
+
+    resendRequest.on('error', reject);
+    resendRequest.write(body);
+    resendRequest.end();
+  });
+};
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error('RESEND_API_KEY missing.');
+    return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
+  }
+
+  const { customerEmail, customerName, quoteId, requestType, requestTypes, message, uploadUrl } = parseBody(req.body);
+  const trimmedCustomerEmail = customerEmail?.trim();
+  const trimmedMessage = message?.trim();
+  const trimmedUploadUrl = uploadUrl?.trim();
+  const selectedRequestTypes = Array.isArray(requestTypes)
+    ? Array.from(new Set(requestTypes.map((type) => type.trim()).filter(Boolean)))
+    : requestType?.trim()
+      ? [requestType.trim()]
+      : [];
+
+  if (!trimmedCustomerEmail) {
+    return res.status(400).json({ error: 'Missing customerEmail' });
+  }
+
+  if (selectedRequestTypes.length === 0) {
+    return res.status(400).json({ error: 'Missing requestTypes' });
+  }
+
+  if (!trimmedMessage) {
+    return res.status(400).json({ error: 'Missing message' });
+  }
+
+  const requestLabels = selectedRequestTypes.map(formatRequestType);
+  const requestLabelText = requestLabels.join(', ');
+  const requestListHtml = requestLabels
+    .map((label) => `<li style="margin:6px 0;">${escapeHtml(label)}</li>`)
+    .join('');
+  const requestListText = requestLabels.map((label) => `- ${label}`).join('\n');
+  const greetingName = customerName?.trim() || 'there';
+  const subject = `Action needed for your SlapWrapz quote${quoteId ? ` ${quoteId}` : ''}`;
+  const html = `
+    <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+      <div style="max-width:680px;margin:0 auto;">
+        <div style="padding:24px;border-radius:16px;background:#0f4fa8;color:#ffffff;">
+          <h1 style="margin:0;font-size:26px;">SlapWrapz</h1>
+          <p style="margin:8px 0 0;font-size:16px;">We need one more item for your wrap quote.</p>
+        </div>
+
+        <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
+          <p style="margin:0 0 12px;">Hi ${escapeHtml(greetingName)},</p>
+          <p style="margin:0 0 12px;">We reviewed your wrap request and need a few more items to move your quote forward.</p>
+          ${trimmedUploadUrl ? `
+            <p style="margin:0 0 16px;">Please upload the requested files here:</p>
+            <p style="margin:0 0 18px;">
+              <a href="${escapeHtml(trimmedUploadUrl)}" style="display:inline-block;border-radius:10px;background:#0f4fa8;color:#ffffff;padding:12px 18px;text-decoration:none;font-weight:700;">Upload requested files</a>
+            </p>
+            <p style="margin:0 0 12px;color:#64748b;font-size:14px;">If the button does not work, copy and paste this link into your browser:<br><a href="${escapeHtml(trimmedUploadUrl)}" style="color:#2563eb;">${escapeHtml(trimmedUploadUrl)}</a></p>
+          ` : `
+            <p style="margin:0 0 12px;">Please reply to this email with the requested information or files.</p>
+          `}
+          <p style="margin:0 0 12px;">You can also reply to this email with questions.</p>
+          <p style="margin:0 0 8px;color:#64748b;font-size:14px;">Requested items:</p>
+          <ul style="margin:0 0 16px;padding-left:20px;font-weight:700;color:#0f172a;">${requestListHtml}</ul>
+          <div style="white-space:pre-wrap;padding:16px;border-radius:12px;background:#f8fafc;border:1px solid #e5e7eb;color:#0f172a;">${escapeHtml(trimmedMessage)}</div>
+        </div>
+
+        <p style="margin:20px 0 0;color:#475569;font-size:14px;">Thank you for choosing SlapWrapz by Blue Woods Brands.</p>
+      </div>
+    </div>
+  `;
+
+  try {
+    console.log('customer action request email attempt started:', {
+      toDomain: trimmedCustomerEmail.includes('@') ? trimmedCustomerEmail.split('@').pop() : 'unknown',
+      requestTypes: selectedRequestTypes,
+      quoteId: quoteId || 'none',
+      hasUploadUrl: trimmedUploadUrl ? 'yes' : 'no'
+    });
+    await sendEmail(apiKey, {
+      from: FROM_EMAIL,
+      to: trimmedCustomerEmail,
+      subject,
+      html,
+      text: [
+        `Hi ${greetingName}, we reviewed your wrap request and need a few more items to move your quote forward.`,
+        trimmedUploadUrl ? `Please upload the requested files here: ${trimmedUploadUrl}` : 'Please reply to this email with the requested information or files.',
+        'You can also reply to this email with questions.',
+        '',
+        'Requested items:',
+        requestListText,
+        '',
+        trimmedMessage
+      ].join('\n')
+    });
+    console.log('customer action request email result: sent');
+
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error('customer action request email error:', error instanceof Error ? error.message : error);
+    return res.status(502).json({ error: 'Customer action request email failed' });
+  }
+}

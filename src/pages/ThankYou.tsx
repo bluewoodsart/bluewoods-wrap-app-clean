@@ -11,7 +11,7 @@ const ThankYou = () => {
   const location = useLocation();
   const state = location.state as ThankYouLocationState | null;
   const customerEmail = state?.customerEmail;
-  const thankYouImage = '/thankyou-your-information-has-been-saved-1/thankyou-your-information-has-been-saved-1.png';
+  const thankYouImage = '/thankyou-your-information-has-been-saved-1.png';
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">

@@ -11,8 +11,12 @@ export const SALES_REPS: Record<string, SalesRep> = {
     email: 'abussey@gmail.com'
   },
   todd: {
-    name: 'Todd',
-    email: 'todd@slapwrapz.com'
+    name: 'Todd Wheeler',
+    email: 'trapstarcustoms@gmail.com'
+  },
+  test: {
+    name: 'Test Sales Rep',
+    email: 'pressplayadvertising@gmail.com'
   }
 };
 
