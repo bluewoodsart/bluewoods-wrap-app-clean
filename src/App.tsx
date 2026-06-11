@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
@@ -19,6 +19,18 @@ import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 import { getStoredRepSlug } from "@/lib/repTracking";
 
 const queryClient = new QueryClient();
+
+const RootRoute = ({ isPreviewMode }: { isPreviewMode: boolean }) => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const repSlug = params.get('rep');
+
+  if (repSlug) {
+    return <Navigate to={`/wraps?${params.toString()}`} replace />;
+  }
+
+  return <Index isPreviewMode={isPreviewMode} />;
+};
 
 const App = () => {
   useEffect(() => {
@@ -70,7 +82,8 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index isPreviewMode={isPreviewMode} />} />
+              <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
+              <Route path="/wraps" element={<ShortIntakeFlow />} />
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />
               <Route path="/full-project" element={<FullProject />} />
               <Route path="/banners" element={<BannerQuoteFlow />} />
