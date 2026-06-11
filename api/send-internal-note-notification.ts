@@ -9,8 +9,8 @@ const SALES_REPS: Record<string, { name: string; email: string }> = {
     email: 'abussey@gmail.com'
   },
   todd: {
-    name: 'Todd',
-    email: 'todd@slapwrapz.com'
+    name: 'Todd Wheeler',
+    email: 'trapstarcustoms@gmail.com'
   },
   test: {
     name: 'Test Sales Rep',

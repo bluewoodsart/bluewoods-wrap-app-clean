@@ -77,6 +77,7 @@ interface QuoteRequestRow {
   rep_email: string | null;
   assigned_rep_name: string | null;
   status: string;
+  product_type?: string | null;
   quote_data: QuoteData | null;
   uploaded_files: UploadedFileSummary[] | string | null;
   created_at: string;
@@ -236,6 +237,32 @@ const getQuoteValue = (quote: QuoteRequestRow, keys: string | string[]) => {
   }
 
   return undefined;
+};
+
+const getProductType = (quote: QuoteRequestRow) => {
+  const storedProductType = typeof quote.product_type === 'string' ? quote.product_type.trim() : '';
+  const quoteDataProductType = getQuoteValue(quote, 'productType');
+
+  return (
+    storedProductType ||
+    (typeof quoteDataProductType === 'string' ? quoteDataProductType.trim() : '') ||
+    'wrap'
+  ).toLowerCase();
+};
+
+const getProductLabel = (quote: QuoteRequestRow) =>
+  getProductType(quote) === 'banner' ? 'Banner' : 'Wrap';
+
+const getProductBadgeClassName = (quote: QuoteRequestRow) =>
+  getProductType(quote) === 'banner'
+    ? 'bg-emerald-100 text-emerald-700'
+    : 'bg-blue-100 text-blue-700';
+
+const getBannerValue = (quote: QuoteRequestRow, key: string) => {
+  const banner = getQuoteValue(quote, 'banner');
+  if (!banner || typeof banner !== 'object') return undefined;
+
+  return (banner as Record<string, unknown>)[key];
 };
 
 const getVehicleText = (quote: QuoteRequestRow) => {
@@ -1059,6 +1086,7 @@ const AdminStatus = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Quote ID</TableHead>
+                    <TableHead>Product</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Rep Slug</TableHead>
@@ -1081,6 +1109,11 @@ const AdminStatus = () => {
                         onClick={() => openQuoteDetail(quote)}
                       >
                         <TableCell className="font-medium">{quote.quote_id || '-'}</TableCell>
+                        <TableCell>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getProductBadgeClassName(quote)}`}>
+                            {getProductLabel(quote)}
+                          </span>
+                        </TableCell>
                         <TableCell>{quote.customer_name}</TableCell>
                         <TableCell>{quote.customer_email}</TableCell>
                         <TableCell>{quote.rep_slug || '-'}</TableCell>
@@ -1171,6 +1204,7 @@ const AdminStatus = () => {
             const uploadedFiles = getUploadedFiles(activeQuote);
             const groupedFiles = getGroupedFiles(uploadedFiles);
             const hasArtworkOrLogo = groupedFiles.artworkFiles.length > 0;
+            const isBannerQuote = getProductType(activeQuote) === 'banner';
 
             return (
             <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -1195,6 +1229,7 @@ const AdminStatus = () => {
                     <DetailField label="Preferred Contact" value={activeQuote.preferred_contact} />
                     <DetailField label="Rep Slug" value={activeQuote.rep_slug} />
                     <DetailField label="Assigned Rep" value={activeQuote.assigned_rep_name} />
+                    <DetailField label="Product" value={getProductLabel(activeQuote)} />
                     <DetailField label="Current Status" value={formatStatusLabel(activeQuote.status)} />
                   </dl>
                 </section>
@@ -1221,6 +1256,34 @@ const AdminStatus = () => {
                     <DetailField label="Project Notes" value={getQuoteValue(activeQuote, ['goal', 'notes', 'projectNotes'])} />
                   </div>
                 </section>
+
+                {isBannerQuote && (
+                  <section>
+                    <h3 className="mb-3 text-sm font-semibold text-slate-950">Banner Details</h3>
+                    <dl className="grid gap-4 md:grid-cols-3">
+                      <DetailField label="Width" value={getBannerValue(activeQuote, 'width')} />
+                      <DetailField label="Height" value={getBannerValue(activeQuote, 'height')} />
+                      <DetailField label="Unit" value={getBannerValue(activeQuote, 'unit')} />
+                      <DetailField label="Quantity" value={getBannerValue(activeQuote, 'quantity')} />
+                      <DetailField label="Indoor / Outdoor" value={getBannerValue(activeQuote, 'indoorOutdoor')} />
+                      <DetailField label="Sides" value={getBannerValue(activeQuote, 'sides')} />
+                      <DetailField label="Grommets" value={getBannerValue(activeQuote, 'grommets')} />
+                      <DetailField label="Hemmed Edges" value={getBannerValue(activeQuote, 'hemmedEdges')} />
+                      <DetailField label="Pole Pockets" value={getBannerValue(activeQuote, 'polePockets')} />
+                      <DetailField label="Material Preference" value={getBannerValue(activeQuote, 'materialPreference')} />
+                      <DetailField label="Design Needed" value={getBannerValue(activeQuote, 'designNeeded')} />
+                      <DetailField label="Deadline" value={getBannerValue(activeQuote, 'deadline')} />
+                      <DetailField label="Delivery Method" value={getBannerValue(activeQuote, 'deliveryMethod')} />
+                    </dl>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <DetailField label="Banner Text" value={getBannerValue(activeQuote, 'bannerText')} />
+                      <DetailField label="Brand Colors" value={getBannerValue(activeQuote, 'brandColors')} />
+                    </div>
+                    <div className="mt-4">
+                      <DetailField label="Notes" value={getBannerValue(activeQuote, 'notes')} />
+                    </div>
+                  </section>
+                )}
 
                 <section>
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Activity Timeline</h3>

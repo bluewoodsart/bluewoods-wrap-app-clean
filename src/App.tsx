@@ -13,6 +13,7 @@ import FullProject from "./pages/FullProject";
 import UploadAssets from "./pages/UploadAssets";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import ShortIntakeFlow from "./components/ShortIntakeFlow";
+import BannerQuoteFlow from "./components/BannerQuoteFlow";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 import { getStoredRepSlug } from "@/lib/repTracking";
@@ -72,6 +73,7 @@ const App = () => {
               <Route path="/" element={<Index isPreviewMode={isPreviewMode} />} />
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />
               <Route path="/full-project" element={<FullProject />} />
+              <Route path="/banners" element={<BannerQuoteFlow />} />
               <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
               <Route path="/admin-status" element={<AdminStatus />} />
               <Route path="/upload-assets/:token" element={<UploadAssets />} />

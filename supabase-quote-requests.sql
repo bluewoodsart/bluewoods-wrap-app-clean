@@ -18,6 +18,7 @@ create table if not exists public.quote_requests (
   status text not null default 'new',
   status_updated_at timestamptz,
   last_status_email_sent_at timestamptz,
+  product_type text not null default 'wrap',
   source text not null default 'bluewoods-wrap-app',
   created_at timestamptz not null default now()
 );
@@ -33,10 +34,14 @@ alter table public.quote_requests
   add column if not exists rep_email text,
   add column if not exists assigned_rep_name text,
   add column if not exists status_updated_at timestamptz,
-  add column if not exists last_status_email_sent_at timestamptz;
+  add column if not exists last_status_email_sent_at timestamptz,
+  add column if not exists product_type text not null default 'wrap';
 
 create index if not exists quote_requests_rep_slug_idx
   on public.quote_requests (rep_slug);
+
+create index if not exists quote_requests_product_type_idx
+  on public.quote_requests (product_type);
 
 create table if not exists public.quote_status_events (
   id uuid primary key default gen_random_uuid(),
@@ -172,6 +177,7 @@ with check (
 );
 
 drop function if exists public.finalize_quote_request_public(text, text, text, text, text, text, text, text, jsonb, jsonb);
+drop function if exists public.finalize_quote_request_public(text, text, text, text, text, text, text, text, jsonb, jsonb, text);
 create or replace function public.finalize_quote_request_public(
   p_quote_id text,
   p_customer_name text,
@@ -182,7 +188,8 @@ create or replace function public.finalize_quote_request_public(
   p_rep_email text,
   p_assigned_rep_name text,
   p_quote_data jsonb,
-  p_uploaded_files jsonb
+  p_uploaded_files jsonb,
+  p_product_type text default 'wrap'
 )
 returns table (
   id uuid,
@@ -195,6 +202,7 @@ returns table (
   rep_email text,
   assigned_rep_name text,
   status text,
+  product_type text,
   quote_data jsonb,
   uploaded_files jsonb,
   created_at timestamptz
@@ -250,6 +258,7 @@ begin
       quote_data = coalesce(p_quote_data, '{}'::jsonb),
       uploaded_files = coalesce(p_uploaded_files, '[]'::jsonb),
       status = 'new',
+      product_type = coalesce(nullif(trim(p_product_type), ''), 'wrap'),
       source = 'bluewoods-wrap-app'
     where qr.id = v_partial_quote_request_id
     returning
@@ -263,6 +272,7 @@ begin
       qr.rep_email,
       qr.assigned_rep_name,
       qr.status,
+      qr.product_type,
       qr.quote_data,
       qr.uploaded_files,
       qr.created_at;
@@ -283,6 +293,7 @@ begin
     quote_data,
     uploaded_files,
     status,
+    product_type,
     source
   )
   values (
@@ -297,6 +308,7 @@ begin
     coalesce(p_quote_data, '{}'::jsonb),
     coalesce(p_uploaded_files, '[]'::jsonb),
     'new',
+    coalesce(nullif(trim(p_product_type), ''), 'wrap'),
     'bluewoods-wrap-app'
   )
   returning
@@ -310,13 +322,14 @@ begin
     quote_requests.rep_email,
     quote_requests.assigned_rep_name,
     quote_requests.status,
+    quote_requests.product_type,
     quote_requests.quote_data,
     quote_requests.uploaded_files,
     quote_requests.created_at;
 end;
 $$;
 
-grant execute on function public.finalize_quote_request_public(text, text, text, text, text, text, text, text, jsonb, jsonb) to anon;
+grant execute on function public.finalize_quote_request_public(text, text, text, text, text, text, text, text, jsonb, jsonb, text) to anon;
 
 drop function if exists public.get_admin_quote_requests();
 create or replace function public.get_admin_quote_requests()
@@ -331,6 +344,7 @@ returns table (
   rep_email text,
   assigned_rep_name text,
   status text,
+  product_type text,
   created_at timestamptz
 )
 language sql
@@ -348,6 +362,7 @@ as $$
     qr.rep_email,
     qr.assigned_rep_name,
     qr.status,
+    qr.product_type,
     qr.created_at
   from public.quote_requests qr
   order by qr.created_at desc
@@ -371,6 +386,7 @@ returns table (
   rep_email text,
   assigned_rep_name text,
   status text,
+  product_type text,
   quote_data jsonb,
   uploaded_files jsonb,
   created_at timestamptz
@@ -390,6 +406,7 @@ as $$
     qr.rep_email,
     qr.assigned_rep_name,
     qr.status,
+    qr.product_type,
     qr.quote_data,
     qr.uploaded_files,
     qr.created_at
