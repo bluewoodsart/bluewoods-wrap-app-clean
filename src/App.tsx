@@ -16,11 +16,14 @@ import RegisterPlaceholder from "./pages/RegisterPlaceholder";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import ShortIntakeFlow from "./components/ShortIntakeFlow";
 import BannerQuoteFlow from "./components/BannerQuoteFlow";
+import BrandChannelLanding from "./components/BrandChannelLanding";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
+import { getBrandChannel } from "@/lib/brandChannels";
 import { getStoredRepSlug } from "@/lib/repTracking";
 
 const queryClient = new QueryClient();
+const trapstarChannel = getBrandChannel('trapstar');
 
 const RootRoute = ({ isPreviewMode }: { isPreviewMode: boolean }) => {
   const location = useLocation();
@@ -85,6 +88,7 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
+              <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
               <Route path="/wraps" element={<ShortIntakeFlow />} />
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />
               <Route path="/full-project" element={<FullProject />} />
