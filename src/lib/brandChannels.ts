@@ -15,15 +15,15 @@ export const brandChannels: Record<string, BrandChannel> = {
   trapstar: {
     slug: 'trapstar',
     name: 'Trapstar Wraps',
-    eyebrow: 'Trapstar Wraps with Todd Wheeler',
+    eyebrow: 'Trapstar Wraps',
     parentBrand: 'Brought to you by Blue Woods Brands',
-    poweredBy: 'Powered by the SlapWrapz quote system',
+    poweredBy: '',
     repSlug: 'todd',
     wrapQuotePath: '/wraps?rep=todd',
     bannerQuotePath: '/banners?rep=todd',
-    headline: 'Wraps, banners, and brand visibility with Todd in your corner.',
+    headline: 'Wraps, banners, and brand visibility with Trapstar in your corner.',
     description:
-      'Work directly with Todd Wheeler on vehicle wraps, banners, and brand visibility backed by Blue Woods Brands production support.'
+      'Vehicle wraps, banners, and brand visibility backed by Blue Woods Brands production support.'
   }
 };
 

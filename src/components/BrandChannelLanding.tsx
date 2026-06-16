@@ -35,7 +35,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
             </h1>
             <div className="mt-5 space-y-2 text-base font-semibold text-neutral-200 md:text-lg">
               <p>{channel.parentBrand}</p>
-              <p>{channel.poweredBy}</p>
+              {channel.poweredBy && <p>{channel.poweredBy}</p>}
             </div>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-300 md:text-xl">
               {channel.headline}
@@ -71,10 +71,10 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                     <Building2 className="h-6 w-6" />
                   </div>
                   <p className="mt-8 text-sm font-semibold uppercase tracking-[0.22em] text-red-200">
-                    Trapstar Customs / Todd Wheeler
+                    Trapstar Customs
                   </p>
                   <h2 className="mt-4 text-3xl font-black leading-tight text-white">
-                    Work directly with Todd Wheeler
+                    Work directly with Trapstar
                   </h2>
                   <p className="mt-4 text-base leading-7 text-neutral-300">
                     Trapstar Wraps gives you a direct path to vehicle wraps, banners, and brand visibility, backed by
@@ -93,7 +93,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                   </div>
                   <div className="flex items-start gap-3">
                     <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-                    <p>Quote requests stay connected to Todd from start to finish</p>
+                    <p>Quote requests stay connected with Trapstar from start to finish</p>
                   </div>
                 </div>
               </div>
