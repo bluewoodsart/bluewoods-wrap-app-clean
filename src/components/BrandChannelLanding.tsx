@@ -71,25 +71,29 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                     <Building2 className="h-6 w-6" />
                   </div>
                   <p className="mt-8 text-sm font-semibold uppercase tracking-[0.22em] text-red-200">
-                    Same system, branded entry
+                    Trapstar Customs / Todd Wheeler
                   </p>
                   <h2 className="mt-4 text-3xl font-black leading-tight text-white">
-                    Leads flow into SlapWrapz with Todd preserved.
+                    Work directly with Todd Wheeler
                   </h2>
+                  <p className="mt-4 text-base leading-7 text-neutral-300">
+                    Trapstar Wraps gives you a direct path to vehicle wraps, banners, and brand visibility, backed by
+                    Blue Woods Brands production support.
+                  </p>
                 </div>
 
                 <div className="grid gap-3 text-sm text-neutral-300">
                   <div className="flex items-start gap-3">
                     <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-                    <p>Wrap requests go to /wraps?rep=todd.</p>
+                    <p>Vehicle wraps and fleet graphics</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-                    <p>Banner requests go to /banners?rep=todd.</p>
+                    <p>Banners and printed brand materials</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-                    <p>Blue Woods Brands and SlapWrapz stay clearly connected.</p>
+                    <p>Quote requests stay connected to Todd from start to finish</p>
                   </div>
                 </div>
               </div>
