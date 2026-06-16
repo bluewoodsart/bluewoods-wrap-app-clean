@@ -178,6 +178,36 @@ const FullWrapQuoteFlow: React.FC = () => {
     setUploads((current) => ({ ...current, [group]: files }));
   };
 
+  const sendQuoteEmails = async (
+    finalContactInfo: ContactInfo,
+    quoteDetails: Record<string, unknown>,
+    files: UploadedFile[]
+  ) => {
+    const response = await fetch('/api/send-quote-emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contactInfo: finalContactInfo,
+        quoteDetails,
+        uploadedFiles: files.map((file) => ({
+          name: file.name,
+          url: file.url,
+          type: file.type,
+          size: file.size
+        }))
+      })
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      throw new Error(
+        `Quote request was saved, but email sending failed. Status: ${response.status}. Response: ${responseBody || 'No response body'}`
+      );
+    }
+  };
+
   const submitFullWrapQuote = async () => {
     if (!validate()) return;
 
@@ -258,6 +288,20 @@ const FullWrapQuoteFlow: React.FC = () => {
       if (fileContactError) {
         console.error('Full wrap file contact update failed:', fileContactError);
       }
+    }
+
+    try {
+      await sendQuoteEmails(contactInfo, { ...quoteDetails, ...repAttribution }, uploadedFiles);
+    } catch (emailError) {
+      console.error('Full wrap quote email send failed after quote save:', {
+        error: emailError,
+        quoteId,
+        customerEmail: contactInfo.email,
+        endpoint: '/api/send-quote-emails'
+      });
+      setIsSubmitting(false);
+      setError('Your full wrap quote was saved, but the confirmation email could not be sent. Please try again or contact us directly.');
+      return;
     }
 
     setIsSubmitting(false);
