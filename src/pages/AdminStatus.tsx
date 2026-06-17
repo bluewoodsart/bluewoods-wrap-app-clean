@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type MouseEvent, useEffect, useState } from 'react';
 import { CheckCircle2, Download, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1040,6 +1040,12 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
     });
   };
 
+  const clearQuoteSelection = (event?: MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    setSelectedQuoteIds([]);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -1112,13 +1118,13 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   {selectedQuoteIds.length} quote{selectedQuoteIds.length === 1 ? '' : 's'} selected
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" disabled title="Archive action will be added in the next admin data phase.">
+                  <Button type="button" size="sm" variant="outline" disabled title="Archive action will be added in the next admin data phase.">
                     Archive coming next
                   </Button>
-                  <Button size="sm" variant="outline" disabled title="Delete requires a confirmed backend action and will be added later.">
+                  <Button type="button" size="sm" variant="outline" disabled title="Delete requires a confirmed backend action and will be added later.">
                     Delete coming next
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedQuoteIds([])}>
+                  <Button type="button" size="sm" variant="ghost" onClick={clearQuoteSelection}>
                     Clear selection
                   </Button>
                 </div>
