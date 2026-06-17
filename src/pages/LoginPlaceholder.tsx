@@ -92,6 +92,7 @@ const LoginPlaceholder: React.FC = () => {
                   <Label htmlFor="email" className="text-slate-100">Email</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     autoComplete="email"
                     value={email}
@@ -104,6 +105,7 @@ const LoginPlaceholder: React.FC = () => {
                   <Label htmlFor="password" className="text-slate-100">Password</Label>
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     autoComplete="current-password"
                     value={password}

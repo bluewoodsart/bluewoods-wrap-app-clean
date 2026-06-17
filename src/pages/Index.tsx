@@ -25,7 +25,7 @@ const Index: React.FC<IndexProps> = () => {
 
         <nav className="flex items-center gap-2">
           <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
-            <Link to="/login">Login</Link>
+            <Link to="/admin">Login</Link>
           </Button>
           <Button asChild className="bg-cyan-400 text-slate-950 hover:bg-cyan-300">
             <Link to="/register">Register</Link>

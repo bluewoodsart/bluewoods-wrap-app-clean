@@ -455,10 +455,15 @@ const DetailField = ({ label, value }: { label: string; value: unknown }) => (
 
 const formatEventType = (eventType: string) => formatStatusLabel(eventType);
 
-const AdminStatus = () => {
+interface AdminStatusProps {
+  enableBulkActions?: boolean;
+}
+
+const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
   const [quotes, setQuotes] = useState<QuoteRequestRow[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<QuoteRequestRow | null>(null);
   const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<QuoteRequestRow | null>(null);
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [statusEvents, setStatusEvents] = useState<QuoteStatusEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -531,6 +536,7 @@ const AdminStatus = () => {
 
     setQuotes(data ?? []);
     setPendingStatuses({});
+    setSelectedQuoteIds([]);
     await loadFollowUpSummaries();
     setLoading(false);
   };
@@ -1009,6 +1015,31 @@ const AdminStatus = () => {
     return summary.follow_up_bucket === followUpFilter;
   });
 
+  const selectedQuoteIdSet = new Set(selectedQuoteIds);
+  const filteredQuoteIds = filteredQuotes.map((quote) => quote.id);
+  const selectedVisibleQuoteCount = filteredQuoteIds.filter((quoteId) => selectedQuoteIdSet.has(quoteId)).length;
+  const allVisibleQuotesSelected = filteredQuoteIds.length > 0 && selectedVisibleQuoteCount === filteredQuoteIds.length;
+
+  const toggleQuoteSelection = (quoteId: string, checked: boolean) => {
+    setSelectedQuoteIds((currentIds) => {
+      if (checked) {
+        return currentIds.includes(quoteId) ? currentIds : [...currentIds, quoteId];
+      }
+
+      return currentIds.filter((currentId) => currentId !== quoteId);
+    });
+  };
+
+  const toggleAllVisibleQuotes = (checked: boolean) => {
+    setSelectedQuoteIds((currentIds) => {
+      if (!checked) {
+        return currentIds.filter((currentId) => !filteredQuoteIds.includes(currentId));
+      }
+
+      return Array.from(new Set([...currentIds, ...filteredQuoteIds]));
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -1075,6 +1106,24 @@ const AdminStatus = () => {
             </div>
           </CardHeader>
           <CardContent>
+            {enableBulkActions && selectedQuoteIds.length > 0 && (
+              <div className="mb-4 flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
+                <p className="font-medium">
+                  {selectedQuoteIds.length} quote{selectedQuoteIds.length === 1 ? '' : 's'} selected
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" disabled title="Archive action will be added in the next admin data phase.">
+                    Archive coming next
+                  </Button>
+                  <Button size="sm" variant="outline" disabled title="Delete requires a confirmed backend action and will be added later.">
+                    Delete coming next
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedQuoteIds([])}>
+                    Clear selection
+                  </Button>
+                </div>
+              </div>
+            )}
             {loading ? (
               <div className="py-10 text-center text-sm text-slate-600">Loading quote requests...</div>
             ) : quotes.length === 0 ? (
@@ -1085,6 +1134,15 @@ const AdminStatus = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {enableBulkActions && (
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={allVisibleQuotesSelected}
+                          aria-label="Select all visible quotes"
+                          onCheckedChange={(checked) => toggleAllVisibleQuotes(checked === true)}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Quote ID</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>Customer</TableHead>
@@ -1108,6 +1166,15 @@ const AdminStatus = () => {
                         className="cursor-pointer"
                         onClick={() => openQuoteDetail(quote)}
                       >
+                        {enableBulkActions && (
+                          <TableCell onClick={(event) => event.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedQuoteIdSet.has(quote.id)}
+                              aria-label={`Select quote ${quote.quote_id || quote.customer_name}`}
+                              onCheckedChange={(checked) => toggleQuoteSelection(quote.id, checked === true)}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="font-medium">{quote.quote_id || '-'}</TableCell>
                         <TableCell>
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getProductBadgeClassName(quote)}`}>

@@ -169,7 +169,7 @@ const Admin = () => {
           </Button>
         </div>
       </div>
-      <AdminStatus />
+      <AdminStatus enableBulkActions />
     </div>
   );
 };
