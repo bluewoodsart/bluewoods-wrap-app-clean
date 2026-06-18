@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Upload, Camera, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { stringToUuid } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 interface FileUploadProps {
   onFilesUploaded: (files: UploadedFile[]) => void;
@@ -128,29 +129,30 @@ const FileUpload: React.FC<FileUploadProps> = ({
         
         console.log('Converting quoteId:', quoteId, 'to UUID:', projectUuid);
 
+        const fileRecordId = uuidv4();
+
         // Insert into customer_files table
-        const { data: dbData, error: dbError } = await supabase
+        const { error: dbError } = await supabase
           .from('customer_files')
           .insert({
+            id: fileRecordId,
             project_id: projectUuid,
             file_url: publicUrl,
             file_name: file.name,
             file_type: file.type,
             file_size: file.size,
             tags: tags
-          })
-          .select()
-          .single();
+          });
 
         if (dbError) {
           console.error('Database insert error:', dbError);
           throw new Error(`Database insert failed: ${dbError.message}`);
         }
 
-        console.log('File record inserted:', dbData);
+        console.log('File record inserted:', fileRecordId);
 
         const uploadedFile: UploadedFile = {
-          id: dbData.id,
+          id: fileRecordId,
           name: file.name,
           url: publicUrl,
           type: file.type,

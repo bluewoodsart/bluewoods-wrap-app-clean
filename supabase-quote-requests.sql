@@ -1233,7 +1233,7 @@ drop policy if exists "Allow public customer file inserts" on public.customer_fi
 create policy "Allow public customer file inserts"
 on public.customer_files
 for insert
-to anon
+to anon, authenticated
 with check (
   file_size > 0
   and file_size <= 52428800
@@ -1302,15 +1302,14 @@ drop policy if exists "Allow public customer uploads" on storage.objects;
 create policy "Allow public customer uploads"
 on storage.objects
 for insert
-to anon
+to anon, authenticated
 with check (
   bucket_id = 'customer-uploads'
-  and owner is null
 );
 
 drop policy if exists "Allow public customer upload reads" on storage.objects;
 create policy "Allow public customer upload reads"
 on storage.objects
 for select
-to anon
+to anon, authenticated
 using (bucket_id = 'customer-uploads');
