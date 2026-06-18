@@ -218,6 +218,18 @@ const isFollowUpOverdue = (task: QuoteFollowUpTask) => {
   return dueDate < today;
 };
 
+const getFollowUpTaskBucket = (task: QuoteFollowUpTask): FollowUpBucket => {
+  if (task.status !== 'open') return 'none';
+
+  const dueDate = new Date(`${task.due_date}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (dueDate < today) return 'overdue';
+  if (dueDate.getTime() === today.getTime()) return 'due_today';
+  return 'upcoming';
+};
+
 const formatValue = (value: unknown) => {
   if (value === null || value === undefined || value === '') return '-';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -1351,6 +1363,8 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
             const stillNeededItems = getStillNeededItems(groupedFiles, customerActionRequests);
             const hasArtworkOrLogo = groupedFiles.artworkFiles.length > 0;
             const isBannerQuote = getProductType(activeQuote) === 'banner';
+            const nextFollowUpTask = followUpTasks.find((task) => task.status === 'open') || null;
+            const nextFollowUpBucket = nextFollowUpTask ? getFollowUpTaskBucket(nextFollowUpTask) : 'none';
 
             return (
             <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -1431,7 +1445,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   </section>
                 )}
 
-                <section className="order-8">
+                <section className="order-9">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Activity Timeline</h3>
                   {loadingEvents ? (
                     <p className="text-sm text-slate-500">Loading timeline...</p>
@@ -1569,6 +1583,41 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                 </section>
 
                 <section className="order-6">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Next Action</h3>
+                  {loadingFollowUps ? (
+                    <div className="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-500">
+                      Loading next action...
+                    </div>
+                  ) : nextFollowUpTask ? (
+                    <div
+                      className={`rounded-md border p-4 ${
+                        nextFollowUpBucket === 'overdue'
+                          ? 'border-red-200 bg-red-50'
+                          : nextFollowUpBucket === 'due_today'
+                            ? 'border-amber-200 bg-amber-50'
+                            : 'border-blue-200 bg-blue-50'
+                      }`}
+                    >
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpBadgeClassName(nextFollowUpBucket)}`}>
+                          {getFollowUpBucketLabel(nextFollowUpBucket)}
+                        </span>
+                        <div className="text-left sm:text-right">
+                          <p className="text-xs font-medium uppercase text-slate-500">Due Date</p>
+                          <p className="text-lg font-semibold text-slate-950">{formatDueDate(nextFollowUpTask.due_date)}</p>
+                        </div>
+                      </div>
+                      <p className="whitespace-pre-wrap text-sm font-medium text-slate-950">{nextFollowUpTask.task_text}</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                      <p className="text-sm font-medium text-slate-900">No open next action.</p>
+                      <p className="mt-1 text-sm text-slate-500">Add a follow-up task below when staff needs a reminder or next step.</p>
+                    </div>
+                  )}
+                </section>
+
+                <section className="order-7">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Follow-Up Tasks</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <div className="grid gap-3 md:grid-cols-[1fr_12rem]">
@@ -1686,7 +1735,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   </div>
                 </section>
 
-                <section className="order-7">
+                <section className="order-8">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Internal Notes</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <Textarea
