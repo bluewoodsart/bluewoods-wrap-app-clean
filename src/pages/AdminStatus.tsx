@@ -1359,14 +1359,14 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                 <DialogDescription>Read-only quote request details</DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-6">
+              <div className="flex flex-col gap-6">
                 {loadingDetail && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                     Loading quote details...
                   </div>
                 )}
 
-                <section>
+                <section className="order-1">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
                   <dl className="grid gap-4 md:grid-cols-3">
                     <DetailField label="Customer Name" value={activeQuote.customer_name} />
@@ -1380,7 +1380,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   </dl>
                 </section>
 
-                <section>
+                <section className="order-2">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Project</h3>
                   <dl className="grid gap-4 md:grid-cols-3">
                     <DetailField label="Vehicle Type" value={getQuoteValue(activeQuote, ['vehicleType', 'vehicle_type'])} />
@@ -1404,7 +1404,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                 </section>
 
                 {isBannerQuote && (
-                  <section>
+                  <section className="order-3">
                     <h3 className="mb-3 text-sm font-semibold text-slate-950">Banner Details</h3>
                     <dl className="grid gap-4 md:grid-cols-3">
                       <DetailField label="Width" value={getBannerValue(activeQuote, 'width')} />
@@ -1431,7 +1431,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   </section>
                 )}
 
-                <section>
+                <section className="order-8">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Activity Timeline</h3>
                   {loadingEvents ? (
                     <p className="text-sm text-slate-500">Loading timeline...</p>
@@ -1460,7 +1460,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   )}
                 </section>
 
-                <section>
+                <section className="order-5">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer Action Request</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <div className="grid gap-3 md:grid-cols-[16rem_1fr]">
@@ -1568,7 +1568,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   </div>
                 </section>
 
-                <section>
+                <section className="order-6">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Follow-Up Tasks</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <div className="grid gap-3 md:grid-cols-[1fr_12rem]">
@@ -1686,7 +1686,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   </div>
                 </section>
 
-                <section>
+                <section className="order-7">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Internal Notes</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <Textarea
@@ -1758,7 +1758,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   </div>
                 </section>
 
-                <section className="space-y-4">
+                <section className="order-4 space-y-4" data-modal-section="file-readiness-late">
                   <div className="rounded-lg border border-slate-200 bg-white p-4">
                     <div className="mb-4">
                       <h3 className="text-sm font-semibold text-slate-950">File Readiness</h3>
