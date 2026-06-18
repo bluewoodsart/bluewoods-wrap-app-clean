@@ -316,9 +316,35 @@ const isArtworkFile = (file: UploadedFileSummary) => {
   );
 };
 
+const isMeasurementFile = (file: UploadedFileSummary) => {
+  const tags = file.tags ?? [];
+  const name = (file.name || '').toLowerCase();
+  return (
+    tags.includes('measurement') ||
+    name.includes('measurement') ||
+    name.includes('measurements') ||
+    name.includes('dimension') ||
+    name.includes('dimensions') ||
+    name.includes('size')
+  );
+};
+
+const isReferenceFile = (file: UploadedFileSummary) => {
+  const tags = file.tags ?? [];
+  const name = (file.name || '').toLowerCase();
+  return (
+    tags.includes('reference_image') ||
+    tags.includes('inspiration') ||
+    name.includes('reference') ||
+    name.includes('inspiration')
+  );
+};
+
 const getGroupedFiles = (files: UploadedFileSummary[]) => {
   const vehiclePhotos: UploadedFileSummary[] = [];
   const artworkFiles: UploadedFileSummary[] = [];
+  const measurementFiles: UploadedFileSummary[] = [];
+  const referenceFiles: UploadedFileSummary[] = [];
 
   files.forEach((file) => {
     if (isVehicleFile(file)) {
@@ -328,9 +354,35 @@ const getGroupedFiles = (files: UploadedFileSummary[]) => {
     if (isArtworkFile(file)) {
       artworkFiles.push(file);
     }
+
+    if (isMeasurementFile(file)) {
+      measurementFiles.push(file);
+    }
+
+    if (isReferenceFile(file)) {
+      referenceFiles.push(file);
+    }
   });
 
-  return { vehiclePhotos, artworkFiles };
+  return { vehiclePhotos, artworkFiles, measurementFiles, referenceFiles };
+};
+
+const getStillNeededItems = (
+  groupedFiles: ReturnType<typeof getGroupedFiles>,
+  customerActionRequests: QuoteCustomerActionRequest[]
+) => {
+  const openRequestedTypes = Array.from(new Set(
+    customerActionRequests
+      .filter((request) => request.status !== 'completed' && request.status !== 'canceled')
+      .flatMap((request) => getStoredCustomerActionRequestTypes(request))
+  ));
+
+  return openRequestedTypes.filter((requestType) => {
+    if (requestType === 'vehicle_photos') return groupedFiles.vehiclePhotos.length === 0;
+    if (requestType === 'logo_artwork' || requestType === 'better_quality_artwork') return groupedFiles.artworkFiles.length === 0;
+    if (requestType === 'measurements') return groupedFiles.measurementFiles.length === 0;
+    return true;
+  });
 };
 
 const isImageFile = (file: UploadedFileSummary) =>
@@ -445,6 +497,26 @@ const FileList = ({ files, emptyMessage = 'None uploaded.' }: { files: UploadedF
     </div>
   );
 };
+
+const FileReadinessSection = ({
+  title,
+  files,
+  emptyMessage
+}: {
+  title: string;
+  files: UploadedFileSummary[];
+  emptyMessage: string;
+}) => (
+  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <h4 className="text-sm font-semibold text-slate-950">{title}</h4>
+      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+        {files.length}
+      </span>
+    </div>
+    <FileList files={files} emptyMessage={emptyMessage} />
+  </div>
+);
 
 const DetailField = ({ label, value }: { label: string; value: unknown }) => (
   <div>
@@ -1118,11 +1190,11 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                   {selectedQuoteIds.length} quote{selectedQuoteIds.length === 1 ? '' : 's'} selected
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" disabled title="Archive action will be added in the next admin data phase.">
-                    Archive coming next
+                  <Button type="button" size="sm" variant="outline" disabled title="Archive will be enabled after the secure backend action is added.">
+                    Archive coming after secure backend
                   </Button>
-                  <Button type="button" size="sm" variant="outline" disabled title="Delete requires a confirmed backend action and will be added later.">
-                    Delete coming next
+                  <Button type="button" size="sm" variant="outline" disabled title="Delete will be enabled after the secure backend action is added.">
+                    Delete coming after secure backend
                   </Button>
                   <Button type="button" size="sm" variant="ghost" onClick={clearQuoteSelection}>
                     Clear selection
@@ -1276,6 +1348,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
             const activeQuote = selectedQuoteDetail || selectedQuote;
             const uploadedFiles = getUploadedFiles(activeQuote);
             const groupedFiles = getGroupedFiles(uploadedFiles);
+            const stillNeededItems = getStillNeededItems(groupedFiles, customerActionRequests);
             const hasArtworkOrLogo = groupedFiles.artworkFiles.length > 0;
             const isBannerQuote = getProductType(activeQuote) === 'banner';
 
@@ -1686,27 +1759,66 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                 </section>
 
                 <section className="space-y-4">
+                  <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    <div className="mb-4">
+                      <h3 className="text-sm font-semibold text-slate-950">File Readiness</h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Grouped from existing upload tags and filenames. Review all uploaded files below if something is not clearly marked.
+                      </p>
+                    </div>
+                    <div className="grid gap-3">
+                      <FileReadinessSection
+                        title="Vehicle photos uploaded"
+                        files={groupedFiles.vehiclePhotos}
+                        emptyMessage="No clearly marked vehicle photos. Review all uploaded files below."
+                      />
+                      <FileReadinessSection
+                        title="Logo/artwork uploaded"
+                        files={groupedFiles.artworkFiles}
+                        emptyMessage="No clearly marked logo or artwork files. Review all uploaded files below."
+                      />
+                      <FileReadinessSection
+                        title="Measurements uploaded"
+                        files={groupedFiles.measurementFiles}
+                        emptyMessage="No clearly marked measurement files. Review all uploaded files below."
+                      />
+                      <FileReadinessSection
+                        title="Reference images uploaded"
+                        files={groupedFiles.referenceFiles}
+                        emptyMessage="No clearly marked reference images. Review all uploaded files below."
+                      />
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                        <h4 className="mb-2 text-sm font-semibold text-amber-950">Still needed</h4>
+                        {loadingCustomerActions ? (
+                          <p className="text-sm text-amber-900">Checking customer requests...</p>
+                        ) : stillNeededItems.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {stillNeededItems.map((requestType) => (
+                              <span key={requestType} className="rounded-full bg-white px-2 py-1 text-xs font-medium text-amber-900">
+                                {getCustomerActionRequestLabel(requestType)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : customerActionRequests.length === 0 ? (
+                          <p className="text-sm text-amber-900">No open requested items. Review files manually.</p>
+                        ) : (
+                          <p className="text-sm text-amber-900">
+                            No still-needed items detected from open customer action requests.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   <div>
-                    <h3 className="mb-3 text-sm font-semibold text-slate-950">Uploaded Customer Files</h3>
+                    <h3 className="mb-3 text-sm font-semibold text-slate-950">All uploaded files</h3>
                     {uploadedFiles.length > 20 && (
                       <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
                         Large upload set — review required.
                       </div>
                     )}
-                    <FileList files={uploadedFiles} />
-                  </div>
-                  <div>
-                    <h3 className="mb-3 text-sm font-semibold text-slate-950">Vehicle Photos</h3>
                     <FileList
-                      files={groupedFiles.vehiclePhotos}
-                      emptyMessage="No clearly marked vehicle photos. Review uploaded files above."
-                    />
-                  </div>
-                  <div>
-                    <h3 className="mb-3 text-sm font-semibold text-slate-950">Artwork / Logo / Reference Files</h3>
-                    <FileList
-                      files={groupedFiles.artworkFiles}
-                      emptyMessage="No clearly marked artwork or logo files. Review uploaded files above."
+                      files={uploadedFiles}
+                      emptyMessage="No uploaded files saved to this quote yet."
                     />
                   </div>
                   {!hasArtworkOrLogo && (
