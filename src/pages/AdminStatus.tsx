@@ -357,26 +357,89 @@ const getGroupedFiles = (files: UploadedFileSummary[]) => {
   const artworkFiles: UploadedFileSummary[] = [];
   const measurementFiles: UploadedFileSummary[] = [];
   const referenceFiles: UploadedFileSummary[] = [];
+  const otherFiles: UploadedFileSummary[] = [];
 
   files.forEach((file) => {
-    if (isVehicleFile(file)) {
+    const isVehicle = isVehicleFile(file);
+    const isArtwork = isArtworkFile(file);
+    const isMeasurement = isMeasurementFile(file);
+    const isReference = isReferenceFile(file);
+
+    if (isVehicle) {
       vehiclePhotos.push(file);
     }
 
-    if (isArtworkFile(file)) {
+    if (isArtwork) {
       artworkFiles.push(file);
     }
 
-    if (isMeasurementFile(file)) {
+    if (isMeasurement) {
       measurementFiles.push(file);
     }
 
-    if (isReferenceFile(file)) {
+    if (isReference) {
       referenceFiles.push(file);
+    }
+
+    if (!isVehicle && !isArtwork && !isMeasurement && !isReference) {
+      otherFiles.push(file);
     }
   });
 
-  return { vehiclePhotos, artworkFiles, measurementFiles, referenceFiles };
+  return { vehiclePhotos, artworkFiles, measurementFiles, referenceFiles, otherFiles };
+};
+
+const getFileReadinessSections = (
+  productType: string,
+  groupedFiles: ReturnType<typeof getGroupedFiles>
+) => {
+  if (productType === 'banner') {
+    return [
+      {
+        title: 'Banner artwork / logo uploaded',
+        files: groupedFiles.artworkFiles,
+        emptyMessage: 'No clearly marked banner artwork or logo. Review all uploaded files below.'
+      },
+      {
+        title: 'Banner size / measurements uploaded',
+        files: groupedFiles.measurementFiles,
+        emptyMessage: 'No clearly marked banner size or measurement files. Review all uploaded files below.'
+      },
+      {
+        title: 'Location/reference photo uploaded',
+        files: groupedFiles.referenceFiles,
+        emptyMessage: 'No clearly marked location/reference photo. Review all uploaded files below.'
+      },
+      {
+        title: 'Other files uploaded',
+        files: groupedFiles.otherFiles,
+        emptyMessage: 'No other uploaded files detected. Review all uploaded files below.'
+      }
+    ];
+  }
+
+  return [
+    {
+      title: 'Vehicle photos uploaded',
+      files: groupedFiles.vehiclePhotos,
+      emptyMessage: 'No clearly marked vehicle photos. Review all uploaded files below.'
+    },
+    {
+      title: 'Logo/artwork uploaded',
+      files: groupedFiles.artworkFiles,
+      emptyMessage: 'No clearly marked logo or artwork files. Review all uploaded files below.'
+    },
+    {
+      title: 'Measurements uploaded',
+      files: groupedFiles.measurementFiles,
+      emptyMessage: 'No clearly marked measurement files. Review all uploaded files below.'
+    },
+    {
+      title: 'Reference images uploaded',
+      files: groupedFiles.referenceFiles,
+      emptyMessage: 'No clearly marked reference images. Review all uploaded files below.'
+    }
+  ];
 };
 
 const getStillNeededItems = (
@@ -1362,7 +1425,9 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
             const groupedFiles = getGroupedFiles(uploadedFiles);
             const stillNeededItems = getStillNeededItems(groupedFiles, customerActionRequests);
             const hasArtworkOrLogo = groupedFiles.artworkFiles.length > 0;
-            const isBannerQuote = getProductType(activeQuote) === 'banner';
+            const productType = getProductType(activeQuote);
+            const isBannerQuote = productType === 'banner';
+            const fileReadinessSections = getFileReadinessSections(productType, groupedFiles);
             const nextFollowUpTask = followUpTasks.find((task) => task.status === 'open') || null;
             const nextFollowUpBucket = nextFollowUpTask ? getFollowUpTaskBucket(nextFollowUpTask) : 'none';
 
@@ -1816,26 +1881,14 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                       </p>
                     </div>
                     <div className="grid gap-3">
-                      <FileReadinessSection
-                        title="Vehicle photos uploaded"
-                        files={groupedFiles.vehiclePhotos}
-                        emptyMessage="No clearly marked vehicle photos. Review all uploaded files below."
-                      />
-                      <FileReadinessSection
-                        title="Logo/artwork uploaded"
-                        files={groupedFiles.artworkFiles}
-                        emptyMessage="No clearly marked logo or artwork files. Review all uploaded files below."
-                      />
-                      <FileReadinessSection
-                        title="Measurements uploaded"
-                        files={groupedFiles.measurementFiles}
-                        emptyMessage="No clearly marked measurement files. Review all uploaded files below."
-                      />
-                      <FileReadinessSection
-                        title="Reference images uploaded"
-                        files={groupedFiles.referenceFiles}
-                        emptyMessage="No clearly marked reference images. Review all uploaded files below."
-                      />
+                      {fileReadinessSections.map((section) => (
+                        <FileReadinessSection
+                          key={section.title}
+                          title={section.title}
+                          files={section.files}
+                          emptyMessage={section.emptyMessage}
+                        />
+                      ))}
                       <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
                         <h4 className="mb-2 text-sm font-semibold text-amber-950">Still needed</h4>
                         {loadingCustomerActions ? (
