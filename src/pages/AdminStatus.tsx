@@ -270,6 +270,14 @@ const getProductBadgeClassName = (quote: QuoteRequestRow) =>
     ? 'bg-emerald-100 text-emerald-700'
     : 'bg-blue-100 text-blue-700';
 
+const getQuoteFileCount = (quote: QuoteRequestRow) => getUploadedFiles(quote).length;
+
+const getAssignedChannelLabel = (quote: QuoteRequestRow) => {
+  if (quote.rep_slug) return `Rep: ${quote.rep_slug}`;
+  if (quote.rep_email) return quote.rep_email;
+  return 'Direct / Blue Woods';
+};
+
 const getBannerValue = (quote: QuoteRequestRow, key: string) => {
   const banner = getQuoteValue(quote, 'banner');
   if (!banner || typeof banner !== 'object') return undefined;
@@ -1296,15 +1304,12 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                         />
                       </TableHead>
                     )}
-                    <TableHead>Quote ID</TableHead>
+                    <TableHead>Lead / Customer</TableHead>
                     <TableHead>Product</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Rep Slug</TableHead>
-                    <TableHead>Assigned Rep</TableHead>
-                    <TableHead>Follow-Up</TableHead>
+                    <TableHead>Assigned To / Channel</TableHead>
+                    <TableHead>Follow-Up / Next Action</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Quote ID</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1312,11 +1317,13 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                     const selectedStatus = getSelectedStatus(quote);
                     const isSaving = savingId === quote.id;
                     const followUpSummary = getFollowUpSummaryForQuote(quote.id);
+                    const isOverdue = followUpSummary.follow_up_bucket === 'overdue';
+                    const fileCount = getQuoteFileCount(quote);
 
                     return (
                       <TableRow
                         key={quote.id}
-                        className="cursor-pointer"
+                        className={`cursor-pointer ${isOverdue ? 'bg-red-50/70 hover:bg-red-50' : ''}`}
                         onClick={() => openQuoteDetail(quote)}
                       >
                         {enableBulkActions && (
@@ -1328,27 +1335,55 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                             />
                           </TableCell>
                         )}
-                        <TableCell className="font-medium">{quote.quote_id || '-'}</TableCell>
+                        <TableCell>
+                          <div className="min-w-[14rem] space-y-1">
+                            <p className="font-medium text-slate-950">{quote.customer_name}</p>
+                            <p className="text-sm text-slate-600">{quote.customer_email}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs text-slate-500">{formatDate(quote.created_at)}</span>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  fileCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {fileCount > 0 ? `Files: ${fileCount}` : 'No files'}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getProductBadgeClassName(quote)}`}>
                             {getProductLabel(quote)}
                           </span>
                         </TableCell>
-                        <TableCell>{quote.customer_name}</TableCell>
-                        <TableCell>{quote.customer_email}</TableCell>
-                        <TableCell>{quote.rep_slug || '-'}</TableCell>
-                        <TableCell>{quote.assigned_rep_name || '-'}</TableCell>
+                        <TableCell>
+                          <div className="min-w-[10rem] space-y-1">
+                            <p className="text-sm font-medium text-slate-900">{quote.assigned_rep_name || 'Unassigned'}</p>
+                            <p className="text-xs text-slate-500">{getAssignedChannelLabel(quote)}</p>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <div className="max-w-xs space-y-1">
-                            <span
-                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpBadgeClassName(followUpSummary.follow_up_bucket)}`}
-                            >
-                              {getFollowUpBucketLabel(followUpSummary.follow_up_bucket)}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {isOverdue && (
+                                <span className="inline-flex rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                  Overdue
+                                </span>
+                              )}
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpBadgeClassName(followUpSummary.follow_up_bucket)}`}
+                              >
+                                {getFollowUpBucketLabel(followUpSummary.follow_up_bucket)}
+                              </span>
+                            </div>
                             {followUpSummary.next_follow_up_task_text && followUpSummary.next_follow_up_due_date ? (
                               <div className="space-y-0.5">
-                                <p className="line-clamp-2 text-sm text-slate-900">{followUpSummary.next_follow_up_task_text}</p>
-                                <p className="text-xs text-slate-500">Due {formatDueDate(followUpSummary.next_follow_up_due_date)}</p>
+                                <p className={`line-clamp-2 text-sm ${isOverdue ? 'font-medium text-red-950' : 'text-slate-900'}`}>
+                                  {followUpSummary.next_follow_up_task_text}
+                                </p>
+                                <p className={`text-xs ${isOverdue ? 'font-medium text-red-700' : 'text-slate-500'}`}>
+                                  Due {formatDueDate(followUpSummary.next_follow_up_due_date)}
+                                </p>
                               </div>
                             ) : (
                               <p className="text-xs text-slate-500">No open task</p>
@@ -1383,7 +1418,9 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                             {isSaving && <p className="text-xs text-slate-500">Saving...</p>}
                           </div>
                         </TableCell>
-                        <TableCell>{formatDate(quote.created_at)}</TableCell>
+                        <TableCell>
+                          <p className="max-w-[11rem] break-all font-mono text-xs text-slate-500">{quote.quote_id || '-'}</p>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
