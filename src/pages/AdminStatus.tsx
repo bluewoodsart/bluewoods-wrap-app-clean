@@ -14,7 +14,10 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
@@ -42,6 +45,25 @@ const STATUS_OPTIONS = [
   'completed',
   'lost'
 ] as const;
+
+const STATUS_GROUPS: Array<{ label: string; statuses: Array<typeof STATUS_OPTIONS[number]> }> = [
+  {
+    label: 'Sales',
+    statuses: ['new', 'contacted', 'quote_sent', 'lost']
+  },
+  {
+    label: 'Money',
+    statuses: ['deposit_received']
+  },
+  {
+    label: 'Design / Approval',
+    statuses: ['design_started', 'proof_sent', 'approved']
+  },
+  {
+    label: 'Production',
+    statuses: ['printing', 'install_scheduled', 'completed']
+  }
+];
 
 const CUSTOMER_ACTION_REQUEST_OPTIONS = [
   { value: 'vehicle_photos', label: 'Vehicle photos' },
@@ -1408,13 +1430,22 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {STATUS_OPTIONS.map((status) => (
-                                  <SelectItem key={status} value={status}>
-                                    {formatStatusLabel(status)}
-                                  </SelectItem>
+                                {STATUS_GROUPS.map((group, groupIndex) => (
+                                  <SelectGroup key={group.label}>
+                                    {groupIndex > 0 && <SelectSeparator />}
+                                    <SelectLabel>{group.label}</SelectLabel>
+                                    {group.statuses.map((status) => (
+                                      <SelectItem key={status} value={status}>
+                                        {formatStatusLabel(status)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
                                 ))}
                               </SelectContent>
                             </Select>
+                            <p className="max-w-[13rem] text-xs leading-snug text-slate-500">
+                              Use Follow-Up / Customer Action Requests for waiting-on-customer situations until status flow is upgraded.
+                            </p>
                             {isSaving && <p className="text-xs text-slate-500">Saving...</p>}
                           </div>
                         </TableCell>
