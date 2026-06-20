@@ -1449,7 +1449,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                             {isSaving && <p className="text-xs text-slate-500">Saving...</p>}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()} className="cursor-default">
                           <p className="max-w-[11rem] break-all font-mono text-xs text-slate-500">{quote.quote_id || '-'}</p>
                         </TableCell>
                       </TableRow>
