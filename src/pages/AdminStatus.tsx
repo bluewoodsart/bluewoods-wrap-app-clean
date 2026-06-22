@@ -78,6 +78,9 @@ type CustomerActionRequestType = typeof CUSTOMER_ACTION_REQUEST_OPTIONS[number][
 type QuoteData = Record<string, unknown>;
 type FollowUpBucket = 'overdue' | 'due_today' | 'upcoming' | 'none';
 type FollowUpFilter = 'all' | 'overdue' | 'due_today' | 'open' | 'none';
+type AdminRole = 'owner_admin' | 'staff' | 'sales_rep';
+
+const UNASSIGNED_REP_VALUE = '__unassigned__';
 
 interface UploadedFileSummary {
   id?: string;
@@ -142,6 +145,14 @@ interface QuoteFollowUpSummary {
   due_today_follow_up_count: number;
   upcoming_follow_up_count: number;
   follow_up_bucket: FollowUpBucket;
+}
+
+interface AssignableRepOption {
+  rep_slug: string;
+  assigned_rep_name: string;
+  rep_email: string;
+  type: string;
+  status: string;
 }
 
 interface QuoteCustomerActionRequest {
@@ -634,9 +645,10 @@ const formatEventType = (eventType: string) => formatStatusLabel(eventType);
 
 interface AdminStatusProps {
   enableBulkActions?: boolean;
+  currentAdminRole?: AdminRole;
 }
 
-const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
+const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatusProps) => {
   const [quotes, setQuotes] = useState<QuoteRequestRow[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<QuoteRequestRow | null>(null);
   const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<QuoteRequestRow | null>(null);
@@ -674,6 +686,13 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [assignableReps, setAssignableReps] = useState<AssignableRepOption[]>([]);
+  const [loadingAssignableReps, setLoadingAssignableReps] = useState(false);
+  const [selectedAssignRepSlug, setSelectedAssignRepSlug] = useState(UNASSIGNED_REP_VALUE);
+  const [assigningRep, setAssigningRep] = useState(false);
+  const [assignRepMessage, setAssignRepMessage] = useState('');
+  const [assignRepError, setAssignRepError] = useState('');
+  const canAssignReps = currentAdminRole === 'owner_admin';
 
   const loadFollowUpSummaries = async () => {
     const { data, error: summaryError } = await supabase
@@ -721,6 +740,27 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
   useEffect(() => {
     void loadQuotes();
   }, []);
+
+  const loadAssignableReps = async () => {
+    if (!canAssignReps) return;
+
+    setLoadingAssignableReps(true);
+    setAssignRepError('');
+
+    const { data, error: assignableRepsError } = await supabase
+      .rpc('list_assignable_reps_owner_admin');
+
+    setLoadingAssignableReps(false);
+
+    if (assignableRepsError) {
+      console.error('Admin assignable reps load failed:', assignableRepsError);
+      setAssignRepError(assignableRepsError.message);
+      setAssignableReps([]);
+      return;
+    }
+
+    setAssignableReps((data ?? []) as AssignableRepOption[]);
+  };
 
   const loadStatusEvents = async (quoteRequestId: string) => {
     setLoadingEvents(true);
@@ -823,6 +863,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
     }
 
     setSelectedQuoteDetail(data?.[0] ?? null);
+    setSelectedAssignRepSlug(data?.[0]?.rep_slug || UNASSIGNED_REP_VALUE);
   };
 
   const openQuoteDetail = (quote: QuoteRequestRow) => {
@@ -841,15 +882,53 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
     setNoteMessage('');
     setNoteWarning('');
     setNoteError('');
+    setSelectedAssignRepSlug(quote.rep_slug || UNASSIGNED_REP_VALUE);
+    setAssignRepMessage('');
+    setAssignRepError('');
     setFollowUpMessage('');
     setFollowUpError('');
     setCustomerActionMessageStatus('');
     setCustomerActionError('');
+    if (canAssignReps) {
+      void loadAssignableReps();
+    }
     void loadQuoteDetail(quote.id);
     void loadStatusEvents(quote.id);
     void loadInternalNotes(quote.id);
     void loadFollowUpTasks(quote.id);
     void loadCustomerActionRequests(quote.id);
+  };
+
+  const saveAssignedRep = async () => {
+    if (!selectedQuote || assigningRep || !canAssignReps) return;
+
+    const nextRepSlug = selectedAssignRepSlug === UNASSIGNED_REP_VALUE ? null : selectedAssignRepSlug;
+
+    setAssigningRep(true);
+    setAssignRepError('');
+    setAssignRepMessage('Saving assigned rep...');
+
+    const { error: assignError } = await supabase
+      .rpc('assign_quote_rep_owner_admin', {
+        quote_id: selectedQuote.id,
+        rep_slug: nextRepSlug
+      });
+
+    setAssigningRep(false);
+
+    if (assignError) {
+      console.error('Admin assign rep failed:', assignError);
+      setAssignRepError(assignError.message);
+      setAssignRepMessage('');
+      return;
+    }
+
+    setNotifySalesRep(false);
+    setSelectedAssignRepSlug(nextRepSlug || UNASSIGNED_REP_VALUE);
+    setAssignRepMessage(nextRepSlug ? 'Assigned rep saved.' : 'Quote unassigned.');
+    await loadStatusEvents(selectedQuote.id);
+    await loadQuotes({ clearMessage: false });
+    await loadQuoteDetail(selectedQuote.id);
   };
 
   const saveInternalNote = async () => {
@@ -1482,6 +1561,9 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
               setNoteMessage('');
               setNoteWarning('');
               setNoteError('');
+              setSelectedAssignRepSlug(UNASSIGNED_REP_VALUE);
+              setAssignRepMessage('');
+              setAssignRepError('');
               setFollowUpMessage('');
               setFollowUpError('');
               setCustomerActionMessageStatus('');
@@ -1501,6 +1583,8 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
             const fileReadinessSections = getFileReadinessSections(productType, groupedFiles);
             const nextFollowUpTask = followUpTasks.find((task) => task.status === 'open') || null;
             const nextFollowUpBucket = nextFollowUpTask ? getFollowUpTaskBucket(nextFollowUpTask) : 'none';
+            const currentAssignRepSlug = activeQuote.rep_slug || UNASSIGNED_REP_VALUE;
+            const hasAssignmentChange = selectedAssignRepSlug !== currentAssignRepSlug;
 
             return (
             <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -1528,6 +1612,57 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                     <DetailField label="Product" value={getProductLabel(activeQuote)} />
                     <DetailField label="Current Status" value={formatStatusLabel(activeQuote.status)} />
                   </dl>
+                  {canAssignReps && (
+                    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div className="w-full max-w-sm space-y-2">
+                          <label className="text-xs font-medium uppercase text-slate-500" htmlFor="assign-rep-select">
+                            Assign Rep
+                          </label>
+                          <Select
+                            value={selectedAssignRepSlug}
+                            onValueChange={(value) => {
+                              setSelectedAssignRepSlug(value);
+                              setAssignRepMessage('');
+                              setAssignRepError('');
+                            }}
+                            disabled={loadingAssignableReps || assigningRep}
+                          >
+                            <SelectTrigger id="assign-rep-select">
+                              <SelectValue placeholder={loadingAssignableReps ? 'Loading reps...' : 'Choose assignment'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={UNASSIGNED_REP_VALUE}>Unassigned</SelectItem>
+                              {assignableReps.map((rep) => (
+                                <SelectItem key={rep.rep_slug} value={rep.rep_slug}>
+                                  {rep.assigned_rep_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {loadingAssignableReps && (
+                            <p className="text-xs text-slate-500">Loading assignable reps...</p>
+                          )}
+                        </div>
+                        <Button
+                          onClick={saveAssignedRep}
+                          disabled={assigningRep || loadingAssignableReps || !hasAssignmentChange}
+                        >
+                          {assigningRep ? 'Saving...' : 'Save Assignment'}
+                        </Button>
+                      </div>
+                      {assignRepMessage && (
+                        <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                          {assignRepMessage}
+                        </div>
+                      )}
+                      {assignRepError && (
+                        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                          {assignRepError}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </section>
 
                 <section className="order-2">

@@ -183,7 +183,7 @@ const Admin = () => {
           </TabsList>
 
           <TabsContent value="quote-requests" className="mt-0">
-            <AdminStatus enableBulkActions />
+            <AdminStatus enableBulkActions currentAdminRole={adminUser.role} />
           </TabsContent>
 
           {canViewPricingSandbox && (
