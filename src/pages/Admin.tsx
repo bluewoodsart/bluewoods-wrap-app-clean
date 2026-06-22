@@ -4,6 +4,8 @@ import type { Session } from '@supabase/supabase-js';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
 import { supabase } from '@/lib/supabase';
 import AdminStatus from './AdminStatus';
 
@@ -153,6 +155,8 @@ const Admin = () => {
     );
   }
 
+  const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
@@ -169,7 +173,26 @@ const Admin = () => {
           </Button>
         </div>
       </div>
-      <AdminStatus enableBulkActions />
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
+        <Tabs defaultValue="quote-requests" className="space-y-5">
+          <TabsList className={canViewPricingSandbox ? 'grid w-full max-w-md grid-cols-2' : 'grid w-full max-w-48 grid-cols-1'}>
+            <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
+            {canViewPricingSandbox && (
+              <TabsTrigger value="pricing-sandbox">Pricing Sandbox</TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="quote-requests" className="mt-0">
+            <AdminStatus enableBulkActions />
+          </TabsContent>
+
+          {canViewPricingSandbox && (
+            <TabsContent value="pricing-sandbox" className="mt-0">
+              <PricingCalculatorSandbox />
+            </TabsContent>
+          )}
+        </Tabs>
+      </div>
     </div>
   );
 };
