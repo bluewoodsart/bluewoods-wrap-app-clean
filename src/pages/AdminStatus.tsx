@@ -887,12 +887,14 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
     setNewInternalNote('');
     await loadInternalNotes(selectedQuote.id);
 
-    if (!notifySalesRep) {
+    const activeQuote = selectedQuoteDetail || selectedQuote;
+    const hasSalesRepNotificationTarget = Boolean(activeQuote.rep_email || activeQuote.rep_slug);
+
+    if (!notifySalesRep || !hasSalesRepNotificationTarget) {
       setNoteMessage('Note saved.');
       return;
     }
 
-    const activeQuote = selectedQuoteDetail || selectedQuote;
     const emailResponse = await fetch('/api/send-internal-note-notification', {
       method: 'POST',
       headers: {
@@ -1489,6 +1491,7 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
         >
           {selectedQuote && (() => {
             const activeQuote = selectedQuoteDetail || selectedQuote;
+            const hasSalesRepNotificationTarget = Boolean(activeQuote.rep_email || activeQuote.rep_slug);
             const uploadedFiles = getUploadedFiles(activeQuote);
             const groupedFiles = getGroupedFiles(uploadedFiles);
             const stillNeededItems = getStillNeededItems(groupedFiles, customerActionRequests);
@@ -1885,18 +1888,22 @@ const AdminStatus = ({ enableBulkActions = false }: AdminStatusProps) => {
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-2">
                         <p className="text-xs text-slate-500">Internal only. Notes are timestamped and shown newest first.</p>
-                        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                          <Checkbox
-                            checked={notifySalesRep}
-                            onCheckedChange={(checked) => {
-                              setNotifySalesRep(Boolean(checked));
-                              setNoteError('');
-                              setNoteMessage('');
-                              setNoteWarning('');
-                            }}
-                          />
-                          Notify assigned sales rep
-                        </label>
+                        {hasSalesRepNotificationTarget ? (
+                          <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                            <Checkbox
+                              checked={notifySalesRep}
+                              onCheckedChange={(checked) => {
+                                setNotifySalesRep(Boolean(checked));
+                                setNoteError('');
+                                setNoteMessage('');
+                                setNoteWarning('');
+                              }}
+                            />
+                            Notify assigned sales rep
+                          </label>
+                        ) : (
+                          <p className="text-sm text-slate-500">No sales rep assigned.</p>
+                        )}
                       </div>
                       <Button onClick={saveInternalNote} disabled={savingNote || !newInternalNote.trim()}>
                         {savingNote ? 'Saving...' : 'Add Note'}
