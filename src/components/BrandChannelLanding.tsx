@@ -43,6 +43,11 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
             <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-400">
               {channel.description}
             </p>
+            {channel.body?.map((paragraph) => (
+              <p key={paragraph} className="mt-4 max-w-2xl text-base leading-7 text-neutral-400">
+                {paragraph}
+              </p>
+            ))}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild className="h-12 bg-red-500 px-6 text-base font-bold text-white hover:bg-red-400">
@@ -51,15 +56,17 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button
-                asChild
-                className="h-12 border border-white/25 bg-white/10 px-6 text-base font-bold text-white hover:bg-white/20"
-              >
-                <Link to={channel.bannerQuotePath}>
-                  Get a Banner Quote
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
+              {channel.bannerQuotePath && (
+                <Button
+                  asChild
+                  className="h-12 border border-white/25 bg-white/10 px-6 text-base font-bold text-white hover:bg-white/20"
+                >
+                  <Link to={channel.bannerQuotePath}>
+                    Get a Banner Quote
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -71,30 +78,29 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                     <Building2 className="h-6 w-6" />
                   </div>
                   <p className="mt-8 text-sm font-semibold uppercase tracking-[0.22em] text-red-200">
-                    Trapstar Customs
+                    {channel.cardEyebrow}
                   </p>
                   <h2 className="mt-4 text-3xl font-black leading-tight text-white">
-                    Work directly with Trapstar
+                    {channel.cardHeadline}
                   </h2>
                   <p className="mt-4 text-base leading-7 text-neutral-300">
-                    Trapstar Wraps gives you a direct path to vehicle wraps, banners, and brand visibility, backed by
-                    Blue Woods Brands production support.
+                    {channel.cardDescription}
                   </p>
                 </div>
 
                 <div className="grid gap-3 text-sm text-neutral-300">
-                  <div className="flex items-start gap-3">
-                    <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-                    <p>Vehicle wraps and fleet graphics</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-                    <p>Banners and printed brand materials</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-                    <p>Quote requests stay connected with Trapstar from start to finish</p>
-                  </div>
+                  {channel.comingSoonTitle && (
+                    <p className="font-semibold text-neutral-100">{channel.comingSoonTitle}</p>
+                  )}
+                  {(channel.comingSoonItems || channel.featureBullets).map((bullet) => (
+                    <div key={bullet} className="flex items-start gap-3">
+                      <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
+                      <p>{bullet}</p>
+                    </div>
+                  ))}
+                  {channel.comingSoonNote && (
+                    <p className="pt-1 text-neutral-400">{channel.comingSoonNote}</p>
+                  )}
                 </div>
               </div>
             </div>
