@@ -19,7 +19,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
           />
           <div>
             <p className="text-lg font-bold leading-none">{channel.name}</p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-red-200">Blue Woods Brands</p>
+            <p className="mt-1 text-xs font-medium tracking-wide text-red-200">{channel.headerSubtitle}</p>
           </div>
         </Link>
       </header>

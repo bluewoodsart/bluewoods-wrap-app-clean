@@ -2,6 +2,7 @@ export interface BrandChannel {
   slug: string;
   name: string;
   eyebrow: string;
+  headerSubtitle: string;
   parentBrand: string;
   poweredBy: string;
   repSlug: string;
@@ -24,6 +25,7 @@ export const brandChannels: Record<string, BrandChannel> = {
     slug: 'trapstar',
     name: 'Trapstar Wraps',
     eyebrow: 'Trapstar Wraps',
+    headerSubtitle: 'Blue Woods Brands',
     parentBrand: 'Brought to you by Blue Woods Brands',
     poweredBy: '',
     repSlug: 'todd',
@@ -46,6 +48,7 @@ export const brandChannels: Record<string, BrandChannel> = {
     slug: 'jazzy',
     name: 'Jazzy Automotive Wraps',
     eyebrow: 'Jazzy Automotive',
+    headerSubtitle: 'Powered by Blue Woods Apps',
     parentBrand: 'Powered by SlapWrapz',
     poweredBy: '',
     repSlug: 'jazzy',
