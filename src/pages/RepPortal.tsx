@@ -100,6 +100,13 @@ const getFiles = (quote: RepQuoteRow): FileSummary[] => {
   return [];
 };
 
+const isImageFile = (file: FileSummary) => {
+  if (file.type?.toLowerCase().startsWith('image/')) return true;
+
+  const imagePath = `${file.name || ''} ${file.url || ''}`.toLowerCase();
+  return /\.(png|jpe?g|webp)(\?.*)?$/.test(imagePath);
+};
+
 const DetailField = ({ label, value }: { label: string; value: unknown }) => (
   <div>
     <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
@@ -394,7 +401,19 @@ const RepPortal = () => {
                         rel="noreferrer"
                         className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-800 hover:bg-slate-50"
                       >
-                        <span className="min-w-0 flex-1 truncate">{file.name || file.url || `File ${index + 1}`}</span>
+                        <span className="flex min-w-0 flex-1 items-center gap-3">
+                          {file.url && isImageFile(file) ? (
+                            <img
+                              src={file.url}
+                              alt=""
+                              loading="lazy"
+                              className="h-14 w-14 flex-none rounded-md border border-slate-200 bg-slate-100 object-cover"
+                            />
+                          ) : (
+                            <FileText className="h-5 w-5 flex-none text-slate-500" />
+                          )}
+                          <span className="min-w-0 flex-1 truncate">{file.name || file.url || `File ${index + 1}`}</span>
+                        </span>
                         <ExternalLink className="h-4 w-4 flex-none text-slate-500" />
                       </a>
                     ))}
