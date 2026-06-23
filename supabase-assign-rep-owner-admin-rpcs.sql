@@ -39,7 +39,7 @@ begin
     select
       'jazzy'::text as rep_slug,
       'Jazzy Automotive'::text as assigned_rep_name,
-      'therealmylesjackson@gmail.com'::text as rep_email,
+      'jazzyautoimaging@gmail.com'::text as rep_email,
       'partner_install_company'::text as type,
       'active'::text as status,
       10 as source_priority
@@ -155,7 +155,7 @@ begin
       select
         'jazzy'::text as rep_slug,
         'Jazzy Automotive'::text as assigned_rep_name,
-        'therealmylesjackson@gmail.com'::text as rep_email,
+        'jazzyautoimaging@gmail.com'::text as rep_email,
         10 as source_priority
       union all
       select

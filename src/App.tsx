@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import ThankYou from "./pages/ThankYou";
 import AdminStatus from "./pages/AdminStatus";
 import Admin from "./pages/Admin";
+import RepPortal from "./pages/RepPortal";
 import FullProject from "./pages/FullProject";
 import UploadAssets from "./pages/UploadAssets";
 import LoginPlaceholder from "./pages/LoginPlaceholder";
@@ -101,6 +102,7 @@ const App = () => {
               <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/admin-status" element={<AdminStatus />} />
+              <Route path="/rep" element={<RepPortal />} />
               <Route path="/upload-assets/:token" element={<UploadAssets />} />
               <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = '/'} />} />

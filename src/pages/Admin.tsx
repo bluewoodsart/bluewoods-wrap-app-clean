@@ -155,6 +155,10 @@ const Admin = () => {
     );
   }
 
+  if (adminUser.role === 'sales_rep') {
+    return <Navigate to="/rep" replace />;
+  }
+
   const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
 
   return (
