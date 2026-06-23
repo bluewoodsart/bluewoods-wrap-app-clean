@@ -67,8 +67,7 @@ export const brandChannels: Record<string, BrandChannel> = {
     comingSoonItems: [
       'Window Tinting',
       'Paint Protection Film'
-    ],
-    comingSoonNote: 'These services are coming soon. For now, use this page for wrap quote requests only.'
+    ]
   }
 };
 
