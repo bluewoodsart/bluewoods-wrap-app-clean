@@ -8,20 +8,40 @@ interface BrandChannelLandingProps {
 }
 
 const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
+  const isJazzyChannel = channel.slug === 'jazzy';
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
       <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 md:px-8">
-        <Link to="/" className="flex items-center gap-3">
-          <img
-            src="/favicon/favicon1.png"
-            alt="Blue Woods Brands logo"
-            className="h-11 w-11 rounded-lg bg-white object-contain p-1"
-          />
-          <div>
-            <p className="text-lg font-bold leading-none">{channel.name}</p>
-            <p className="mt-1 text-xs font-medium tracking-wide text-red-200">{channel.headerSubtitle}</p>
+        {isJazzyChannel ? (
+          <div className="flex items-center gap-3">
+            <Link to="/" aria-label="Blue Woods Brands home">
+              <img
+                src="/favicon/favicon1.png"
+                alt="Blue Woods Brands logo"
+                className="h-11 w-11 rounded-lg bg-white object-contain p-1"
+              />
+            </Link>
+            <div>
+              <Link to="/" className="text-lg font-bold leading-none">
+                {channel.name}
+              </Link>
+              <p className="mt-1 text-xs font-medium tracking-wide text-red-200">{channel.headerSubtitle}</p>
+            </div>
           </div>
-        </Link>
+        ) : (
+          <Link to="/" className="flex items-center gap-3">
+            <img
+              src="/favicon/favicon1.png"
+              alt="Blue Woods Brands logo"
+              className="h-11 w-11 rounded-lg bg-white object-contain p-1"
+            />
+            <div>
+              <p className="text-lg font-bold leading-none">{channel.name}</p>
+              <p className="mt-1 text-xs font-medium tracking-wide text-red-200">{channel.headerSubtitle}</p>
+            </div>
+          </Link>
+        )}
       </header>
 
       <main>
