@@ -100,6 +100,21 @@ const App = () => {
               <Route path="/full-project" element={<FullProject />} />
               <Route path="/banners" element={<BannerQuoteFlow />} />
               <Route path="/login" element={<LoginPlaceholder />} />
+              <Route
+                path="/jazzy/login"
+                element={(
+                  <LoginPlaceholder
+                    defaultRedirect="/rep"
+                    brandName="Jazzy Automotive"
+                    brandSubtitle="Powered by Blue Woods Apps"
+                    uppercaseBrandSubtitle={false}
+                    eyebrow="Jazzy Portal"
+                    heading="Jazzy Portal Login"
+                    backLinkLabel="Back to Jazzy"
+                    backLinkTarget="/jazzy"
+                  />
+                )}
+              />
               <Route path="/register" element={<RegisterPlaceholder />} />
               <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
               <Route path="/admin" element={<Admin />} />

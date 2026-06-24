@@ -7,7 +7,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 
-const LoginPlaceholder: React.FC = () => {
+interface LoginPlaceholderProps {
+  defaultRedirect?: string;
+  brandName?: string;
+  brandSubtitle?: string;
+  uppercaseBrandSubtitle?: boolean;
+  eyebrow?: string;
+  heading?: string;
+  backLinkLabel?: string;
+  backLinkTarget?: string;
+}
+
+const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
+  defaultRedirect = '/admin',
+  brandName = 'SlapWrapz',
+  brandSubtitle = 'by Blue Woods Brands',
+  uppercaseBrandSubtitle = true,
+  eyebrow = 'Admin CRM',
+  heading = 'Staff and sales rep login',
+  backLinkLabel = 'Back to Home',
+  backLinkTarget = '/'
+}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +35,7 @@ const LoginPlaceholder: React.FC = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || '/admin';
+  const redirectPath = searchParams.get('redirect') || defaultRedirect;
 
   useEffect(() => {
     const checkExistingSession = async () => {
@@ -70,8 +90,10 @@ const LoginPlaceholder: React.FC = () => {
             className="h-11 w-11 rounded-lg bg-white object-contain p-1"
           />
           <div>
-            <p className="text-lg font-bold leading-none">SlapWrapz</p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-cyan-200">by Blue Woods Brands</p>
+            <p className="text-lg font-bold leading-none">{brandName}</p>
+            <p className={`mt-1 text-xs font-medium tracking-wide text-cyan-200 ${uppercaseBrandSubtitle ? 'uppercase' : ''}`}>
+              {brandSubtitle}
+            </p>
           </div>
         </Link>
 
@@ -81,9 +103,9 @@ const LoginPlaceholder: React.FC = () => {
               <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-cyan-400 text-slate-950">
                 <LockKeyhole className="h-5 w-5" />
               </div>
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-200">Admin CRM</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-200">{eyebrow}</p>
               <CardTitle className="text-3xl font-black leading-tight md:text-4xl">
-                Staff and sales rep login
+                {heading}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -126,7 +148,7 @@ const LoginPlaceholder: React.FC = () => {
                     {loading ? 'Signing in...' : 'Log In'}
                   </Button>
                   <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
-                    <Link to="/">Back to Home</Link>
+                    <Link to={backLinkTarget}>{backLinkLabel}</Link>
                   </Button>
                 </div>
               </form>
