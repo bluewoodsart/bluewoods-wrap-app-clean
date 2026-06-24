@@ -29,6 +29,43 @@ interface FileSummary {
   tags?: string[];
 }
 
+interface StatusEvent {
+  id?: string;
+  event_type?: string;
+  status?: string | null;
+  message?: string | null;
+  created_at?: string;
+}
+
+interface FollowUpTask {
+  id?: string;
+  task_text?: string;
+  due_date?: string;
+  status?: 'open' | 'completed' | string;
+  created_by?: string;
+  created_at?: string;
+  completed_at?: string | null;
+}
+
+interface FollowUpSummary {
+  next_follow_up_task?: FollowUpTask | null;
+  open_follow_up_count?: number;
+  overdue_follow_up_count?: number;
+  due_today_follow_up_count?: number;
+}
+
+interface CustomerActionRequest {
+  id?: string;
+  request_type?: string;
+  request_types?: string[] | string | null;
+  message?: string;
+  customer_email?: string;
+  status?: string;
+  created_by?: string;
+  created_at?: string;
+  sent_at?: string;
+}
+
 interface RepQuoteRow {
   id: string;
   quote_id: string | null;
@@ -42,17 +79,34 @@ interface RepQuoteRow {
   assigned_rep_name: string | null;
   quote_summary: QuoteSummary | null;
   file_summary: FileSummary[] | string | null;
+  status_events: StatusEvent[] | string | null;
+  follow_up_summary: FollowUpSummary | string | null;
+  follow_up_tasks: FollowUpTask[] | string | null;
+  customer_action_requests: CustomerActionRequest[] | string | null;
   created_at: string;
 }
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('en-US', {
+const formatDate = (value: string | null | undefined) => {
+  if (!value) return '-';
+
+  return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit'
   }).format(new Date(value));
+};
+
+const formatDueDate = (value: string | null | undefined) => {
+  if (!value) return '-';
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(new Date(`${value}T00:00:00`));
+};
 
 const formatLabel = (value: string | null | undefined) =>
   value ? value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : '-';
@@ -75,6 +129,27 @@ const formatValue = (value: unknown): string => {
   return String(value);
 };
 
+const parseJsonValue = <T,>(value: T | string | null | undefined, fallback: T): T => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value !== 'string') return value;
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const getJsonArray = <T,>(value: T[] | string | null | undefined): T[] => {
+  const parsed = parseJsonValue<T[] | unknown>(value, []);
+  return Array.isArray(parsed) ? parsed as T[] : [];
+};
+
+const getJsonObject = <T extends Record<string, unknown>>(value: T | string | null | undefined): T | null => {
+  const parsed = parseJsonValue<T | unknown>(value, null);
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as T : null;
+};
+
 const getSummaryValue = (quote: RepQuoteRow, keys: string | string[]) => {
   const summary = quote.quote_summary;
   if (!summary) return undefined;
@@ -87,31 +162,90 @@ const getSummaryValue = (quote: RepQuoteRow, keys: string | string[]) => {
   return undefined;
 };
 
-const getFiles = (quote: RepQuoteRow): FileSummary[] => {
-  if (Array.isArray(quote.file_summary)) return quote.file_summary;
-  if (typeof quote.file_summary === 'string') {
+const getFiles = (quote: RepQuoteRow) => getJsonArray<FileSummary>(quote.file_summary);
+const getStatusEvents = (quote: RepQuoteRow) => getJsonArray<StatusEvent>(quote.status_events);
+const getFollowUpTasks = (quote: RepQuoteRow) => getJsonArray<FollowUpTask>(quote.follow_up_tasks);
+const getFollowUpSummary = (quote: RepQuoteRow) => getJsonObject<FollowUpSummary>(quote.follow_up_summary) || {};
+const getCustomerActionRequests = (quote: RepQuoteRow) =>
+  getJsonArray<CustomerActionRequest>(quote.customer_action_requests);
+
+const getProjectTitle = (quote: RepQuoteRow) =>
+  formatValue(getSummaryValue(quote, ['selectedService', 'quoteType', 'intakeType']));
+
+const getProductLabel = (quote: RepQuoteRow) =>
+  formatLabel(quote.product_type || (getSummaryValue(quote, 'productType') as string | undefined) || 'wrap');
+
+const getVehicleValue = (quote: RepQuoteRow) => {
+  const vehicle = getSummaryValue(quote, 'vehicle');
+  if (vehicle) return vehicle;
+
+  const summaryVehicle = {
+    year: getSummaryValue(quote, ['vehicleYear', 'vehicle_year']),
+    make: getSummaryValue(quote, ['vehicleMake', 'vehicle_make']),
+    model: getSummaryValue(quote, ['vehicleModel', 'vehicle_model'])
+  };
+
+  return Object.values(summaryVehicle).some(Boolean) ? summaryVehicle : undefined;
+};
+
+const getBannerValue = (quote: RepQuoteRow, key: string) => {
+  const banner = getSummaryValue(quote, 'banner');
+  if (!banner || typeof banner !== 'object' || Array.isArray(banner)) return undefined;
+  return (banner as Record<string, unknown>)[key];
+};
+
+const getFollowUpBucket = (summary: FollowUpSummary) => {
+  if ((summary.overdue_follow_up_count || 0) > 0) return 'overdue';
+  if ((summary.due_today_follow_up_count || 0) > 0) return 'due_today';
+  if ((summary.open_follow_up_count || 0) > 0) return 'upcoming';
+  return 'none';
+};
+
+const getFollowUpBucketLabel = (summary: FollowUpSummary) => {
+  const bucket = getFollowUpBucket(summary);
+  if (bucket === 'overdue') return 'Overdue';
+  if (bucket === 'due_today') return 'Due today';
+  if (bucket === 'upcoming') return 'Open follow-up';
+  return 'No open follow-up';
+};
+
+const getFollowUpClassName = (summary: FollowUpSummary) => {
+  const bucket = getFollowUpBucket(summary);
+  if (bucket === 'overdue') return 'bg-red-100 text-red-700';
+  if (bucket === 'due_today') return 'bg-amber-100 text-amber-800';
+  if (bucket === 'upcoming') return 'bg-blue-100 text-blue-700';
+  return 'bg-slate-100 text-slate-600';
+};
+
+const getRequestTypes = (request: CustomerActionRequest) => {
+  if (Array.isArray(request.request_types)) return request.request_types;
+  if (typeof request.request_types === 'string') {
     try {
-      const parsed = JSON.parse(quote.file_summary);
-      return Array.isArray(parsed) ? parsed : [];
+      const parsed = JSON.parse(request.request_types);
+      if (Array.isArray(parsed)) return parsed;
     } catch {
-      return [];
+      return [request.request_types];
     }
   }
-  return [];
+  return request.request_type ? [request.request_type] : [];
 };
 
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
 
   const imagePath = `${file.name || ''} ${file.url || ''}`.toLowerCase();
-  return /\.(png|jpe?g|webp)(\?.*)?$/.test(imagePath);
+  return /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/.test(imagePath);
 };
 
 const DetailField = ({ label, value }: { label: string; value: unknown }) => (
   <div>
     <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
-    <dd className="mt-1 text-sm text-slate-900">{formatValue(value)}</dd>
+    <dd className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{formatValue(value)}</dd>
   </div>
+);
+
+const EmptySection = ({ children }: { children: string }) => (
+  <p className="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">{children}</p>
 );
 
 const RepPortal = () => {
@@ -170,7 +304,7 @@ const RepPortal = () => {
     }
 
     setLoadingQuotes(true);
-    const { data: quoteData, error: quoteError } = await supabase.rpc('get_rep_assigned_quote_requests');
+    const { data: quoteData, error: quoteError } = await supabase.rpc('get_rep_assigned_quote_requests_v2');
     setLoadingQuotes(false);
 
     if (quoteError) {
@@ -206,6 +340,13 @@ const RepPortal = () => {
   };
 
   const selectedFiles = useMemo(() => (selectedQuote ? getFiles(selectedQuote) : []), [selectedQuote]);
+  const selectedEvents = useMemo(() => (selectedQuote ? getStatusEvents(selectedQuote) : []), [selectedQuote]);
+  const selectedFollowUpSummary = useMemo(() => (selectedQuote ? getFollowUpSummary(selectedQuote) : {}), [selectedQuote]);
+  const selectedFollowUpTasks = useMemo(() => (selectedQuote ? getFollowUpTasks(selectedQuote) : []), [selectedQuote]);
+  const selectedCustomerActions = useMemo(
+    () => (selectedQuote ? getCustomerActionRequests(selectedQuote) : []),
+    [selectedQuote]
+  );
 
   if (loading) {
     return (
@@ -302,46 +443,65 @@ const RepPortal = () => {
                     <TableRow>
                       <TableHead>Customer</TableHead>
                       <TableHead>Project</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Stage</TableHead>
+                      <TableHead>Next Action</TableHead>
                       <TableHead>Files</TableHead>
                       <TableHead>Received</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {quotes.map((quote) => (
-                      <TableRow
-                        key={quote.id}
-                        className="cursor-pointer"
-                        onClick={() => setSelectedQuote(quote)}
-                      >
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-medium text-slate-900">{quote.customer_name}</p>
-                            <p className="text-xs text-slate-500">{quote.customer_email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="text-sm text-slate-900">
-                              {formatValue(getSummaryValue(quote, ['selectedService', 'quoteType', 'intakeType']))}
-                            </p>
-                            <p className="text-xs text-slate-500">{quote.quote_id || quote.id}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                            {formatLabel(quote.status)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center gap-1 text-sm text-slate-700">
-                            <FileText className="h-4 w-4" />
-                            {getFiles(quote).length}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-600">{formatDate(quote.created_at)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {quotes.map((quote) => {
+                      const followUpSummary = getFollowUpSummary(quote);
+                      const nextTask = followUpSummary.next_follow_up_task;
+
+                      return (
+                        <TableRow
+                          key={quote.id}
+                          className="cursor-pointer"
+                          onClick={() => setSelectedQuote(quote)}
+                        >
+                          <TableCell>
+                            <div className="min-w-[13rem] space-y-1">
+                              <p className="font-medium text-slate-900">{quote.customer_name}</p>
+                              <p className="text-xs text-slate-500">{quote.customer_email}</p>
+                              <p className="text-xs text-slate-500">{quote.customer_phone || '-'}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="min-w-[14rem] space-y-1">
+                              <p className="text-sm text-slate-900">{getProjectTitle(quote)}</p>
+                              <p className="text-xs text-slate-500">{getProductLabel(quote)}</p>
+                              <p className="break-all text-xs text-slate-500">{quote.quote_id || quote.id}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                              {formatLabel(quote.status)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="max-w-xs space-y-1">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpClassName(followUpSummary)}`}>
+                                {getFollowUpBucketLabel(followUpSummary)}
+                              </span>
+                              {nextTask?.task_text && (
+                                <>
+                                  <p className="line-clamp-2 text-sm text-slate-900">{nextTask.task_text}</p>
+                                  <p className="text-xs text-slate-500">Due {formatDueDate(nextTask.due_date)}</p>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center gap-1 text-sm text-slate-700">
+                              <FileText className="h-4 w-4" />
+                              {getFiles(quote).length}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600">{formatDate(quote.created_at)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -352,7 +512,7 @@ const RepPortal = () => {
 
       <Dialog open={Boolean(selectedQuote)} onOpenChange={(open) => !open && setSelectedQuote(null)}>
         {selectedQuote && (
-          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedQuote.quote_id || selectedQuote.customer_name}</DialogTitle>
               <DialogDescription>Read-only assigned quote details</DialogDescription>
@@ -361,38 +521,178 @@ const RepPortal = () => {
             <div className="space-y-6">
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
-                <dl className="grid gap-4 md:grid-cols-3">
+                <dl className="grid gap-4 md:grid-cols-4">
                   <DetailField label="Name" value={selectedQuote.customer_name} />
                   <DetailField label="Email" value={selectedQuote.customer_email} />
                   <DetailField label="Phone" value={selectedQuote.customer_phone} />
-                  <DetailField label="Preferred Contact" value={selectedQuote.preferred_contact} />
+                  <DetailField label="Preferred Contact" value={formatLabel(selectedQuote.preferred_contact)} />
                   <DetailField label="Status" value={formatLabel(selectedQuote.status)} />
+                  <DetailField label="Product" value={getProductLabel(selectedQuote)} />
                   <DetailField label="Received" value={formatDate(selectedQuote.created_at)} />
+                  <DetailField label="Quote ID" value={selectedQuote.quote_id || selectedQuote.id} />
                 </dl>
               </section>
 
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Project</h3>
-                <dl className="grid gap-4 md:grid-cols-2">
+                <dl className="grid gap-4 md:grid-cols-3">
                   <DetailField label="Service" value={getSummaryValue(selectedQuote, ['selectedService', 'quoteType', 'intakeType'])} />
-                  <DetailField label="Product" value={selectedQuote.product_type || getSummaryValue(selectedQuote, 'productType')} />
                   <DetailField label="Company" value={getSummaryValue(selectedQuote, 'companyName')} />
                   <DetailField label="Vehicle Type" value={getSummaryValue(selectedQuote, 'vehicleType')} />
-                  <DetailField label="Vehicle" value={getSummaryValue(selectedQuote, 'vehicle')} />
+                  <DetailField label="Vehicle" value={getVehicleValue(selectedQuote)} />
+                  <DetailField
+                    label="Manual Vehicle"
+                    value={getSummaryValue(selectedQuote, [
+                      'manualVehicleDescription',
+                      'customVehicleDescription',
+                      'otherVehicleDescription'
+                    ])}
+                  />
+                  <DetailField label="Wrap Type" value={getSummaryValue(selectedQuote, 'wrapType')} />
+                  <DetailField label="Coverage Areas" value={getSummaryValue(selectedQuote, 'coverageAreas')} />
+                  <DetailField label="Use Type" value={getSummaryValue(selectedQuote, 'useType')} />
+                  <DetailField label="Finish Preference" value={getSummaryValue(selectedQuote, 'finishPreference')} />
+                  <DetailField label="Design Needs" value={getSummaryValue(selectedQuote, ['designNeeds', 'hasArtwork', 'artworkStatus'])} />
                   <DetailField label="Budget" value={getSummaryValue(selectedQuote, 'budget')} />
                   <DetailField label="Timeline" value={getSummaryValue(selectedQuote, 'timeline')} />
-                  <DetailField label="Design Needs" value={getSummaryValue(selectedQuote, ['designNeeds', 'hasArtwork', 'artworkStatus'])} />
-                  <DetailField label="Project Notes" value={getSummaryValue(selectedQuote, 'goal')} />
-                  <DetailField label="Banner Details" value={getSummaryValue(selectedQuote, 'banner')} />
                 </dl>
+                <div className="mt-4">
+                  <DetailField label="Project Notes" value={getSummaryValue(selectedQuote, ['goal', 'notes', 'projectNotes'])} />
+                </div>
+              </section>
+
+              {getSummaryValue(selectedQuote, 'banner') && (
+                <section>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Banner Details</h3>
+                  <dl className="grid gap-4 md:grid-cols-4">
+                    <DetailField label="Width" value={getBannerValue(selectedQuote, 'width')} />
+                    <DetailField label="Height" value={getBannerValue(selectedQuote, 'height')} />
+                    <DetailField label="Unit" value={getBannerValue(selectedQuote, 'unit')} />
+                    <DetailField label="Quantity" value={getBannerValue(selectedQuote, 'quantity')} />
+                    <DetailField label="Indoor / Outdoor" value={getBannerValue(selectedQuote, 'indoorOutdoor')} />
+                    <DetailField label="Sides" value={getBannerValue(selectedQuote, 'sides')} />
+                    <DetailField label="Grommets" value={getBannerValue(selectedQuote, 'grommets')} />
+                    <DetailField label="Hemmed Edges" value={getBannerValue(selectedQuote, 'hemmedEdges')} />
+                    <DetailField label="Pole Pockets" value={getBannerValue(selectedQuote, 'polePockets')} />
+                    <DetailField label="Material Preference" value={getBannerValue(selectedQuote, 'materialPreference')} />
+                    <DetailField label="Design Needed" value={getBannerValue(selectedQuote, 'designNeeded')} />
+                    <DetailField label="Deadline" value={getBannerValue(selectedQuote, 'deadline')} />
+                    <DetailField label="Delivery Method" value={getBannerValue(selectedQuote, 'deliveryMethod')} />
+                    <DetailField label="Banner Text" value={getBannerValue(selectedQuote, 'bannerText')} />
+                    <DetailField label="Brand Colors" value={getBannerValue(selectedQuote, 'brandColors')} />
+                    <DetailField label="Notes" value={getBannerValue(selectedQuote, 'notes')} />
+                  </dl>
+                </section>
+              )}
+
+              <section>
+                <h3 className="mb-3 text-sm font-semibold text-slate-950">Next Action</h3>
+                {selectedFollowUpSummary.next_follow_up_task?.task_text ? (
+                  <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpClassName(selectedFollowUpSummary)}`}>
+                        {getFollowUpBucketLabel(selectedFollowUpSummary)}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Due {formatDueDate(selectedFollowUpSummary.next_follow_up_task.due_date)}
+                      </span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm text-slate-900">
+                      {selectedFollowUpSummary.next_follow_up_task.task_text}
+                    </p>
+                  </div>
+                ) : (
+                  <EmptySection>No open next action is currently set.</EmptySection>
+                )}
+              </section>
+
+              <section>
+                <h3 className="mb-3 text-sm font-semibold text-slate-950">Follow-Up Tasks</h3>
+                {selectedFollowUpTasks.length === 0 ? (
+                  <EmptySection>No follow-up tasks yet.</EmptySection>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedFollowUpTasks.map((task, index) => (
+                      <div key={task.id || index} className="rounded-md border border-slate-200 bg-white p-3">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                            {formatLabel(task.status)}
+                          </span>
+                          <span className="text-xs text-slate-500">Due {formatDueDate(task.due_date)}</span>
+                        </div>
+                        <p className="whitespace-pre-wrap text-sm text-slate-900">{task.task_text || '-'}</p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Created by {task.created_by || 'Staff'} on {formatDate(task.created_at)}
+                          {task.completed_at ? ` - Completed ${formatDate(task.completed_at)}` : ''}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer Action Requests</h3>
+                {selectedCustomerActions.length === 0 ? (
+                  <EmptySection>No customer action requests sent yet.</EmptySection>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedCustomerActions.map((request, index) => (
+                      <div key={request.id || index} className="rounded-md border border-slate-200 bg-white p-3">
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-wrap gap-2">
+                            {getRequestTypes(request).map((requestType) => (
+                              <span key={requestType} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                                {formatLabel(requestType)}
+                              </span>
+                            ))}
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                              {formatLabel(request.status)}
+                            </span>
+                          </div>
+                          <time className="text-xs text-slate-500">{formatDate(request.sent_at || request.created_at)}</time>
+                        </div>
+                        <p className="whitespace-pre-wrap text-sm text-slate-900">{request.message || '-'}</p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Sent to {request.customer_email || selectedQuote.customer_email} by {request.created_by || 'Staff'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h3 className="mb-3 text-sm font-semibold text-slate-950">Activity Timeline</h3>
+                {selectedEvents.length === 0 ? (
+                  <EmptySection>No activity events yet.</EmptySection>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedEvents.map((event, index) => (
+                      <div key={event.id || index} className="rounded-md border border-slate-200 bg-white p-3">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">
+                              {event.message || formatLabel(event.event_type)}
+                            </p>
+                            {event.status && (
+                              <p className="text-xs text-slate-500">Status: {formatLabel(event.status)}</p>
+                            )}
+                          </div>
+                          <time className="text-xs text-slate-500">{formatDate(event.created_at)}</time>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Files</h3>
                 {selectedFiles.length === 0 ? (
-                  <p className="text-sm text-slate-600">No uploaded files on this quote.</p>
+                  <EmptySection>No uploaded files on this quote.</EmptySection>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid gap-3 md:grid-cols-2">
                     {selectedFiles.map((file, index) => (
                       <a
                         key={file.id || file.url || index}
@@ -407,12 +707,17 @@ const RepPortal = () => {
                               src={file.url}
                               alt=""
                               loading="lazy"
-                              className="h-14 w-14 flex-none rounded-md border border-slate-200 bg-slate-100 object-cover"
+                              className="h-16 w-16 flex-none rounded-md border border-slate-200 bg-slate-100 object-cover"
                             />
                           ) : (
                             <FileText className="h-5 w-5 flex-none text-slate-500" />
                           )}
-                          <span className="min-w-0 flex-1 truncate">{file.name || file.url || `File ${index + 1}`}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{file.name || file.url || `File ${index + 1}`}</span>
+                            {file.tags && file.tags.length > 0 && (
+                              <span className="mt-1 block truncate text-xs text-slate-500">{file.tags.join(', ')}</span>
+                            )}
+                          </span>
                         </span>
                         <ExternalLink className="h-4 w-4 flex-none text-slate-500" />
                       </a>
