@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useState } from 'react';
-import { CheckCircle2, Download, ExternalLink, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Download, ExternalLink, Eye, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1395,28 +1395,30 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             ) : filteredQuotes.length === 0 ? (
               <div className="py-10 text-center text-sm text-slate-600">No quote requests match this follow-up filter.</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {enableBulkActions && (
-                      <TableHead className="w-10">
-                        <Checkbox
-                          checked={allVisibleQuotesSelected}
-                          aria-label="Select all visible quotes"
-                          onCheckedChange={(checked) => toggleAllVisibleQuotes(checked === true)}
-                        />
-                      </TableHead>
-                    )}
-                    <TableHead>Lead / Customer</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Assigned To / Channel</TableHead>
-                    <TableHead>Follow-Up / Next Action</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Quote ID</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredQuotes.map((quote) => {
+              <div className="overflow-x-auto">
+                <Table className="min-w-[72rem]">
+                  <TableHeader>
+                    <TableRow>
+                      {enableBulkActions && (
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={allVisibleQuotesSelected}
+                            aria-label="Select all visible quotes"
+                            onCheckedChange={(checked) => toggleAllVisibleQuotes(checked === true)}
+                          />
+                        </TableHead>
+                      )}
+                      <TableHead>Lead / Customer</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Assigned To / Channel</TableHead>
+                      <TableHead>Follow-Up / Next Action</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Quote ID</TableHead>
+                      <TableHead className="w-32 text-right">Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredQuotes.map((quote) => {
                     const selectedStatus = getSelectedStatus(quote);
                     const isSaving = savingId === quote.id;
                     const followUpSummary = getFollowUpSummaryForQuote(quote.id);
@@ -1426,7 +1428,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     return (
                       <TableRow
                         key={quote.id}
-                        className={`cursor-pointer ${isOverdue ? 'bg-red-50/70 hover:bg-red-50' : ''}`}
+                        className={`cursor-pointer ${isOverdue ? 'bg-red-50/70 hover:bg-red-50' : 'hover:bg-slate-50'}`}
                         onClick={() => openQuoteDetail(quote)}
                       >
                         {enableBulkActions && (
@@ -1530,14 +1532,37 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             {isSaving && <p className="text-xs text-slate-500">Saving...</p>}
                           </div>
                         </TableCell>
-                        <TableCell onClick={(event) => event.stopPropagation()} className="cursor-default">
-                          <p className="max-w-[11rem] break-all font-mono text-xs text-slate-500">{quote.quote_id || '-'}</p>
+                        <TableCell
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openQuoteDetail(quote);
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="max-w-[11rem] break-all text-left font-mono text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
+                            aria-label={`Open quote details for ${quote.quote_id || quote.customer_name}`}
+                          >
+                            {quote.quote_id || '-'}
+                          </button>
+                        </TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()} className="text-right">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openQuoteDetail(quote)}
+                          >
+                            <Eye className="mr-2 h-3.5 w-3.5" />
+                            View
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
-                  })}
-                </TableBody>
-              </Table>
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
