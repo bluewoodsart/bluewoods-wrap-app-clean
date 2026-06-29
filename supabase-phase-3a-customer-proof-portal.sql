@@ -80,7 +80,7 @@ begin
   limit 1;
 
   if v_token is null then
-    v_token := encode(gen_random_bytes(24), 'hex');
+    v_token := encode(extensions.gen_random_bytes(24), 'hex');
 
     insert into public.quote_customer_proof_tokens (
       quote_request_id,
@@ -229,7 +229,7 @@ begin
     values (
       v_quote_request_id,
       'customer_proof_approved',
-      'approved',
+      v_current_status,
       'Customer approved proof from private proof link.'
     );
 
