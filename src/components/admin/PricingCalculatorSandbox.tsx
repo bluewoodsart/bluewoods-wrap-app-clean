@@ -103,6 +103,9 @@ interface PricingSandboxData {
   pricing_rules: PricingRule[];
 }
 
+const unavailableMessage =
+  'Pricing sandbox data is unavailable. Phase 3 pricing RPCs may not be installed yet.';
+
 const formatPercent = (value: number | null) =>
   value === null || value === undefined ? 'Not set' : `${value}%`;
 
@@ -117,6 +120,32 @@ const formatCurrency = (value: number | null) =>
 const renderAreas = (areas: string[] | null) =>
   areas && areas.length > 0 ? areas.join(', ') : 'None listed';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const normalizePricingSandboxData = (rpcData: unknown): PricingSandboxData | null => {
+  const source = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+
+  if (!isRecord(source)) {
+    return null;
+  }
+
+  return {
+    phase: typeof source.phase === 'string' ? source.phase : 'Phase 2H-B',
+    warning: typeof source.warning === 'string' ? source.warning : unavailableMessage,
+    material_systems: Array.isArray(source.material_systems)
+      ? (source.material_systems as MaterialSystem[])
+      : [],
+    coverage_profiles: Array.isArray(source.coverage_profiles)
+      ? (source.coverage_profiles as CoverageProfile[])
+      : [],
+    vehicle_sqft_profiles: Array.isArray(source.vehicle_sqft_profiles)
+      ? (source.vehicle_sqft_profiles as VehicleSqftProfile[])
+      : [],
+    pricing_rules: Array.isArray(source.pricing_rules) ? (source.pricing_rules as PricingRule[]) : []
+  };
+};
+
 const PricingCalculatorSandbox = () => {
   const [data, setData] = useState<PricingSandboxData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,23 +158,35 @@ const PricingCalculatorSandbox = () => {
     setLoading(true);
     setError('');
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
-      'get_wrap_pricing_calculator_seed_data'
-    );
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'get_wrap_pricing_calculator_seed_data'
+      );
 
-    if (rpcError) {
-      setError(rpcError.message);
+      if (rpcError) {
+        setError(rpcError.message || unavailableMessage);
+        setData(null);
+        return;
+      }
+
+      const nextData = normalizePricingSandboxData(rpcData);
+
+      if (!nextData) {
+        setError(unavailableMessage);
+        setData(null);
+        return;
+      }
+
+      setData(nextData);
+      setSelectedVehicleType(nextData.vehicle_sqft_profiles[0]?.vehicle_type ?? '');
+      setSelectedCoverageId(nextData.coverage_profiles[0]?.id ?? '');
+      setSelectedMaterialSystemId(nextData.material_systems[0]?.id ?? '');
+    } catch {
+      setError(unavailableMessage);
       setData(null);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const nextData = rpcData as PricingSandboxData;
-    setData(nextData);
-    setSelectedVehicleType(nextData.vehicle_sqft_profiles[0]?.vehicle_type ?? '');
-    setSelectedCoverageId(nextData.coverage_profiles[0]?.id ?? '');
-    setSelectedMaterialSystemId(nextData.material_systems[0]?.id ?? '');
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -211,8 +252,26 @@ const PricingCalculatorSandbox = () => {
   }
 
   if (!data) {
-    return null;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Pricing Sandbox</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="warning">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Sandbox data unavailable</AlertTitle>
+            <AlertDescription>{unavailableMessage}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
   }
+
+  const hasRequiredSeedData =
+    data.vehicle_sqft_profiles.length > 0 &&
+    data.coverage_profiles.length > 0 &&
+    data.material_systems.length > 0;
 
   return (
     <div className="space-y-5">
@@ -232,6 +291,14 @@ const PricingCalculatorSandbox = () => {
         <AlertTitle>Sandbox test data only</AlertTitle>
         <AlertDescription>{data.warning}</AlertDescription>
       </Alert>
+
+      {!hasRequiredSeedData && (
+        <Alert variant="warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Sandbox data unavailable</AlertTitle>
+          <AlertDescription>{unavailableMessage}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -358,7 +425,7 @@ const PricingCalculatorSandbox = () => {
             <CardTitle>Material System</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            {selectedMaterialSystem ? (
+                {selectedMaterialSystem ? (
               <>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-slate-500">System</span>
@@ -373,12 +440,12 @@ const PricingCalculatorSandbox = () => {
                   <span>{formatPercent(selectedMaterialSystem.default_waste_percent)}</span>
                 </div>
                 <p className="border-t border-slate-200 pt-3 text-xs text-slate-500">
-                  Print: {selectedMaterialSystem.print_material.brand ?? 'Brand not set'}{' '}
-                  {selectedMaterialSystem.print_material.product_name}
+                  Print: {selectedMaterialSystem.print_material?.brand ?? 'Brand not set'}{' '}
+                  {selectedMaterialSystem.print_material?.product_name ?? 'Not available'}
                 </p>
                 <p className="text-xs text-slate-500">
-                  Laminate: {selectedMaterialSystem.laminate_material.brand ?? 'Brand not set'}{' '}
-                  {selectedMaterialSystem.laminate_material.product_name}
+                  Laminate: {selectedMaterialSystem.laminate_material?.brand ?? 'Brand not set'}{' '}
+                  {selectedMaterialSystem.laminate_material?.product_name ?? 'Not available'}
                 </p>
               </>
             ) : (
@@ -457,8 +524,8 @@ const PricingCalculatorSandbox = () => {
                   <TableRow key={system.id}>
                     <TableCell className="font-medium">{system.system_name}</TableCell>
                     <TableCell>{system.system_tier}</TableCell>
-                    <TableCell>{system.print_material.product_name}</TableCell>
-                    <TableCell>{system.laminate_material.product_name}</TableCell>
+                    <TableCell>{system.print_material?.product_name ?? 'Not available'}</TableCell>
+                    <TableCell>{system.laminate_material?.product_name ?? 'Not available'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
