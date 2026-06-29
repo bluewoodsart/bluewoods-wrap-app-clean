@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { LogOut, RefreshCw } from 'lucide-react';
@@ -24,6 +24,40 @@ const formatRole = (role: AdminUser['role']) =>
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+
+class PricingSandboxErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Pricing sandbox render failed:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pricing Sandbox</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              Pricing sandbox data is unavailable. Phase 3 pricing RPCs may not be installed yet.
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const Admin = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -192,7 +226,9 @@ const Admin = () => {
 
           {canViewPricingSandbox && (
             <TabsContent value="pricing-sandbox" className="mt-0">
-              <PricingCalculatorSandbox />
+              <PricingSandboxErrorBoundary>
+                <PricingCalculatorSandbox />
+              </PricingSandboxErrorBoundary>
             </TabsContent>
           )}
         </Tabs>

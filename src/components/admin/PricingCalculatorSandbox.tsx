@@ -123,6 +123,45 @@ const renderAreas = (areas: string[] | null) =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+const getValidVehicleProfiles = (profiles: VehicleSqftProfile[]) =>
+  profiles.filter((profile) => isNonEmptyString(profile.id) && isNonEmptyString(profile.vehicle_type));
+
+const getValidCoverageProfiles = (profiles: CoverageProfile[]) =>
+  profiles.filter((profile) => isNonEmptyString(profile.id));
+
+const getValidMaterialSystems = (systems: MaterialSystem[]) =>
+  systems.filter((system) => isNonEmptyString(system.id));
+
+const PricingSandboxUnavailableCard = ({
+  onRetry,
+  variant = 'warning'
+}: {
+  onRetry?: () => void;
+  variant?: 'warning' | 'destructive';
+}) => (
+  <Card>
+    <CardHeader>
+      <CardTitle>Pricing Sandbox</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <Alert variant={variant}>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Sandbox data unavailable</AlertTitle>
+        <AlertDescription>{unavailableMessage}</AlertDescription>
+      </Alert>
+      {onRetry && (
+        <Button variant="outline" onClick={onRetry}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Try Again
+        </Button>
+      )}
+    </CardContent>
+  </Card>
+);
+
 const normalizePricingSandboxData = (rpcData: unknown): PricingSandboxData | null => {
   const source = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
@@ -177,10 +216,14 @@ const PricingCalculatorSandbox = () => {
         return;
       }
 
+      const vehicleProfiles = getValidVehicleProfiles(nextData.vehicle_sqft_profiles);
+      const coverageProfiles = getValidCoverageProfiles(nextData.coverage_profiles);
+      const materialSystems = getValidMaterialSystems(nextData.material_systems);
+
       setData(nextData);
-      setSelectedVehicleType(nextData.vehicle_sqft_profiles[0]?.vehicle_type ?? '');
-      setSelectedCoverageId(nextData.coverage_profiles[0]?.id ?? '');
-      setSelectedMaterialSystemId(nextData.material_systems[0]?.id ?? '');
+      setSelectedVehicleType(vehicleProfiles[0]?.vehicle_type ?? '');
+      setSelectedCoverageId(coverageProfiles[0]?.id ?? '');
+      setSelectedMaterialSystemId(materialSystems[0]?.id ?? '');
     } catch {
       setError(unavailableMessage);
       setData(null);
@@ -231,47 +274,25 @@ const PricingCalculatorSandbox = () => {
   }
 
   if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Pricing Sandbox</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Sandbox data could not be loaded</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <Button variant="outline" onClick={() => void loadSandboxData()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Try Again
-          </Button>
-        </CardContent>
-      </Card>
-    );
+    return <PricingSandboxUnavailableCard variant="destructive" onRetry={() => void loadSandboxData()} />;
   }
 
   if (!data) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Pricing Sandbox</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="warning">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Sandbox data unavailable</AlertTitle>
-            <AlertDescription>{unavailableMessage}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    );
+    return <PricingSandboxUnavailableCard />;
   }
 
+  const vehicleProfiles = getValidVehicleProfiles(data.vehicle_sqft_profiles);
+  const coverageProfiles = getValidCoverageProfiles(data.coverage_profiles);
+  const materialSystems = getValidMaterialSystems(data.material_systems);
+
   const hasRequiredSeedData =
-    data.vehicle_sqft_profiles.length > 0 &&
-    data.coverage_profiles.length > 0 &&
-    data.material_systems.length > 0;
+    vehicleProfiles.length > 0 &&
+    coverageProfiles.length > 0 &&
+    materialSystems.length > 0;
+
+  if (!hasRequiredSeedData) {
+    return <PricingSandboxUnavailableCard onRetry={() => void loadSandboxData()} />;
+  }
 
   return (
     <div className="space-y-5">
@@ -292,14 +313,6 @@ const PricingCalculatorSandbox = () => {
         <AlertDescription>{data.warning}</AlertDescription>
       </Alert>
 
-      {!hasRequiredSeedData && (
-        <Alert variant="warning">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Sandbox data unavailable</AlertTitle>
-          <AlertDescription>{unavailableMessage}</AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle>Sandbox Selection</CardTitle>
@@ -312,7 +325,7 @@ const PricingCalculatorSandbox = () => {
                 <SelectValue placeholder="Select vehicle" />
               </SelectTrigger>
               <SelectContent>
-                {data.vehicle_sqft_profiles.map((profile) => (
+                {vehicleProfiles.map((profile) => (
                   <SelectItem key={profile.id} value={profile.vehicle_type}>
                     {profile.vehicle_type}
                   </SelectItem>
@@ -328,7 +341,7 @@ const PricingCalculatorSandbox = () => {
                 <SelectValue placeholder="Select coverage" />
               </SelectTrigger>
               <SelectContent>
-                {data.coverage_profiles.map((profile) => (
+                {coverageProfiles.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
                     {profile.coverage_name}
                   </SelectItem>
@@ -344,7 +357,7 @@ const PricingCalculatorSandbox = () => {
                 <SelectValue placeholder="Select material system" />
               </SelectTrigger>
               <SelectContent>
-                {data.material_systems.map((system) => (
+                {materialSystems.map((system) => (
                   <SelectItem key={system.id} value={system.id}>
                     {system.system_name}
                   </SelectItem>
@@ -520,7 +533,7 @@ const PricingCalculatorSandbox = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.material_systems.map((system) => (
+                {materialSystems.map((system) => (
                   <TableRow key={system.id}>
                     <TableCell className="font-medium">{system.system_name}</TableCell>
                     <TableCell>{system.system_tier}</TableCell>
@@ -548,7 +561,7 @@ const PricingCalculatorSandbox = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.coverage_profiles.map((profile) => (
+                {coverageProfiles.map((profile) => (
                   <TableRow key={profile.id}>
                     <TableCell className="font-medium">{profile.coverage_name}</TableCell>
                     <TableCell>{profile.coverage_key}</TableCell>
@@ -576,7 +589,7 @@ const PricingCalculatorSandbox = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.vehicle_sqft_profiles.map((profile) => (
+                {vehicleProfiles.map((profile) => (
                   <TableRow key={profile.id}>
                     <TableCell className="font-medium">{profile.vehicle_type}</TableCell>
                     <TableCell>{profile.body_style ?? 'Not set'}</TableCell>
