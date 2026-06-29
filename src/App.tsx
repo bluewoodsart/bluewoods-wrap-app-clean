@@ -13,6 +13,7 @@ import Admin from "./pages/Admin";
 import RepPortal from "./pages/RepPortal";
 import FullProject from "./pages/FullProject";
 import UploadAssets from "./pages/UploadAssets";
+import CustomerProofPortal from "./pages/CustomerProofPortal";
 import LoginPlaceholder from "./pages/LoginPlaceholder";
 import RegisterPlaceholder from "./pages/RegisterPlaceholder";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
@@ -121,6 +122,7 @@ const App = () => {
               <Route path="/admin-status" element={<AdminStatus />} />
               <Route path="/rep" element={<RepPortal />} />
               <Route path="/upload-assets/:token" element={<UploadAssets />} />
+              <Route path="/proof/:token" element={<CustomerProofPortal />} />
               <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = '/'} />} />
               <Route path="*" element={<NotFound />} />

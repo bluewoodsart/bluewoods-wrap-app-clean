@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useState } from 'react';
-import { CheckCircle2, Download, ExternalLink, Eye, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Copy, Download, ExternalLink, Eye, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -105,6 +105,13 @@ interface QuoteRequestRow {
   product_type?: string | null;
   quote_data: QuoteData | null;
   uploaded_files: UploadedFileSummary[] | string | null;
+  customer_proof_token: string | null;
+  customer_proof_image_url: string | null;
+  customer_proof_payment_url: string | null;
+  customer_proof_status: string | null;
+  customer_proof_approved_at: string | null;
+  customer_proof_revision_requested_at: string | null;
+  customer_proof_revision_message: string | null;
   created_at: string;
 }
 
@@ -310,6 +317,9 @@ const getAssignedChannelLabel = (quote: QuoteRequestRow) => {
   if (quote.rep_email) return quote.rep_email;
   return 'Direct / Blue Woods';
 };
+
+const getCustomerProofLink = (token: string | null | undefined) =>
+  token ? `${window.location.origin}/proof/${token}` : '';
 
 const getBannerValue = (quote: QuoteRequestRow, key: string) => {
   const banner = getQuoteValue(quote, 'banner');
@@ -692,6 +702,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [assigningRep, setAssigningRep] = useState(false);
   const [assignRepMessage, setAssignRepMessage] = useState('');
   const [assignRepError, setAssignRepError] = useState('');
+  const [proofImageUrl, setProofImageUrl] = useState('');
+  const [proofPaymentUrl, setProofPaymentUrl] = useState('');
+  const [savingProofPortal, setSavingProofPortal] = useState(false);
+  const [proofPortalMessage, setProofPortalMessage] = useState('');
+  const [proofPortalError, setProofPortalError] = useState('');
   const canAssignReps = currentAdminRole === 'owner_admin';
 
   const loadFollowUpSummaries = async () => {
@@ -862,8 +877,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       return;
     }
 
-    setSelectedQuoteDetail(data?.[0] ?? null);
-    setSelectedAssignRepSlug(data?.[0]?.rep_slug || UNASSIGNED_REP_VALUE);
+    const quoteDetail = data?.[0] ?? null;
+    setSelectedQuoteDetail(quoteDetail);
+    setSelectedAssignRepSlug(quoteDetail?.rep_slug || UNASSIGNED_REP_VALUE);
+    setProofImageUrl(quoteDetail?.customer_proof_image_url || '');
+    setProofPaymentUrl(quoteDetail?.customer_proof_payment_url || '');
   };
 
   const openQuoteDetail = (quote: QuoteRequestRow) => {
@@ -885,6 +903,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setSelectedAssignRepSlug(quote.rep_slug || UNASSIGNED_REP_VALUE);
     setAssignRepMessage('');
     setAssignRepError('');
+    setProofImageUrl('');
+    setProofPaymentUrl('');
+    setProofPortalMessage('');
+    setProofPortalError('');
     setFollowUpMessage('');
     setFollowUpError('');
     setCustomerActionMessageStatus('');
@@ -897,6 +919,50 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     void loadInternalNotes(quote.id);
     void loadFollowUpTasks(quote.id);
     void loadCustomerActionRequests(quote.id);
+  };
+
+  const saveProofPortalSettings = async () => {
+    if (!selectedQuote || savingProofPortal) return;
+
+    setSavingProofPortal(true);
+    setProofPortalError('');
+    setProofPortalMessage('Saving proof portal...');
+
+    const { data, error: proofSettingsError } = await supabase
+      .rpc('upsert_customer_proof_portal_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_proof_image_url: proofImageUrl.trim() || null,
+        p_payment_url: proofPaymentUrl.trim() || null
+      });
+
+    setSavingProofPortal(false);
+
+    if (proofSettingsError) {
+      console.error('Admin proof portal save failed:', proofSettingsError);
+      setProofPortalError(proofSettingsError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    const token = data?.[0]?.customer_proof_token;
+    setProofPortalMessage(token ? 'Proof portal saved. Private link is ready.' : 'Proof portal saved.');
+    await Promise.all([
+      loadQuoteDetail(selectedQuote.id),
+      loadStatusEvents(selectedQuote.id)
+    ]);
+  };
+
+  const copyProofPortalLink = async (token: string | null | undefined) => {
+    const proofLink = getCustomerProofLink(token);
+    if (!proofLink) {
+      setProofPortalError('Save proof portal settings first to create a private link.');
+      setProofPortalMessage('');
+      return;
+    }
+
+    await navigator.clipboard.writeText(proofLink);
+    setProofPortalMessage('Private proof link copied.');
+    setProofPortalError('');
   };
 
   const saveAssignedRep = async () => {
@@ -1589,6 +1655,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
               setSelectedAssignRepSlug(UNASSIGNED_REP_VALUE);
               setAssignRepMessage('');
               setAssignRepError('');
+              setProofImageUrl('');
+              setProofPaymentUrl('');
+              setProofPortalMessage('');
+              setProofPortalError('');
               setFollowUpMessage('');
               setFollowUpError('');
               setCustomerActionMessageStatus('');
@@ -1691,6 +1761,98 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                 </section>
 
                 <section className="order-2">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Phase 3A - Customer Proof Portal MVP</h3>
+                  <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="proof-image-url">
+                          Current Proof Image URL
+                        </label>
+                        <Input
+                          id="proof-image-url"
+                          value={proofImageUrl}
+                          onChange={(event) => {
+                            setProofImageUrl(event.target.value);
+                            setProofPortalMessage('');
+                            setProofPortalError('');
+                          }}
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="proof-payment-url">
+                          Deposit / Balance Payment Link
+                        </label>
+                        <Input
+                          id="proof-payment-url"
+                          value={proofPaymentUrl}
+                          onChange={(event) => {
+                            setProofPaymentUrl(event.target.value);
+                            setProofPortalMessage('');
+                            setProofPortalError('');
+                          }}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <DetailField label="Customer Phase" value={formatStatusLabel(activeQuote.status)} />
+                      <DetailField label="Proof Status" value={formatStatusLabel(activeQuote.customer_proof_status || 'pending')} />
+                      <DetailField label="Approved At" value={activeQuote.customer_proof_approved_at ? formatDate(activeQuote.customer_proof_approved_at) : null} />
+                    </div>
+                    {activeQuote.customer_proof_revision_message && (
+                      <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+                        <p className="text-xs font-medium uppercase text-amber-800">Latest Revision Request</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-amber-950">
+                          {activeQuote.customer_proof_revision_message}
+                        </p>
+                      </div>
+                    )}
+                    <div className="mt-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0 text-xs text-slate-500">
+                        {activeQuote.customer_proof_token ? (
+                          <span className="block truncate">{getCustomerProofLink(activeQuote.customer_proof_token)}</span>
+                        ) : (
+                          <span>Save once to generate a secure private customer link.</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={saveProofPortalSettings} disabled={savingProofPortal}>
+                          {savingProofPortal ? 'Saving...' : 'Save Proof Portal'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!activeQuote.customer_proof_token}
+                          onClick={() => copyProofPortalLink(activeQuote.customer_proof_token)}
+                        >
+                          <Copy className="mr-2 h-3.5 w-3.5" />
+                          Copy Link
+                        </Button>
+                        {activeQuote.customer_proof_token && (
+                          <Button asChild type="button" variant="outline">
+                            <a href={getCustomerProofLink(activeQuote.customer_proof_token)} target="_blank" rel="noreferrer">
+                              <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                              Open
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {proofPortalMessage && (
+                      <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                        {proofPortalMessage}
+                      </div>
+                    )}
+                    {proofPortalError && (
+                      <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {proofPortalError}
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="order-3">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Project</h3>
                   <dl className="grid gap-4 md:grid-cols-3">
                     <DetailField label="Vehicle Type" value={getQuoteValue(activeQuote, ['vehicleType', 'vehicle_type'])} />
@@ -1714,7 +1876,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                 </section>
 
                 {isBannerQuote && (
-                  <section className="order-3">
+                  <section className="order-4">
                     <h3 className="mb-3 text-sm font-semibold text-slate-950">Banner Details</h3>
                     <dl className="grid gap-4 md:grid-cols-3">
                       <DetailField label="Width" value={getBannerValue(activeQuote, 'width')} />
