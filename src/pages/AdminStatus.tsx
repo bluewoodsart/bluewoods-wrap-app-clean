@@ -2355,6 +2355,18 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             </Button>
                           </>
                         )}
+                        {proofMode === 'multi' && (
+                          <Button
+                            onClick={saveProofPortalSettings}
+                            disabled={savingProofPortal || uploadingProofOptions}
+                          >
+                            {savingProofPortal
+                              ? 'Saving...'
+                              : activeQuote.customer_proof_token
+                                ? 'Save Proof Portal'
+                                : 'Create Proof Link'}
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="outline"
