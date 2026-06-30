@@ -1,5 +1,5 @@
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Copy, Download, ExternalLink, Eye, RefreshCw, Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -78,6 +78,18 @@ type CustomerActionRequestType = typeof CUSTOMER_ACTION_REQUEST_OPTIONS[number][
 type QuoteData = Record<string, unknown>;
 type FollowUpBucket = 'overdue' | 'due_today' | 'upcoming' | 'none';
 type FollowUpFilter = 'all' | 'overdue' | 'due_today' | 'open' | 'none';
+type ProofMode = 'single' | 'multi';
+
+interface CustomerProofOption {
+  id: string;
+  quote_request_id?: string;
+  label: string;
+  sort_order: number;
+  image_url: string;
+  admin_note: string | null;
+  is_active?: boolean;
+  created_at?: string;
+}
 type AdminRole = 'owner_admin' | 'staff' | 'sales_rep';
 
 const UNASSIGNED_REP_VALUE = '__unassigned__';
@@ -112,6 +124,13 @@ interface QuoteRequestRow {
   customer_proof_approved_at: string | null;
   customer_proof_revision_requested_at: string | null;
   customer_proof_revision_message: string | null;
+  customer_proof_mode?: ProofMode | null;
+  customer_proof_options?: CustomerProofOption[] | string | null;
+  selected_customer_proof_option_id?: string | null;
+  selected_customer_proof_option_label?: string | null;
+  selected_customer_proof_option_image_url?: string | null;
+  customer_proof_selection_message?: string | null;
+  customer_proof_selected_at?: string | null;
   created_at: string;
 }
 
@@ -327,6 +346,18 @@ const getSafeProofFileName = (fileName: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'proof-upload';
+
+const getCustomerProofOptions = (quote: QuoteRequestRow | null | undefined) => {
+  if (!quote?.customer_proof_options) return [];
+  if (Array.isArray(quote.customer_proof_options)) return quote.customer_proof_options;
+
+  try {
+    const parsedOptions = JSON.parse(quote.customer_proof_options);
+    return Array.isArray(parsedOptions) ? parsedOptions as CustomerProofOption[] : [];
+  } catch {
+    return [];
+  }
+};
 
 const getBannerValue = (quote: QuoteRequestRow, key: string) => {
   const banner = getQuoteValue(quote, 'banner');
@@ -711,11 +742,17 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [assignRepError, setAssignRepError] = useState('');
   const [proofImageUrl, setProofImageUrl] = useState('');
   const [proofPaymentUrl, setProofPaymentUrl] = useState('');
+  const [proofMode, setProofMode] = useState<ProofMode>('single');
+  const [proofOptions, setProofOptions] = useState<CustomerProofOption[]>([]);
   const [savingProofPortal, setSavingProofPortal] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
+  const [uploadingProofOptions, setUploadingProofOptions] = useState(false);
+  const [savingProofOptionId, setSavingProofOptionId] = useState<string | null>(null);
+  const [deletingProofOptionId, setDeletingProofOptionId] = useState<string | null>(null);
   const [proofPortalMessage, setProofPortalMessage] = useState('');
   const [proofPortalError, setProofPortalError] = useState('');
   const proofUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const proofOptionsUploadInputRef = useRef<HTMLInputElement | null>(null);
   const canAssignReps = currentAdminRole === 'owner_admin';
 
   const loadFollowUpSummaries = async () => {
@@ -891,6 +928,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setSelectedAssignRepSlug(quoteDetail?.rep_slug || UNASSIGNED_REP_VALUE);
     setProofImageUrl(quoteDetail?.customer_proof_image_url || '');
     setProofPaymentUrl(quoteDetail?.customer_proof_payment_url || '');
+    setProofMode(quoteDetail?.customer_proof_mode || 'single');
+    setProofOptions(getCustomerProofOptions(quoteDetail));
   };
 
   const openQuoteDetail = (quote: QuoteRequestRow) => {
@@ -914,6 +953,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setAssignRepError('');
     setProofImageUrl('');
     setProofPaymentUrl('');
+    setProofMode('single');
+    setProofOptions([]);
     setProofPortalMessage('');
     setProofPortalError('');
     setFollowUpMessage('');
@@ -1030,6 +1071,232 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       loadQuoteDetail(selectedQuote.id),
       loadStatusEvents(selectedQuote.id)
     ]);
+  };
+
+  const saveProofMode = async (nextProofMode = proofMode) => {
+    if (!selectedQuote || savingProofPortal) return;
+
+    setSavingProofPortal(true);
+    setProofPortalError('');
+    setProofPortalMessage('Saving proof mode...');
+
+    const { error: proofModeError } = await supabase
+      .rpc('set_customer_proof_mode_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_customer_proof_mode: nextProofMode
+      });
+
+    setSavingProofPortal(false);
+
+    if (proofModeError) {
+      console.error('Admin proof mode save failed:', proofModeError);
+      setProofPortalError(proofModeError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    setProofMode(nextProofMode);
+    setProofPortalMessage(nextProofMode === 'multi' ? 'Multi-proof mode saved.' : 'Single-proof mode saved.');
+    await Promise.all([
+      loadQuoteDetail(selectedQuote.id),
+      loadStatusEvents(selectedQuote.id)
+    ]);
+  };
+
+  const uploadProofOptions = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+
+    if (!files.length || !selectedQuote || uploadingProofOptions) return;
+
+    const currentOptions = proofOptions;
+    const remainingSlots = Math.max(0, 10 - currentOptions.length);
+    if (files.length > remainingSlots) {
+      setProofPortalError(`Upload ${remainingSlots} or fewer proof option image${remainingSlots === 1 ? '' : 's'}.`);
+      setProofPortalMessage('');
+      return;
+    }
+
+    const invalidFile = files.find((file) => !file.type.startsWith('image/') || file.size > 52428800);
+    if (invalidFile) {
+      setProofPortalError(
+        !invalidFile.type.startsWith('image/')
+          ? 'Upload image files for proof options.'
+          : 'Each proof option image must be 50MB or smaller.'
+      );
+      setProofPortalMessage('');
+      return;
+    }
+
+    setUploadingProofOptions(true);
+    setProofPortalError('');
+    setProofPortalMessage('Uploading proof options...');
+
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const sortOrder = currentOptions.length + index;
+      const safeFileName = getSafeProofFileName(file.name);
+      const storagePath = `proof-options/${selectedQuote.id}/${Date.now()}-${sortOrder}-${safeFileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('customer-proofs')
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          contentType: file.type || 'application/octet-stream',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Admin proof option upload failed:', uploadError);
+        setUploadingProofOptions(false);
+        setProofPortalError(uploadError.message);
+        setProofPortalMessage('');
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('customer-proofs')
+        .getPublicUrl(storagePath);
+
+      const { data, error: optionSaveError } = await supabase
+        .rpc('upsert_customer_proof_option_admin', {
+          p_quote_request_id: selectedQuote.id,
+          p_option_id: null,
+          p_sort_order: sortOrder,
+          p_image_url: publicUrlData.publicUrl,
+          p_admin_note: null
+        });
+
+      if (optionSaveError) {
+        console.error('Admin proof option save failed:', optionSaveError);
+        setUploadingProofOptions(false);
+        setProofPortalError(optionSaveError.message);
+        setProofPortalMessage('');
+        return;
+      }
+
+      const nextOptions = data?.[0]?.proof_options;
+      if (Array.isArray(nextOptions)) {
+        setProofOptions(nextOptions as CustomerProofOption[]);
+      }
+    }
+
+    setUploadingProofOptions(false);
+    setProofMode('multi');
+    setProofPortalMessage('Proof options uploaded. Private link still works.');
+    await Promise.all([
+      loadQuoteDetail(selectedQuote.id),
+      loadStatusEvents(selectedQuote.id)
+    ]);
+  };
+
+  const saveProofOption = async (option: CustomerProofOption) => {
+    if (!selectedQuote || savingProofOptionId) return;
+
+    setSavingProofOptionId(option.id);
+    setProofPortalError('');
+    setProofPortalMessage('Saving proof option...');
+
+    const { data, error: optionSaveError } = await supabase
+      .rpc('upsert_customer_proof_option_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_option_id: option.id,
+        p_sort_order: option.sort_order,
+        p_image_url: option.image_url,
+        p_admin_note: option.admin_note || null
+      });
+
+    setSavingProofOptionId(null);
+
+    if (optionSaveError) {
+      console.error('Admin proof option save failed:', optionSaveError);
+      setProofPortalError(optionSaveError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    const nextOptions = data?.[0]?.proof_options;
+    if (Array.isArray(nextOptions)) {
+      setProofOptions(nextOptions as CustomerProofOption[]);
+    }
+    setProofPortalMessage('Proof option saved.');
+    await loadQuoteDetail(selectedQuote.id);
+  };
+
+  const deleteProofOption = async (optionId: string) => {
+    if (!selectedQuote || deletingProofOptionId) return;
+
+    setDeletingProofOptionId(optionId);
+    setProofPortalError('');
+    setProofPortalMessage('Removing proof option...');
+
+    const { data, error: optionDeleteError } = await supabase
+      .rpc('delete_customer_proof_option_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_option_id: optionId
+      });
+
+    setDeletingProofOptionId(null);
+
+    if (optionDeleteError) {
+      console.error('Admin proof option delete failed:', optionDeleteError);
+      setProofPortalError(optionDeleteError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    const nextOptions = data?.[0]?.proof_options;
+    if (Array.isArray(nextOptions)) {
+      setProofOptions(nextOptions as CustomerProofOption[]);
+    }
+    setProofPortalMessage('Proof option removed.');
+    await Promise.all([
+      loadQuoteDetail(selectedQuote.id),
+      loadStatusEvents(selectedQuote.id)
+    ]);
+  };
+
+  const moveProofOption = async (optionId: string, direction: -1 | 1) => {
+    if (!selectedQuote || savingProofPortal) return;
+
+    const currentIndex = proofOptions.findIndex((option) => option.id === optionId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= proofOptions.length) return;
+
+    const reorderedOptions = [...proofOptions];
+    const [movedOption] = reorderedOptions.splice(currentIndex, 1);
+    reorderedOptions.splice(nextIndex, 0, movedOption);
+
+    const payload = reorderedOptions.map((option, index) => ({
+      id: option.id,
+      sort_order: index
+    }));
+
+    setSavingProofPortal(true);
+    setProofPortalError('');
+    setProofPortalMessage('Reordering proof options...');
+
+    const { data, error: reorderError } = await supabase
+      .rpc('reorder_customer_proof_options_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_options: payload
+      });
+
+    setSavingProofPortal(false);
+
+    if (reorderError) {
+      console.error('Admin proof option reorder failed:', reorderError);
+      setProofPortalError(reorderError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    const nextOptions = data?.[0]?.proof_options;
+    if (Array.isArray(nextOptions)) {
+      setProofOptions(nextOptions as CustomerProofOption[]);
+    }
+    setProofPortalMessage('Proof options reordered.');
+    await loadQuoteDetail(selectedQuote.id);
   };
 
   const copyProofPortalLink = async (token: string | null | undefined) => {
@@ -1737,6 +2004,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
               setAssignRepError('');
               setProofImageUrl('');
               setProofPaymentUrl('');
+              setProofMode('single');
+              setProofOptions([]);
               setProofPortalMessage('');
               setProofPortalError('');
               setFollowUpMessage('');
@@ -1760,6 +2029,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             const nextFollowUpBucket = nextFollowUpTask ? getFollowUpTaskBucket(nextFollowUpTask) : 'none';
             const currentAssignRepSlug = activeQuote.rep_slug || UNASSIGNED_REP_VALUE;
             const hasAssignmentChange = selectedAssignRepSlug !== currentAssignRepSlug;
+            const activeProofOptions = proofOptions.length > 0 ? proofOptions : getCustomerProofOptions(activeQuote);
 
             return (
             <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -1841,9 +2111,31 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                 </section>
 
                 <section className="order-2">
-                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Phase 3A - Customer Proof Portal MVP</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer Proof Portal</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="proof-mode">
+                          Proof Mode
+                        </label>
+                        <Select
+                          value={proofMode}
+                          onValueChange={(value) => {
+                            const nextProofMode = value as ProofMode;
+                            setProofMode(nextProofMode);
+                            setProofPortalMessage('');
+                            setProofPortalError('');
+                          }}
+                        >
+                          <SelectTrigger id="proof-mode">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="single">Single proof</SelectItem>
+                            <SelectItem value="multi">Multiple options</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div className="space-y-2">
                         <label className="text-xs font-medium uppercase text-slate-500" htmlFor="proof-image-url">
                           Current Proof Image URL
@@ -1875,17 +2167,160 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         />
                       </div>
                     </div>
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void saveProofMode()}
+                        disabled={savingProofPortal || uploadingProof || uploadingProofOptions}
+                      >
+                        {savingProofPortal ? 'Saving...' : 'Save Proof Mode'}
+                      </Button>
+                    </div>
                     <div className="mt-4 grid gap-3 md:grid-cols-3">
                       <DetailField label="Customer Phase" value={formatStatusLabel(activeQuote.status)} />
                       <DetailField label="Proof Status" value={formatStatusLabel(activeQuote.customer_proof_status || 'pending')} />
                       <DetailField label="Approved At" value={activeQuote.customer_proof_approved_at ? formatDate(activeQuote.customer_proof_approved_at) : null} />
                     </div>
+                    {activeQuote.selected_customer_proof_option_id && (
+                      <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3">
+                        <p className="text-xs font-medium uppercase text-blue-800">Selected Proof Option</p>
+                        <div className="mt-2 flex gap-3">
+                          {activeQuote.selected_customer_proof_option_image_url && (
+                            <img
+                              src={activeQuote.selected_customer_proof_option_image_url}
+                              alt={activeQuote.selected_customer_proof_option_label || 'Selected proof option'}
+                              className="h-20 w-28 rounded border border-blue-100 bg-white object-contain"
+                            />
+                          )}
+                          <div className="min-w-0 text-sm text-blue-950">
+                            <p className="font-medium">{activeQuote.selected_customer_proof_option_label || 'Selected option'}</p>
+                            {activeQuote.customer_proof_selected_at && (
+                              <p className="text-blue-800">{formatDate(activeQuote.customer_proof_selected_at)}</p>
+                            )}
+                            {activeQuote.customer_proof_selection_message && (
+                              <p className="mt-1 whitespace-pre-wrap">{activeQuote.customer_proof_selection_message}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {activeQuote.customer_proof_revision_message && (
                       <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
                         <p className="text-xs font-medium uppercase text-amber-800">Latest Revision Request</p>
                         <p className="mt-1 whitespace-pre-wrap text-sm text-amber-950">
                           {activeQuote.customer_proof_revision_message}
                         </p>
+                      </div>
+                    )}
+                    {proofMode === 'multi' && (
+                      <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-950">Proof Options</p>
+                            <p className="text-xs text-slate-500">{activeProofOptions.length}/10 options uploaded</p>
+                          </div>
+                          <div>
+                            <input
+                              ref={proofOptionsUploadInputRef}
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              onChange={uploadProofOptions}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={savingProofPortal || uploadingProofOptions || activeProofOptions.length >= 10}
+                              onClick={() => proofOptionsUploadInputRef.current?.click()}
+                            >
+                              <Upload className="mr-2 h-3.5 w-3.5" />
+                              {uploadingProofOptions ? 'Uploading...' : 'Upload Options'}
+                            </Button>
+                          </div>
+                        </div>
+                        {activeProofOptions.length > 0 ? (
+                          <div className="mt-3 grid gap-3">
+                            {activeProofOptions.map((option, optionIndex) => (
+                              <div key={option.id} className="rounded-md border border-slate-200 bg-white p-3">
+                                <div className="flex flex-col gap-3 md:flex-row">
+                                  <img
+                                    src={option.image_url}
+                                    alt={option.label}
+                                    className="h-28 w-full rounded border border-slate-100 bg-slate-50 object-contain md:w-40"
+                                  />
+                                  <div className="min-w-0 flex-1 space-y-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="font-medium text-slate-950">{option.label}</p>
+                                      <div className="flex gap-1">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={savingProofPortal || optionIndex === 0}
+                                          onClick={() => void moveProofOption(option.id, -1)}
+                                          aria-label={`Move ${option.label} up`}
+                                        >
+                                          <ArrowUp className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={savingProofPortal || optionIndex === activeProofOptions.length - 1}
+                                          onClick={() => void moveProofOption(option.id, 1)}
+                                          aria-label={`Move ${option.label} down`}
+                                        >
+                                          <ArrowDown className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={deletingProofOptionId === option.id}
+                                          onClick={() => void deleteProofOption(option.id)}
+                                          aria-label={`Delete ${option.label}`}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <Textarea
+                                      value={option.admin_note || ''}
+                                      onChange={(event) => {
+                                        const nextNote = event.target.value;
+                                        setProofOptions((currentOptions) =>
+                                          currentOptions.map((currentOption) =>
+                                            currentOption.id === option.id
+                                              ? { ...currentOption, admin_note: nextNote }
+                                              : currentOption
+                                          )
+                                        );
+                                      }}
+                                      rows={2}
+                                      placeholder="Optional note shown with this option."
+                                    />
+                                    <div className="flex justify-end">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => void saveProofOption(option)}
+                                        disabled={savingProofOptionId === option.id}
+                                      >
+                                        {savingProofOptionId === option.id ? 'Saving...' : 'Save Note'}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-3 rounded-md border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                            Upload up to 10 image proof options. They will appear as Option A-J on the private proof link.
+                          </p>
+                        )}
                       </div>
                     )}
                     <div className="mt-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -1904,18 +2339,22 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                           className="hidden"
                           onChange={uploadNewProof}
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={savingProofPortal || uploadingProof}
-                          onClick={() => proofUploadInputRef.current?.click()}
-                        >
-                          <Upload className="mr-2 h-3.5 w-3.5" />
-                          {uploadingProof ? 'Uploading...' : 'Upload New Proof'}
-                        </Button>
-                        <Button onClick={saveProofPortalSettings} disabled={savingProofPortal || uploadingProof}>
-                          {savingProofPortal ? 'Saving...' : 'Save Proof Portal'}
-                        </Button>
+                        {proofMode === 'single' && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={savingProofPortal || uploadingProof}
+                              onClick={() => proofUploadInputRef.current?.click()}
+                            >
+                              <Upload className="mr-2 h-3.5 w-3.5" />
+                              {uploadingProof ? 'Uploading...' : 'Upload New Proof'}
+                            </Button>
+                            <Button onClick={saveProofPortalSettings} disabled={savingProofPortal || uploadingProof}>
+                              {savingProofPortal ? 'Saving...' : 'Save Proof Portal'}
+                            </Button>
+                          </>
+                        )}
                         <Button
                           type="button"
                           variant="outline"

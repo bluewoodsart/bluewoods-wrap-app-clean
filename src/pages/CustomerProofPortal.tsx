@@ -3,14 +3,22 @@ import { useParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, CreditCard, FileText, RefreshCw, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 
-type ProofStatus = 'pending' | 'approved' | 'changes_requested';
+type ProofStatus = 'pending' | 'approved' | 'changes_requested' | 'selection_received';
+type ProofMode = 'single' | 'multi';
+
+interface ProofOption {
+  id: string;
+  label: string;
+  sort_order: number;
+  image_url: string;
+}
 
 interface ProofPortalDetails {
   valid: boolean;
-  quote_id: string | null;
   customer_first_name: string | null;
   customer_phase: string | null;
   proof_image_url: string | null;
@@ -19,6 +27,11 @@ interface ProofPortalDetails {
   approved_at: string | null;
   revision_requested_at: string | null;
   revision_message: string | null;
+  proof_mode?: ProofMode | null;
+  proof_options?: ProofOption[] | string | null;
+  selected_customer_proof_option_id?: string | null;
+  customer_proof_selection_message?: string | null;
+  customer_proof_selected_at?: string | null;
 }
 
 const formatPhase = (phase: string | null) => {
@@ -29,6 +42,18 @@ const formatPhase = (phase: string | null) => {
     .join(' ');
 };
 
+const getProofOptions = (details: ProofPortalDetails | null) => {
+  if (!details?.proof_options) return [];
+  if (Array.isArray(details.proof_options)) return details.proof_options;
+
+  try {
+    const parsedOptions = JSON.parse(details.proof_options);
+    return Array.isArray(parsedOptions) ? parsedOptions as ProofOption[] : [];
+  } catch {
+    return [];
+  }
+};
+
 const CustomerProofPortal = () => {
   const { token = '' } = useParams();
   const [details, setDetails] = useState<ProofPortalDetails | null>(null);
@@ -37,6 +62,9 @@ const CustomerProofPortal = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [revisionMessage, setRevisionMessage] = useState('');
+  const [selectedOptionId, setSelectedOptionId] = useState('');
+  const [selectionMessage, setSelectionMessage] = useState('');
+  const [finalApproval, setFinalApproval] = useState(false);
 
   const loadProof = async () => {
     setLoading(true);
@@ -64,6 +92,9 @@ const CustomerProofPortal = () => {
 
     setDetails(nextDetails);
     setRevisionMessage(nextDetails.revision_message || '');
+    setSelectedOptionId(nextDetails.selected_customer_proof_option_id || '');
+    setSelectionMessage(nextDetails.customer_proof_selection_message || '');
+    setFinalApproval(false);
   };
 
   useEffect(() => {
@@ -104,9 +135,41 @@ const CustomerProofPortal = () => {
     await loadProof();
   };
 
+  const submitOptionSelection = async () => {
+    if (saving || !selectedOptionId) return;
+
+    setSaving(true);
+    setError('');
+    setMessage(finalApproval ? 'Saving final approval...' : 'Sending selection...');
+
+    const { error: selectionError } = await supabase
+      .rpc('submit_customer_proof_option_selection_public', {
+        p_token: token,
+        p_option_id: selectedOptionId,
+        p_selection_message: selectionMessage.trim() || null,
+        p_final_approval: finalApproval
+      });
+
+    setSaving(false);
+
+    if (selectionError) {
+      console.error('Customer proof option selection failed:', selectionError);
+      setError(selectionError.message || 'We could not save your selection. Please contact SlapWrapz.');
+      setMessage('');
+      return;
+    }
+
+    setMessage(finalApproval ? 'Final proof approval saved. Thank you.' : 'Proof option selection sent. Thank you.');
+    await loadProof();
+  };
+
   const proofStatus = details?.proof_status || 'pending';
   const isApproved = proofStatus === 'approved';
   const hasRevisionRequest = proofStatus === 'changes_requested';
+  const hasSelection = proofStatus === 'selection_received';
+  const proofMode = details?.proof_mode || 'single';
+  const proofOptions = getProofOptions(details);
+  const selectedOption = proofOptions.find((option) => option.id === details?.selected_customer_proof_option_id);
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 md:py-10">
@@ -118,11 +181,6 @@ const CustomerProofPortal = () => {
               {details?.customer_first_name ? `${details.customer_first_name}'s Proof` : 'Customer Proof'}
             </h1>
           </div>
-          {details?.quote_id && (
-            <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-              Quote {details.quote_id}
-            </div>
-          )}
         </div>
 
         {loading ? (
@@ -144,6 +202,142 @@ const CustomerProofPortal = () => {
               </div>
             </CardContent>
           </Card>
+        ) : proofMode === 'multi' ? (
+          <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+            <Card>
+              <CardHeader className="border-b border-slate-200">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-blue-700" />
+                  Choose Your Preferred Proof
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                {proofOptions.length > 0 ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {proofOptions.map((option) => {
+                      const isSelected = selectedOptionId === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedOptionId(option.id);
+                            setError('');
+                            setMessage('');
+                          }}
+                          className={`overflow-hidden rounded-md border bg-white text-left transition ${
+                            isSelected ? 'border-blue-600 ring-2 ring-blue-100' : 'border-slate-200 hover:border-blue-300'
+                          }`}
+                        >
+                          <img
+                            src={option.image_url}
+                            alt={option.label}
+                            className="h-56 w-full bg-slate-100 object-contain"
+                          />
+                          <div className="space-y-1 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium text-slate-950">{option.label}</p>
+                              {isSelected && (
+                                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex min-h-[22rem] items-center justify-center bg-slate-100 px-6 text-center text-sm text-slate-600">
+                    Proof options have not been posted yet.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="space-y-5">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Proof Response</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                    Proof status: {formatPhase(proofStatus)}
+                  </div>
+                  {hasSelection && selectedOption && (
+                    <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                      Selection received: {selectedOption.label}
+                    </div>
+                  )}
+                  {isApproved && (
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      Final approval sent to the SlapWrapz team.
+                    </div>
+                  )}
+                  <Textarea
+                    value={selectionMessage}
+                    onChange={(event) => {
+                      setSelectionMessage(event.target.value);
+                      setError('');
+                      setMessage('');
+                    }}
+                    rows={5}
+                    placeholder="Notes or requested changes for the selected option."
+                    disabled={saving}
+                  />
+                  <label className="flex gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                    <Checkbox
+                      checked={finalApproval}
+                      onCheckedChange={(checked) => setFinalApproval(checked === true)}
+                      disabled={saving}
+                    />
+                    <span>
+                      This selected option is approved as the final proof for production.
+                    </span>
+                  </label>
+                  <Button
+                    className="w-full"
+                    disabled={saving || !selectedOptionId || proofOptions.length === 0}
+                    onClick={submitOptionSelection}
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {saving ? 'Sending...' : finalApproval ? 'Submit Final Approval' : 'Submit Selection'}
+                  </Button>
+                  {message && (
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      {message}
+                    </div>
+                  )}
+                  {error && (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Payment</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {details?.payment_url ? (
+                    <Button asChild className="w-full">
+                      <a href={details.payment_url} target="_blank" rel="noreferrer">
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pay Deposit / Balance
+                      </a>
+                    </Button>
+                  ) : (
+                    <p className="text-sm text-slate-600">
+                      Payment link is not available yet.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         ) : (
           <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
             <Card className="overflow-hidden">
