@@ -47,12 +47,15 @@ const Index: React.FC<IndexProps> = () => {
               brand visibility. Start with a quote, send your artwork, and keep the project moving.
             </p>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Button asChild className="h-12 bg-cyan-400 text-base font-bold text-slate-950 hover:bg-cyan-300">
                 <Link to="/wraps">Get Wrap Quote</Link>
               </Button>
               <Button asChild className="h-12 bg-white text-base font-bold text-slate-950 hover:bg-slate-100">
                 <Link to="/banners">Get Banner Quote</Link>
+              </Button>
+              <Button asChild className="h-12 bg-emerald-300 text-base font-bold text-slate-950 hover:bg-emerald-200">
+                <Link to="/signs">Get Sign Quote</Link>
               </Button>
               <Button asChild className="h-12 border border-white/30 bg-white/10 text-base font-bold text-white hover:bg-white/20">
                 <Link to="/wraps">Start Quote to Upload</Link>

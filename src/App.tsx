@@ -19,6 +19,7 @@ import RegisterPlaceholder from "./pages/RegisterPlaceholder";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import ShortIntakeFlow from "./components/ShortIntakeFlow";
 import BannerQuoteFlow from "./components/BannerQuoteFlow";
+import SignageQuoteFlow from "./components/SignageQuoteFlow";
 import BrandChannelLanding from "./components/BrandChannelLanding";
 import FullWrapQuoteFlow from "./components/FullWrapQuoteFlow";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
@@ -100,6 +101,7 @@ const App = () => {
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />
               <Route path="/full-project" element={<FullProject />} />
               <Route path="/banners" element={<BannerQuoteFlow />} />
+              <Route path="/signs" element={<SignageQuoteFlow />} />
               <Route path="/login" element={<LoginPlaceholder />} />
               <Route
                 path="/jazzy/login"
