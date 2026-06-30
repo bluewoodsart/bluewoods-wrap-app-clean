@@ -1,5 +1,5 @@
-import { type MouseEvent, useEffect, useState } from 'react';
-import { CheckCircle2, Copy, Download, ExternalLink, Eye, RefreshCw } from 'lucide-react';
+import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { CheckCircle2, Copy, Download, ExternalLink, Eye, RefreshCw, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -320,6 +320,13 @@ const getAssignedChannelLabel = (quote: QuoteRequestRow) => {
 
 const getCustomerProofLink = (token: string | null | undefined) =>
   token ? `${window.location.origin}/proof/${token}` : '';
+
+const getSafeProofFileName = (fileName: string) =>
+  fileName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'proof-upload';
 
 const getBannerValue = (quote: QuoteRequestRow, key: string) => {
   const banner = getQuoteValue(quote, 'banner');
@@ -705,8 +712,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [proofImageUrl, setProofImageUrl] = useState('');
   const [proofPaymentUrl, setProofPaymentUrl] = useState('');
   const [savingProofPortal, setSavingProofPortal] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
   const [proofPortalMessage, setProofPortalMessage] = useState('');
   const [proofPortalError, setProofPortalError] = useState('');
+  const proofUploadInputRef = useRef<HTMLInputElement | null>(null);
   const canAssignReps = currentAdminRole === 'owner_admin';
 
   const loadFollowUpSummaries = async () => {
@@ -946,6 +955,77 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
 
     const token = data?.[0]?.customer_proof_token;
     setProofPortalMessage(token ? 'Proof portal saved. Private link is ready.' : 'Proof portal saved.');
+    await Promise.all([
+      loadQuoteDetail(selectedQuote.id),
+      loadStatusEvents(selectedQuote.id)
+    ]);
+  };
+
+  const uploadNewProof = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file || !selectedQuote || uploadingProof) return;
+
+    if (!file.type.startsWith('image/')) {
+      setProofPortalError('Upload an image file for the customer proof.');
+      setProofPortalMessage('');
+      return;
+    }
+
+    if (file.size > 52428800) {
+      setProofPortalError('Proof image must be 50MB or smaller.');
+      setProofPortalMessage('');
+      return;
+    }
+
+    setUploadingProof(true);
+    setProofPortalError('');
+    setProofPortalMessage('Uploading proof...');
+
+    const safeFileName = getSafeProofFileName(file.name);
+    const storagePath = `proofs/${selectedQuote.id}/${Date.now()}-${safeFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('customer-proofs')
+      .upload(storagePath, file, {
+        cacheControl: '3600',
+        contentType: file.type || 'application/octet-stream',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Admin proof upload failed:', uploadError);
+      setUploadingProof(false);
+      setProofPortalError(uploadError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('customer-proofs')
+      .getPublicUrl(storagePath);
+
+    const uploadedProofUrl = publicUrlData.publicUrl;
+    const { data, error: proofSettingsError } = await supabase
+      .rpc('upsert_customer_proof_portal_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_proof_image_url: uploadedProofUrl,
+        p_payment_url: proofPaymentUrl.trim() || null
+      });
+
+    setUploadingProof(false);
+
+    if (proofSettingsError) {
+      console.error('Admin proof portal save failed after upload:', proofSettingsError);
+      setProofPortalError(proofSettingsError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    setProofImageUrl(uploadedProofUrl);
+    const token = data?.[0]?.customer_proof_token;
+    setProofPortalMessage(token ? 'Proof uploaded. Private link still works.' : 'Proof uploaded.');
     await Promise.all([
       loadQuoteDetail(selectedQuote.id),
       loadStatusEvents(selectedQuote.id)
@@ -1817,7 +1897,23 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button onClick={saveProofPortalSettings} disabled={savingProofPortal}>
+                        <input
+                          ref={proofUploadInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={uploadNewProof}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={savingProofPortal || uploadingProof}
+                          onClick={() => proofUploadInputRef.current?.click()}
+                        >
+                          <Upload className="mr-2 h-3.5 w-3.5" />
+                          {uploadingProof ? 'Uploading...' : 'Upload New Proof'}
+                        </Button>
+                        <Button onClick={saveProofPortalSettings} disabled={savingProofPortal || uploadingProof}>
                           {savingProofPortal ? 'Saving...' : 'Save Proof Portal'}
                         </Button>
                         <Button
