@@ -170,6 +170,7 @@ const CustomerProofPortal = () => {
   const proofMode = details?.proof_mode || 'single';
   const proofOptions = getProofOptions(details);
   const selectedOption = proofOptions.find((option) => option.id === details?.selected_customer_proof_option_id);
+  const selectedPreviewOption = proofOptions.find((option) => option.id === selectedOptionId) || proofOptions[0] || null;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 md:py-10">
@@ -203,19 +204,20 @@ const CustomerProofPortal = () => {
             </CardContent>
           </Card>
         ) : proofMode === 'multi' ? (
-          <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
-            <Card>
+          <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)_22rem] lg:items-start">
+            <Card className="order-2 lg:order-1">
               <CardHeader className="border-b border-slate-200">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-5 w-5 text-blue-700" />
-                  Choose Your Preferred Proof
+                  Proof Options
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4">
                 {proofOptions.length > 0 ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                     {proofOptions.map((option) => {
                       const isSelected = selectedOptionId === option.id;
+                      const isPreviewed = selectedPreviewOption?.id === option.id;
                       return (
                         <button
                           key={option.id}
@@ -226,20 +228,22 @@ const CustomerProofPortal = () => {
                             setMessage('');
                           }}
                           className={`overflow-hidden rounded-md border bg-white text-left transition ${
-                            isSelected ? 'border-blue-600 ring-2 ring-blue-100' : 'border-slate-200 hover:border-blue-300'
+                            isSelected || isPreviewed
+                              ? 'border-blue-600 ring-2 ring-blue-100'
+                              : 'border-slate-200 hover:border-blue-300'
                           }`}
                         >
                           <img
                             src={option.image_url}
                             alt={option.label}
-                            className="h-56 w-full bg-slate-100 object-contain"
+                            className="h-28 w-full bg-slate-100 object-contain"
                           />
                           <div className="space-y-1 p-3">
                             <div className="flex items-center justify-between gap-3">
                               <p className="font-medium text-slate-950">{option.label}</p>
-                              {isSelected && (
+                              {(isSelected || isPreviewed) && (
                                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                  Selected
+                                  {isSelected ? 'Selected' : 'Preview'}
                                 </span>
                               )}
                             </div>
@@ -256,7 +260,31 @@ const CustomerProofPortal = () => {
               </CardContent>
             </Card>
 
-            <div className="space-y-5">
+            <Card className="order-1 overflow-hidden lg:order-2">
+              <CardHeader className="border-b border-slate-200">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-blue-700" />
+                  {selectedPreviewOption?.label || 'Selected Proof'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {selectedPreviewOption ? (
+                  <div className="flex min-h-[24rem] items-center justify-center bg-white p-3 lg:min-h-[34rem]">
+                    <img
+                      src={selectedPreviewOption.image_url}
+                      alt={selectedPreviewOption.label}
+                      className="max-h-[76vh] w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex min-h-[22rem] items-center justify-center bg-slate-100 px-6 text-center text-sm text-slate-600">
+                    Proof options have not been posted yet.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="order-3 space-y-5">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Proof Response</CardTitle>
