@@ -321,13 +321,19 @@ const getProductType = (quote: QuoteRequestRow) => {
   ).toLowerCase();
 };
 
-const getProductLabel = (quote: QuoteRequestRow) =>
-  getProductType(quote) === 'banner' ? 'Banner' : 'Wrap';
+const getProductLabel = (quote: QuoteRequestRow) => {
+  const productType = getProductType(quote);
+  if (productType === 'banner') return 'Banner';
+  if (productType === 'sign' || productType === 'signage') return 'Generic Signage';
+  return 'Wrap';
+};
 
-const getProductBadgeClassName = (quote: QuoteRequestRow) =>
-  getProductType(quote) === 'banner'
-    ? 'bg-emerald-100 text-emerald-700'
-    : 'bg-blue-100 text-blue-700';
+const getProductBadgeClassName = (quote: QuoteRequestRow) => {
+  const productType = getProductType(quote);
+  if (productType === 'banner') return 'bg-emerald-100 text-emerald-700';
+  if (productType === 'sign' || productType === 'signage') return 'bg-amber-100 text-amber-800';
+  return 'bg-blue-100 text-blue-700';
+};
 
 const getQuoteFileCount = (quote: QuoteRequestRow) => getUploadedFiles(quote).length;
 
@@ -364,6 +370,13 @@ const getBannerValue = (quote: QuoteRequestRow, key: string) => {
   if (!banner || typeof banner !== 'object') return undefined;
 
   return (banner as Record<string, unknown>)[key];
+};
+
+const getSignageValue = (quote: QuoteRequestRow, key: string) => {
+  const signage = getQuoteValue(quote, ['signage', 'sign']);
+  if (!signage || typeof signage !== 'object') return undefined;
+
+  return (signage as Record<string, unknown>)[key];
 };
 
 const getVehicleText = (quote: QuoteRequestRow) => {
@@ -2024,6 +2037,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             const hasArtworkOrLogo = groupedFiles.artworkFiles.length > 0;
             const productType = getProductType(activeQuote);
             const isBannerQuote = productType === 'banner';
+            const isSignageQuote = productType === 'sign' || productType === 'signage';
             const fileReadinessSections = getFileReadinessSections(productType, groupedFiles);
             const nextFollowUpTask = followUpTasks.find((task) => task.status === 'open') || null;
             const nextFollowUpBucket = nextFollowUpTask ? getFollowUpTaskBucket(nextFollowUpTask) : 'none';
@@ -2446,6 +2460,23 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     </div>
                     <div className="mt-4">
                       <DetailField label="Notes" value={getBannerValue(activeQuote, 'notes')} />
+                    </div>
+                  </section>
+                )}
+
+                {isSignageQuote && (
+                  <section className="order-4">
+                    <h3 className="mb-3 text-sm font-semibold text-slate-950">Signage Details</h3>
+                    <dl className="grid gap-4 md:grid-cols-3">
+                      <DetailField label="Material" value={getSignageValue(activeQuote, 'material')} />
+                      <DetailField label="Width" value={getSignageValue(activeQuote, 'width')} />
+                      <DetailField label="Height" value={getSignageValue(activeQuote, 'height')} />
+                      <DetailField label="Unit" value={getSignageValue(activeQuote, 'unit')} />
+                      <DetailField label="Quantity" value={getSignageValue(activeQuote, 'quantity')} />
+                    </dl>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <DetailField label="Sign Text" value={getSignageValue(activeQuote, 'signText')} />
+                      <DetailField label="Notes" value={getSignageValue(activeQuote, 'notes')} />
                     </div>
                   </section>
                 )}

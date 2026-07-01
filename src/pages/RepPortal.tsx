@@ -172,8 +172,14 @@ const getCustomerActionRequests = (quote: RepQuoteRow) =>
 const getProjectTitle = (quote: RepQuoteRow) =>
   formatValue(getSummaryValue(quote, ['selectedService', 'quoteType', 'intakeType']));
 
-const getProductLabel = (quote: RepQuoteRow) =>
-  formatLabel(quote.product_type || (getSummaryValue(quote, 'productType') as string | undefined) || 'wrap');
+const getProductType = (quote: RepQuoteRow) =>
+  (quote.product_type || (getSummaryValue(quote, 'productType') as string | undefined) || 'wrap').toLowerCase();
+
+const getProductLabel = (quote: RepQuoteRow) => {
+  const productType = getProductType(quote);
+  if (productType === 'sign' || productType === 'signage') return 'Generic Signage';
+  return formatLabel(productType);
+};
 
 const getVehicleValue = (quote: RepQuoteRow) => {
   const vehicle = getSummaryValue(quote, 'vehicle');
@@ -192,6 +198,12 @@ const getBannerValue = (quote: RepQuoteRow, key: string) => {
   const banner = getSummaryValue(quote, 'banner');
   if (!banner || typeof banner !== 'object' || Array.isArray(banner)) return undefined;
   return (banner as Record<string, unknown>)[key];
+};
+
+const getSignageValue = (quote: RepQuoteRow, key: string) => {
+  const signage = getSummaryValue(quote, ['signage', 'sign']);
+  if (!signage || typeof signage !== 'object' || Array.isArray(signage)) return undefined;
+  return (signage as Record<string, unknown>)[key];
 };
 
 const getFollowUpBucket = (summary: FollowUpSummary) => {
@@ -581,6 +593,21 @@ const RepPortal = () => {
                     <DetailField label="Banner Text" value={getBannerValue(selectedQuote, 'bannerText')} />
                     <DetailField label="Brand Colors" value={getBannerValue(selectedQuote, 'brandColors')} />
                     <DetailField label="Notes" value={getBannerValue(selectedQuote, 'notes')} />
+                  </dl>
+                </section>
+              )}
+
+              {getSummaryValue(selectedQuote, ['signage', 'sign']) && (
+                <section>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Signage Details</h3>
+                  <dl className="grid gap-4 md:grid-cols-4">
+                    <DetailField label="Material" value={getSignageValue(selectedQuote, 'material')} />
+                    <DetailField label="Width" value={getSignageValue(selectedQuote, 'width')} />
+                    <DetailField label="Height" value={getSignageValue(selectedQuote, 'height')} />
+                    <DetailField label="Unit" value={getSignageValue(selectedQuote, 'unit')} />
+                    <DetailField label="Quantity" value={getSignageValue(selectedQuote, 'quantity')} />
+                    <DetailField label="Sign Text" value={getSignageValue(selectedQuote, 'signText')} />
+                    <DetailField label="Notes" value={getSignageValue(selectedQuote, 'notes')} />
                   </dl>
                 </section>
               )}
