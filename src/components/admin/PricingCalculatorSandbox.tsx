@@ -117,8 +117,15 @@ const formatCurrency = (value: number | null) =>
     ? 'Not set'
     : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
-const renderAreas = (areas: unknown) =>
-  Array.isArray(areas) && areas.length > 0 ? areas.join(', ') : 'None listed';
+const getAreaLabels = (areas: unknown) =>
+  Array.isArray(areas)
+    ? areas.filter((area): area is string => typeof area === 'string' && area.trim().length > 0)
+    : [];
+
+const renderAreas = (areas: unknown) => {
+  const areaLabels = getAreaLabels(areas);
+  return areaLabels.length > 0 ? areaLabels.join(', ') : 'None listed';
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
