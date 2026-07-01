@@ -25,9 +25,6 @@ const RegisterPlaceholder: React.FC = () => {
             Rep and staff accounts will be created through a controlled approval process in a later phase.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button asChild className="bg-cyan-400 text-slate-950 hover:bg-cyan-300">
-              <Link to="/banners">Get Banner Quote</Link>
-            </Button>
             <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
               <Link to="/">Back to Home</Link>
             </Button>
