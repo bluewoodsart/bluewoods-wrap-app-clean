@@ -117,8 +117,8 @@ const formatCurrency = (value: number | null) =>
     ? 'Not set'
     : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
-const renderAreas = (areas: string[] | null) =>
-  areas && areas.length > 0 ? areas.join(', ') : 'None listed';
+const renderAreas = (areas: unknown) =>
+  Array.isArray(areas) && areas.length > 0 ? areas.join(', ') : 'None listed';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
