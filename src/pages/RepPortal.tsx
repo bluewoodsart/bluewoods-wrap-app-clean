@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { ExternalLink, FileText, LogOut, RefreshCw } from 'lucide-react';
+import { ExternalLink, FileText, LogOut, MessageSquare, Phone, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -242,6 +242,43 @@ const getRequestTypes = (request: CustomerActionRequest) => {
   return request.request_type ? [request.request_type] : [];
 };
 
+const getNormalizedStatus = (quote: RepQuoteRow) => quote.status?.toLowerCase() || '';
+
+const isNewLead = (quote: RepQuoteRow) =>
+  ['new', 'partial_lead'].includes(getNormalizedStatus(quote));
+
+const isReadyForInstall = (quote: RepQuoteRow) =>
+  ['approved', 'printing', 'install_scheduled'].includes(getNormalizedStatus(quote));
+
+const isCompletedQuote = (quote: RepQuoteRow) => getNormalizedStatus(quote) === 'completed';
+
+const needsDeposit = (quote: RepQuoteRow) => getNormalizedStatus(quote) === 'quote_sent';
+
+const isOpenCustomerActionRequest = (request: CustomerActionRequest) =>
+  !['completed', 'canceled', 'cancelled'].includes((request.status || '').toLowerCase());
+
+const isWaitingOnCustomer = (quote: RepQuoteRow) =>
+  getCustomerActionRequests(quote).some(isOpenCustomerActionRequest);
+
+const getQuoteGroupMeta = (quote: RepQuoteRow) => {
+  const followUpSummary = getFollowUpSummary(quote);
+  const nextTask = followUpSummary.next_follow_up_task;
+  const waitingRequest = getCustomerActionRequests(quote).find(isOpenCustomerActionRequest);
+
+  if (waitingRequest) {
+    const requestTypes = getRequestTypes(waitingRequest).map(formatLabel).join(', ');
+    return requestTypes || waitingRequest.message || 'Waiting on customer';
+  }
+
+  if (nextTask?.task_text) return nextTask.task_text;
+  return getFollowUpBucketLabel(followUpSummary);
+};
+
+const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') => {
+  const normalizedPhone = (phone || '').replace(/[^\d+]/g, '');
+  return normalizedPhone ? `${scheme}:${normalizedPhone}` : undefined;
+};
+
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
 
@@ -359,6 +396,41 @@ const RepPortal = () => {
     () => (selectedQuote ? getCustomerActionRequests(selectedQuote) : []),
     [selectedQuote]
   );
+  const dashboardCounts = useMemo(() => ({
+    todayFollowUps: quotes.reduce(
+      (total, quote) => total + (getFollowUpSummary(quote).due_today_follow_up_count || 0),
+      0
+    ),
+    waitingOnCustomer: quotes.filter(isWaitingOnCustomer).length,
+    newLeads: quotes.filter(isNewLead).length,
+    readyForInstall: quotes.filter(isReadyForInstall).length,
+    completed: quotes.filter(isCompletedQuote).length,
+    needDeposit: quotes.filter(needsDeposit).length
+  }), [quotes]);
+  const groupedQuotes = useMemo(() => [
+    {
+      title: 'New Leads',
+      description: 'Fresh assigned quote requests.',
+      quotes: quotes.filter(isNewLead)
+    },
+    {
+      title: 'Waiting for Customer',
+      description: 'Open customer action requests on assigned quotes.',
+      quotes: quotes.filter(isWaitingOnCustomer)
+    },
+    {
+      title: 'Ready for Install',
+      description: 'Approved, printing, or scheduled work.',
+      quotes: quotes.filter(isReadyForInstall)
+    },
+    {
+      title: 'Completed',
+      description: 'Assigned work marked complete.',
+      quotes: quotes.filter(isCompletedQuote)
+    }
+  ], [quotes]);
+  const selectedCallHref = getPhoneHref(selectedQuote?.customer_phone, 'tel');
+  const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
 
   if (loading) {
     return (
@@ -423,7 +495,87 @@ const RepPortal = () => {
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 md:px-8">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 md:px-8">
+        <section>
+          <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-950">{adminUser.display_name || 'Rep Portal'}</h1>
+              <p className="text-sm text-slate-600">Assigned work for rep slug {adminUser.rep_slug || '-'}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void loadPortal()} disabled={loadingQuotes}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loadingQuotes ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            {[
+              { label: "Today's Follow-ups", value: dashboardCounts.todayFollowUps, detail: 'Due today' },
+              { label: 'Waiting on Customer', value: dashboardCounts.waitingOnCustomer, detail: 'Open requests' },
+              { label: 'New Leads', value: dashboardCounts.newLeads, detail: 'New or partial' },
+              { label: 'Ready for Install', value: dashboardCounts.readyForInstall, detail: 'Approved or scheduled' },
+              { label: 'Completed', value: dashboardCounts.completed, detail: 'Assigned complete' },
+              { label: 'Need Deposit', value: dashboardCounts.needDeposit, detail: 'Quote sent stage' }
+            ].map((metric) => (
+              <div key={metric.label} className="rounded-md border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">{metric.label}</p>
+                <p className="mt-2 text-3xl font-bold text-slate-950">{metric.value}</p>
+                <p className="mt-1 text-xs text-slate-500">{metric.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">Priority Work</h2>
+            <p className="text-sm text-slate-600">Grouped from the assigned quotes already available to this rep.</p>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {groupedQuotes.map((group) => (
+              <div key={group.title} className="rounded-md border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-950">{group.title}</h3>
+                      <p className="text-xs text-slate-500">{group.description}</p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                      {group.quotes.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {group.quotes.length === 0 ? (
+                    <p className="px-4 py-5 text-sm text-slate-500">No quotes in this group.</p>
+                  ) : (
+                    group.quotes.slice(0, 5).map((quote) => (
+                      <button
+                        key={`${group.title}-${quote.id}`}
+                        type="button"
+                        className="block w-full px-4 py-3 text-left hover:bg-slate-50"
+                        onClick={() => setSelectedQuote(quote)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-950">{quote.customer_name}</p>
+                            <p className="truncate text-xs text-slate-500">{getProjectTitle(quote)} - {getProductLabel(quote)}</p>
+                            <p className="mt-1 line-clamp-2 text-xs text-slate-600">{getQuoteGroupMeta(quote)}</p>
+                          </div>
+                          <span className="flex-none rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                            {formatLabel(quote.status)}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -543,6 +695,34 @@ const RepPortal = () => {
                   <DetailField label="Received" value={formatDate(selectedQuote.created_at)} />
                   <DetailField label="Quote ID" value={selectedQuote.quote_id || selectedQuote.id} />
                 </dl>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  {selectedCallHref ? (
+                    <Button asChild size="sm" variant="outline">
+                      <a href={selectedCallHref}>
+                        <Phone className="mr-2 h-4 w-4" />
+                        Call Customer
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled>
+                      <Phone className="mr-2 h-4 w-4" />
+                      Call Customer
+                    </Button>
+                  )}
+                  {selectedTextHref ? (
+                    <Button asChild size="sm" variant="outline">
+                      <a href={selectedTextHref}>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Text Customer
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Text Customer
+                    </Button>
+                  )}
+                </div>
               </section>
 
               <section>
