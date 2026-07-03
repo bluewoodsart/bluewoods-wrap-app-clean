@@ -1,5 +1,5 @@
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, MessageSquare, Phone, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -233,6 +233,11 @@ const formatDueDate = (value: string) =>
     day: 'numeric',
     year: 'numeric'
   }).format(new Date(`${value}T00:00:00`));
+
+const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') => {
+  const normalizedPhone = (phone || '').replace(/[^\d+]/g, '');
+  return normalizedPhone ? `${scheme}:${normalizedPhone}` : undefined;
+};
 
 const FOLLOW_UP_FILTERS: Array<{ value: FollowUpFilter; label: string }> = [
   { value: 'all', label: 'All' },
@@ -2175,6 +2180,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             const currentAssignRepSlug = activeQuote.rep_slug || UNASSIGNED_REP_VALUE;
             const hasAssignmentChange = selectedAssignRepSlug !== currentAssignRepSlug;
             const activeProofOptions = proofOptions.length > 0 ? proofOptions : getCustomerProofOptions(activeQuote);
+            const selectedCallHref = getPhoneHref(activeQuote.customer_phone, 'tel');
+            const selectedTextHref = getPhoneHref(activeQuote.customer_phone, 'sms');
 
             return (
             <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -2202,6 +2209,34 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     <DetailField label="Product" value={getProductLabel(activeQuote)} />
                     <DetailField label="Current Status" value={formatStatusLabel(activeQuote.status)} />
                   </dl>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    {selectedCallHref ? (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={selectedCallHref}>
+                          <Phone className="mr-2 h-4 w-4" />
+                          Call Customer
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>
+                        <Phone className="mr-2 h-4 w-4" />
+                        Call Customer
+                      </Button>
+                    )}
+                    {selectedTextHref ? (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={selectedTextHref}>
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Text Customer
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Text Customer
+                      </Button>
+                    )}
+                  </div>
                   {canAssignReps && (
                     <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
                       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
