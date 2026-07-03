@@ -1,5 +1,5 @@
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, MessageSquare, Phone, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, MessageSquare, Phone, RefreshCw, Search, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -79,6 +79,7 @@ type QuoteData = Record<string, unknown>;
 type FollowUpBucket = 'overdue' | 'due_today' | 'upcoming' | 'none';
 type FollowUpFilter = 'all' | 'overdue' | 'due_today' | 'open' | 'none';
 type QuoteListView = 'active' | 'archived';
+type QuickQuoteFilter = 'all' | 'junk';
 type ProofMode = 'single' | 'multi';
 
 interface CustomerProofOption {
@@ -332,6 +333,37 @@ const getProductLabel = (quote: QuoteRequestRow) => {
   if (productType === 'banner') return 'Banner';
   if (productType === 'sign' || productType === 'signage') return 'Generic Signage';
   return 'Wrap';
+};
+
+const getQuoteSearchText = (quote: QuoteRequestRow) =>
+  [
+    quote.customer_name,
+    quote.customer_email,
+    quote.customer_phone,
+    quote.quote_id,
+    quote.status,
+    quote.product_type,
+    quote.rep_slug,
+    quote.rep_email,
+    quote.assigned_rep_name,
+    getProductLabel(quote),
+    quote.quote_data ? JSON.stringify(quote.quote_data) : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+const isLikelyJunkQuote = (quote: QuoteRequestRow) => {
+  const searchText = getQuoteSearchText(quote);
+  return [
+    'test',
+    'example.com',
+    'upload.verify',
+    'demo',
+    'junk',
+    'placeholder',
+    'no response giver'
+  ].some((pattern) => searchText.includes(pattern));
 };
 
 const getProductBadgeClassName = (quote: QuoteRequestRow) => {
@@ -741,6 +773,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [followUpError, setFollowUpError] = useState('');
   const [followUpSummaries, setFollowUpSummaries] = useState<Record<string, QuoteFollowUpSummary>>({});
   const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>('all');
+  const [quoteSearch, setQuoteSearch] = useState('');
+  const [quickQuoteFilter, setQuickQuoteFilter] = useState<QuickQuoteFilter>('all');
   const [customerActionRequests, setCustomerActionRequests] = useState<QuoteCustomerActionRequest[]>([]);
   const [loadingCustomerActions, setLoadingCustomerActions] = useState(false);
   const [customerActionRequestTypes, setCustomerActionRequestTypes] = useState<CustomerActionRequestType[]>([]);
@@ -750,6 +784,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [customerActionError, setCustomerActionError] = useState('');
   const [pendingStatuses, setPendingStatuses] = useState<Record<string, QuoteStatus>>({});
   const [quoteListView, setQuoteListView] = useState<QuoteListView>('active');
+  const [activeQuoteCount, setActiveQuoteCount] = useState(0);
+  const [archivedQuoteCount, setArchivedQuoteCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [archivingQuotes, setArchivingQuotes] = useState(false);
@@ -779,6 +815,20 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const proofOptionsUploadInputRef = useRef<HTMLInputElement | null>(null);
   const canAssignReps = currentAdminRole === 'owner_admin';
   const canArchiveQuotes = currentAdminRole === 'owner_admin';
+
+  const loadArchivedQuoteCount = async () => {
+    if (!canArchiveQuotes) return;
+
+    const { data, error: archivedCountError } = await supabase
+      .rpc('get_archived_quote_requests_owner_admin');
+
+    if (archivedCountError) {
+      console.error('Admin archived quote count load failed:', archivedCountError);
+      return;
+    }
+
+    setArchivedQuoteCount((data ?? []).length);
+  };
 
   const loadFollowUpSummaries = async () => {
     const { data, error: summaryError } = await supabase
@@ -817,6 +867,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     }
 
     setQuotes(data ?? []);
+    if (view === 'active') {
+      setActiveQuoteCount((data ?? []).length);
+      void loadArchivedQuoteCount();
+    } else {
+      setArchivedQuoteCount((data ?? []).length);
+    }
     setPendingStatuses({});
     setSelectedQuoteIds([]);
     if (view === 'active') {
@@ -1710,7 +1766,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setInternalNotes([]);
     setFollowUpTasks([]);
     setCustomerActionRequests([]);
-    setMessage(`Archived ${archivedCount} quote${archivedCount === 1 ? '' : 's'}.`);
+    setMessage(`Archived ${archivedCount} quote${archivedCount === 1 ? '' : 's'}. Open Archived to review or restore.`);
     await loadQuotes({ clearMessage: false });
   };
 
@@ -1748,7 +1804,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setInternalNotes([]);
     setFollowUpTasks([]);
     setCustomerActionRequests([]);
-    setMessage(`Restored ${restoredCount} quote${restoredCount === 1 ? '' : 's'}.`);
+    setMessage(`Restored ${restoredCount} quote${restoredCount === 1 ? '' : 's'} back to Active Jobs.`);
     await loadQuotes({ clearMessage: false, view: quoteListView });
   };
 
@@ -1786,12 +1842,19 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     return quotes.length;
   };
 
+  const normalizedQuoteSearch = quoteSearch.trim().toLowerCase();
   const filteredQuotes = quotes.filter((quote) => {
     const summary = getFollowUpSummaryForQuote(quote.id);
 
-    if (followUpFilter === 'all') return true;
-    if (followUpFilter === 'open') return summary.follow_up_bucket !== 'none';
-    return summary.follow_up_bucket === followUpFilter;
+    if (quoteListView === 'active') {
+      if (followUpFilter === 'open' && summary.follow_up_bucket === 'none') return false;
+      if (followUpFilter !== 'all' && followUpFilter !== 'open' && summary.follow_up_bucket !== followUpFilter) return false;
+    }
+
+    if (quickQuoteFilter === 'junk' && !isLikelyJunkQuote(quote)) return false;
+    if (normalizedQuoteSearch && !getQuoteSearchText(quote).includes(normalizedQuoteSearch)) return false;
+
+    return true;
   });
 
   const selectedQuoteIdSet = new Set(selectedQuoteIds);
@@ -1845,6 +1908,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setSelectedQuoteIds([]);
     lastSelectedQuoteIdRef.current = null;
     quoteSelectionShiftKeyRef.current = false;
+  };
+
+  const clearQuoteFilters = () => {
+    setQuoteSearch('');
+    setQuickQuoteFilter('all');
+    setFollowUpFilter('all');
   };
 
   return (
@@ -1908,7 +1977,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     void loadQuotes({ view: 'active' });
                   }}
                 >
-                  Active Jobs
+                  Active Jobs ({quoteListView === 'active' ? quotes.length : activeQuoteCount})
                 </Button>
                 <Button
                   size="sm"
@@ -1919,7 +1988,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     void loadQuotes({ view: 'archived' });
                   }}
                 >
-                  Archived
+                  Archived ({archivedQuoteCount})
                 </Button>
                 {quoteListView === 'active' && FOLLOW_UP_FILTERS.map((filter) => (
                     <Button
@@ -1935,6 +2004,45 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-center">
+              <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_auto_auto] md:items-center">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={quoteSearch}
+                    onChange={(event) => setQuoteSearch(event.target.value)}
+                    className="pl-9"
+                    placeholder="Search name, email, phone, rep, quote ID..."
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant={quickQuoteFilter === 'junk' ? 'default' : 'outline'}
+                  onClick={() => setQuickQuoteFilter((currentFilter) => (currentFilter === 'junk' ? 'all' : 'junk'))}
+                >
+                  Likely junk/test
+                </Button>
+                <Button type="button" variant="ghost" onClick={clearQuoteFilters}>
+                  Clear filters
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 lg:justify-end">
+                <span>
+                  Showing {filteredQuotes.length} of {quotes.length}
+                </span>
+                {enableBulkActions && filteredQuotes.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleAllVisibleQuotes(true)}
+                    disabled={allVisibleQuotesSelected}
+                  >
+                    Select visible ({filteredQuotes.length})
+                  </Button>
+                )}
+              </div>
+            </div>
             {enableBulkActions && selectedQuoteIds.length > 0 && (
               <div className="mb-4 flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
                 <p className="font-medium">
@@ -1979,7 +2087,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             ) : quotes.length === 0 ? (
               <div className="py-10 text-center text-sm text-slate-600">No quote requests found.</div>
             ) : filteredQuotes.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-600">No quote requests match this follow-up filter.</div>
+              <div className="py-10 text-center text-sm text-slate-600">No quote requests match the current filters.</div>
             ) : (
               <div className="overflow-x-auto">
                 <Table className="min-w-[72rem]">
@@ -2000,6 +2108,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                       <TableHead>Follow-Up / Next Action</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Quote ID</TableHead>
+                      <TableHead>Contact</TableHead>
                       <TableHead className="w-32 text-right">Details</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -2010,6 +2119,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     const followUpSummary = getFollowUpSummaryForQuote(quote.id);
                     const isOverdue = followUpSummary.follow_up_bucket === 'overdue';
                     const fileCount = getQuoteFileCount(quote);
+                    const rowCallHref = getPhoneHref(quote.customer_phone, 'tel');
+                    const rowTextHref = getPhoneHref(quote.customer_phone, 'sms');
 
                     return (
                       <TableRow
@@ -2134,6 +2245,32 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                           >
                             {quote.quote_id || '-'}
                           </button>
+                        </TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            {rowCallHref ? (
+                              <Button asChild type="button" size="icon" variant="outline" title="Call customer">
+                                <a href={rowCallHref} aria-label={`Call ${quote.customer_name}`}>
+                                  <Phone className="h-3.5 w-3.5" />
+                                </a>
+                              </Button>
+                            ) : (
+                              <Button type="button" size="icon" variant="outline" disabled title="No phone number">
+                                <Phone className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {rowTextHref ? (
+                              <Button asChild type="button" size="icon" variant="outline" title="Text customer">
+                                <a href={rowTextHref} aria-label={`Text ${quote.customer_name}`}>
+                                  <MessageSquare className="h-3.5 w-3.5" />
+                                </a>
+                              </Button>
+                            ) : (
+                              <Button type="button" size="icon" variant="outline" disabled title="No phone number">
+                                <MessageSquare className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell onClick={(event) => event.stopPropagation()} className="text-right">
                           <Button
