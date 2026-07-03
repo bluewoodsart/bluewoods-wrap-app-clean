@@ -78,6 +78,7 @@ type CustomerActionRequestType = typeof CUSTOMER_ACTION_REQUEST_OPTIONS[number][
 type QuoteData = Record<string, unknown>;
 type FollowUpBucket = 'overdue' | 'due_today' | 'upcoming' | 'none';
 type FollowUpFilter = 'all' | 'overdue' | 'due_today' | 'open' | 'none';
+type QuoteListView = 'active' | 'archived';
 type ProofMode = 'single' | 'multi';
 
 interface CustomerProofOption {
@@ -743,8 +744,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [customerActionMessageStatus, setCustomerActionMessageStatus] = useState('');
   const [customerActionError, setCustomerActionError] = useState('');
   const [pendingStatuses, setPendingStatuses] = useState<Record<string, QuoteStatus>>({});
+  const [quoteListView, setQuoteListView] = useState<QuoteListView>('active');
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [archivingQuotes, setArchivingQuotes] = useState(false);
+  const [restoringQuotes, setRestoringQuotes] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [assignableReps, setAssignableReps] = useState<AssignableRepOption[]>([]);
@@ -767,6 +771,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const proofUploadInputRef = useRef<HTMLInputElement | null>(null);
   const proofOptionsUploadInputRef = useRef<HTMLInputElement | null>(null);
   const canAssignReps = currentAdminRole === 'owner_admin';
+  const canArchiveQuotes = currentAdminRole === 'owner_admin';
 
   const loadFollowUpSummaries = async () => {
     const { data, error: summaryError } = await supabase
@@ -787,7 +792,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setFollowUpSummaries(summariesByQuoteId);
   };
 
-  const loadQuotes = async ({ clearMessage = true } = {}) => {
+  const loadQuotes = async ({ clearMessage = true, view = quoteListView }: { clearMessage?: boolean; view?: QuoteListView } = {}) => {
     setLoading(true);
     setError('');
     if (clearMessage) {
@@ -795,7 +800,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     }
 
     const { data, error: loadError } = await supabase
-      .rpc('get_admin_quote_requests');
+      .rpc(view === 'archived' ? 'get_archived_quote_requests_owner_admin' : 'get_admin_quote_requests');
 
     if (loadError) {
       console.error('Admin status quote load failed:', loadError);
@@ -807,7 +812,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setQuotes(data ?? []);
     setPendingStatuses({});
     setSelectedQuoteIds([]);
-    await loadFollowUpSummaries();
+    if (view === 'active') {
+      await loadFollowUpSummaries();
+    } else {
+      setFollowUpSummaries({});
+    }
     setLoading(false);
   };
 
@@ -1657,6 +1666,85 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     await loadQuotes({ clearMessage: false });
   };
 
+  const archiveSelectedQuotes = async () => {
+    if (!canArchiveQuotes || archivingQuotes || selectedQuoteIds.length === 0) return;
+
+    const selectedCount = selectedQuoteIds.length;
+    const confirmed = window.confirm(
+      `Archive ${selectedCount} selected quote${selectedCount === 1 ? '' : 's'}?\n\nArchived jobs will be hidden from admin and rep views, but customer records, files, notes, proof history, and follow-ups will not be deleted.`
+    );
+
+    if (!confirmed) return;
+
+    setArchivingQuotes(true);
+    setError('');
+    setMessage(`Archiving ${selectedCount} quote${selectedCount === 1 ? '' : 's'}...`);
+
+    const { data, error: archiveError } = await supabase
+      .rpc('archive_quote_requests_owner_admin', {
+        p_quote_request_ids: selectedQuoteIds,
+        p_archive_reason: 'Admin cleanup'
+      });
+
+    setArchivingQuotes(false);
+
+    if (archiveError) {
+      console.error('Admin quote archive failed:', archiveError);
+      setError(archiveError.message);
+      setMessage('');
+      return;
+    }
+
+    const archivedCount = typeof data === 'number' ? data : selectedCount;
+    setSelectedQuoteIds([]);
+    setSelectedQuote(null);
+    setSelectedQuoteDetail(null);
+    setStatusEvents([]);
+    setInternalNotes([]);
+    setFollowUpTasks([]);
+    setCustomerActionRequests([]);
+    setMessage(`Archived ${archivedCount} quote${archivedCount === 1 ? '' : 's'}.`);
+    await loadQuotes({ clearMessage: false });
+  };
+
+  const restoreSelectedQuotes = async () => {
+    if (!canArchiveQuotes || restoringQuotes || selectedQuoteIds.length === 0) return;
+
+    const selectedCount = selectedQuoteIds.length;
+    const confirmed = window.confirm(`Restore ${selectedCount} archived quote${selectedCount === 1 ? '' : 's'} to the active admin list?`);
+
+    if (!confirmed) return;
+
+    setRestoringQuotes(true);
+    setError('');
+    setMessage(`Restoring ${selectedCount} quote${selectedCount === 1 ? '' : 's'}...`);
+
+    const { data, error: restoreError } = await supabase
+      .rpc('restore_quote_requests_owner_admin', {
+        p_quote_request_ids: selectedQuoteIds
+      });
+
+    setRestoringQuotes(false);
+
+    if (restoreError) {
+      console.error('Admin quote restore failed:', restoreError);
+      setError(restoreError.message);
+      setMessage('');
+      return;
+    }
+
+    const restoredCount = typeof data === 'number' ? data : selectedCount;
+    setSelectedQuoteIds([]);
+    setSelectedQuote(null);
+    setSelectedQuoteDetail(null);
+    setStatusEvents([]);
+    setInternalNotes([]);
+    setFollowUpTasks([]);
+    setCustomerActionRequests([]);
+    setMessage(`Restored ${restoredCount} quote${restoredCount === 1 ? '' : 's'}.`);
+    await loadQuotes({ clearMessage: false, view: quoteListView });
+  };
+
   const getFollowUpSummaryForQuote = (quoteId: string) =>
     followUpSummaries[quoteId] || getEmptyFollowUpSummary(quoteId);
 
@@ -1780,18 +1868,40 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <CardTitle className="text-lg">Recent Quote Requests</CardTitle>
+              <CardTitle className="text-lg">{quoteListView === 'archived' ? 'Archived Quote Requests' : 'Recent Quote Requests'}</CardTitle>
               <div className="flex flex-wrap gap-2">
-                {FOLLOW_UP_FILTERS.map((filter) => (
-                  <Button
-                    key={filter.value}
-                    size="sm"
-                    variant={followUpFilter === filter.value ? 'default' : 'outline'}
-                    onClick={() => setFollowUpFilter(filter.value)}
-                  >
-                    {filter.label} ({getFollowUpFilterCount(filter.value)})
-                  </Button>
-                ))}
+                <Button
+                  size="sm"
+                  variant={quoteListView === 'active' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setQuoteListView('active');
+                    setFollowUpFilter('all');
+                    void loadQuotes({ view: 'active' });
+                  }}
+                >
+                  Active Jobs
+                </Button>
+                <Button
+                  size="sm"
+                  variant={quoteListView === 'archived' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setQuoteListView('archived');
+                    setFollowUpFilter('all');
+                    void loadQuotes({ view: 'archived' });
+                  }}
+                >
+                  Archived
+                </Button>
+                {quoteListView === 'active' && FOLLOW_UP_FILTERS.map((filter) => (
+                    <Button
+                      key={filter.value}
+                      size="sm"
+                      variant={followUpFilter === filter.value ? 'default' : 'outline'}
+                      onClick={() => setFollowUpFilter(filter.value)}
+                    >
+                      {filter.label} ({getFollowUpFilterCount(filter.value)})
+                    </Button>
+                  ))}
               </div>
             </div>
           </CardHeader>
@@ -1802,11 +1912,32 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                   {selectedQuoteIds.length} quote{selectedQuoteIds.length === 1 ? '' : 's'} selected
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" disabled title="Archive will be enabled after the secure backend action is added.">
-                    Archive coming after secure backend
-                  </Button>
+                  {quoteListView === 'active' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canArchiveQuotes || archivingQuotes}
+                      onClick={() => void archiveSelectedQuotes()}
+                      title={canArchiveQuotes ? 'Hide selected jobs without deleting records.' : 'Owner admin access is required.'}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      {archivingQuotes ? 'Archiving...' : 'Archive selected'}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canArchiveQuotes || restoringQuotes}
+                      onClick={() => void restoreSelectedQuotes()}
+                      title={canArchiveQuotes ? 'Move selected jobs back to the active list.' : 'Owner admin access is required.'}
+                    >
+                      {restoringQuotes ? 'Restoring...' : 'Restore selected'}
+                    </Button>
+                  )}
                   <Button type="button" size="sm" variant="outline" disabled title="Delete will be enabled after the secure backend action is added.">
-                    Delete coming after secure backend
+                    Delete disabled
                   </Button>
                   <Button type="button" size="sm" variant="ghost" onClick={clearQuoteSelection}>
                     Clear selection

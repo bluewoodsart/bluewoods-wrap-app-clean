@@ -28,9 +28,9 @@ export const brandChannels: Record<string, BrandChannel> = {
     headerSubtitle: 'Blue Woods Brands',
     parentBrand: 'Brought to you by Blue Woods Brands',
     poweredBy: '',
-    repSlug: 'todd',
-    wrapQuotePath: '/wraps?rep=todd',
-    bannerQuotePath: '/banners?rep=todd',
+    repSlug: 'trapstar',
+    wrapQuotePath: '/wraps?rep=trapstar',
+    bannerQuotePath: '/banners?rep=trapstar',
     headline: 'Wraps, banners, and brand visibility with Trapstar in your corner.',
     description:
       'Vehicle wraps, banners, and brand visibility backed by Blue Woods Brands production support.',
