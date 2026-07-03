@@ -66,7 +66,7 @@ const ThankYou = () => {
             size="lg"
           >
             <Home className="mr-2 h-4 w-4" />
-            Return to Home
+            Return to SlapWrapz Home
           </Button>
           <p className="text-sm font-medium text-gray-600">
             Thank you for choosing Blue Woods Brands.
