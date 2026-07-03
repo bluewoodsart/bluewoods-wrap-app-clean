@@ -8,6 +8,8 @@ export interface BrandChannel {
   repSlug: string;
   wrapQuotePath: string;
   bannerQuotePath?: string;
+  fullProjectPath?: string;
+  heroImagePath?: string;
   headline: string;
   description: string;
   body?: string[];
@@ -31,16 +33,18 @@ export const brandChannels: Record<string, BrandChannel> = {
     repSlug: 'trapstar',
     wrapQuotePath: '/wraps?rep=trapstar',
     bannerQuotePath: '/banners?rep=trapstar',
-    headline: 'Wraps, banners, and brand visibility with Trapstar in your corner.',
+    fullProjectPath: '/wraps/full?rep=trapstar',
+    heroImagePath: '/trapstar/trapstar-customs-lg-hero.png',
+    headline: 'Where your car is the star.',
     description:
-      'Vehicle wraps, banners, and brand visibility backed by Blue Woods Brands production support.',
+      'Custom wrap energy, sharp camo graphics, bold logos, and show-ready style backed by Blue Woods Brands production support.',
     cardEyebrow: 'Trapstar Customs',
-    cardHeadline: 'Work directly with Trapstar',
+    cardHeadline: 'Make the vehicle the headline',
     cardDescription:
-      'Trapstar Wraps gives you a direct path to vehicle wraps, banners, and brand visibility, backed by Blue Woods Brands production support.',
+      'Trapstar Customs LG gives you a direct path to intense vehicle wraps, banners, and brand visibility with every request tracked from quote to production.',
     featureBullets: [
-      'Vehicle wraps and fleet graphics',
-      'Banners and printed brand materials',
+      'Custom vehicle wraps and racing-inspired graphics',
+      'Bold sponsor/logo placement and business visibility',
       'Quote requests stay connected with Trapstar from start to finish'
     ]
   },
