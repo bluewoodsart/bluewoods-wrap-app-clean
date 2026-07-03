@@ -274,6 +274,51 @@ const getFollowUpBadgeClassName = (bucket: FollowUpBucket) => {
   return 'bg-slate-100 text-slate-600';
 };
 
+const getStatusBadgeClassName = (status: string) => {
+  if (status === 'new') return 'border-blue-200 bg-blue-50 text-blue-800';
+  if (status === 'contacted') return 'border-cyan-200 bg-cyan-50 text-cyan-800';
+  if (status === 'quote_sent') return 'border-violet-200 bg-violet-50 text-violet-800';
+  if (status === 'deposit_received') return 'border-amber-200 bg-amber-50 text-amber-900';
+  if (status === 'design_started') return 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800';
+  if (status === 'proof_sent') return 'border-indigo-200 bg-indigo-50 text-indigo-800';
+  if (status === 'approved') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+  if (status === 'printing') return 'border-teal-200 bg-teal-50 text-teal-800';
+  if (status === 'install_scheduled') return 'border-green-200 bg-green-50 text-green-800';
+  if (status === 'completed') return 'border-slate-200 bg-slate-100 text-slate-700';
+  if (status === 'lost') return 'border-red-200 bg-red-50 text-red-700';
+  return 'border-slate-200 bg-white text-slate-700';
+};
+
+const getStatusSelectClassName = (status: string) => {
+  if (status === 'new') return 'border-blue-200 bg-blue-50 text-blue-900';
+  if (status === 'contacted') return 'border-cyan-200 bg-cyan-50 text-cyan-900';
+  if (status === 'quote_sent') return 'border-violet-200 bg-violet-50 text-violet-900';
+  if (status === 'deposit_received') return 'border-amber-200 bg-amber-50 text-amber-950';
+  if (status === 'design_started') return 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900';
+  if (status === 'proof_sent') return 'border-indigo-200 bg-indigo-50 text-indigo-900';
+  if (status === 'approved') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  if (status === 'printing') return 'border-teal-200 bg-teal-50 text-teal-900';
+  if (status === 'install_scheduled') return 'border-green-200 bg-green-50 text-green-900';
+  if (status === 'completed') return 'border-slate-200 bg-slate-100 text-slate-800';
+  if (status === 'lost') return 'border-red-200 bg-red-50 text-red-800';
+  return 'border-slate-200 bg-white text-slate-900';
+};
+
+const getStatusRowClassName = (status: string) => {
+  if (status === 'new') return 'border-l-4 border-l-blue-300';
+  if (status === 'contacted') return 'border-l-4 border-l-cyan-300';
+  if (status === 'quote_sent') return 'border-l-4 border-l-violet-300';
+  if (status === 'deposit_received') return 'border-l-4 border-l-amber-300';
+  if (status === 'design_started') return 'border-l-4 border-l-fuchsia-300';
+  if (status === 'proof_sent') return 'border-l-4 border-l-indigo-300';
+  if (status === 'approved') return 'border-l-4 border-l-emerald-300';
+  if (status === 'printing') return 'border-l-4 border-l-teal-300';
+  if (status === 'install_scheduled') return 'border-l-4 border-l-green-300';
+  if (status === 'completed') return 'border-l-4 border-l-slate-300';
+  if (status === 'lost') return 'border-l-4 border-l-red-300';
+  return 'border-l-4 border-l-transparent';
+};
+
 const isFollowUpOverdue = (task: QuoteFollowUpTask) => {
   if (task.status !== 'open') return false;
 
@@ -2125,7 +2170,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     return (
                       <TableRow
                         key={quote.id}
-                        className={`cursor-pointer ${isOverdue ? 'bg-red-50/70 hover:bg-red-50' : 'hover:bg-slate-50'}`}
+                        className={`cursor-pointer ${getStatusRowClassName(selectedStatus)} ${isOverdue ? 'bg-red-50/70 hover:bg-red-50' : 'hover:bg-slate-50'}`}
                         onClick={() => openQuoteDetail(quote)}
                       >
                         {enableBulkActions && (
@@ -2209,7 +2254,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                                 void saveStatus(quote, nextStatus);
                               }}
                             >
-                              <SelectTrigger className="w-44">
+                              <SelectTrigger className={`w-44 font-medium ${getStatusSelectClassName(selectedStatus)}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -2371,7 +2416,14 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     <DetailField label="Rep Slug" value={activeQuote.rep_slug} />
                     <DetailField label="Assigned Rep" value={activeQuote.assigned_rep_name} />
                     <DetailField label="Product" value={getProductLabel(activeQuote)} />
-                    <DetailField label="Current Status" value={formatStatusLabel(activeQuote.status)} />
+                    <div>
+                      <dt className="text-xs font-medium uppercase text-slate-500">Current Status</dt>
+                      <dd className="mt-1">
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClassName(activeQuote.status)}`}>
+                          {formatStatusLabel(activeQuote.status)}
+                        </span>
+                      </dd>
+                    </div>
                   </dl>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     {selectedCallHref ? (
