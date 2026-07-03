@@ -768,6 +768,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [proofOptions, setProofOptions] = useState<CustomerProofOption[]>([]);
   const [savingProofPortal, setSavingProofPortal] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
+  const lastSelectedQuoteIdRef = useRef<string | null>(null);
+  const quoteSelectionShiftKeyRef = useRef(false);
   const [uploadingProofOptions, setUploadingProofOptions] = useState(false);
   const [savingProofOptionId, setSavingProofOptionId] = useState<string | null>(null);
   const [deletingProofOptionId, setDeletingProofOptionId] = useState<string | null>(null);
@@ -1797,14 +1799,34 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const selectedVisibleQuoteCount = filteredQuoteIds.filter((quoteId) => selectedQuoteIdSet.has(quoteId)).length;
   const allVisibleQuotesSelected = filteredQuoteIds.length > 0 && selectedVisibleQuoteCount === filteredQuoteIds.length;
 
-  const toggleQuoteSelection = (quoteId: string, checked: boolean) => {
+  const toggleQuoteSelection = (quoteId: string, checked: boolean, shiftKey = false) => {
     setSelectedQuoteIds((currentIds) => {
+      const lastSelectedQuoteId = lastSelectedQuoteIdRef.current;
+
+      if (shiftKey && lastSelectedQuoteId && lastSelectedQuoteId !== quoteId) {
+        const startIndex = filteredQuoteIds.indexOf(lastSelectedQuoteId);
+        const endIndex = filteredQuoteIds.indexOf(quoteId);
+
+        if (startIndex !== -1 && endIndex !== -1) {
+          const [rangeStart, rangeEnd] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+          const rangeQuoteIds = filteredQuoteIds.slice(rangeStart, rangeEnd + 1);
+
+          if (checked) {
+            return Array.from(new Set([...currentIds, ...rangeQuoteIds]));
+          }
+
+          return currentIds.filter((currentId) => !rangeQuoteIds.includes(currentId));
+        }
+      }
+
       if (checked) {
         return currentIds.includes(quoteId) ? currentIds : [...currentIds, quoteId];
       }
 
       return currentIds.filter((currentId) => currentId !== quoteId);
     });
+    lastSelectedQuoteIdRef.current = quoteId;
+    quoteSelectionShiftKeyRef.current = false;
   };
 
   const toggleAllVisibleQuotes = (checked: boolean) => {
@@ -1821,6 +1843,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     event?.preventDefault();
     event?.stopPropagation();
     setSelectedQuoteIds([]);
+    lastSelectedQuoteIdRef.current = null;
+    quoteSelectionShiftKeyRef.current = false;
   };
 
   return (
@@ -1998,7 +2022,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             <Checkbox
                               checked={selectedQuoteIdSet.has(quote.id)}
                               aria-label={`Select quote ${quote.quote_id || quote.customer_name}`}
-                              onCheckedChange={(checked) => toggleQuoteSelection(quote.id, checked === true)}
+                              onClickCapture={(event) => {
+                                quoteSelectionShiftKeyRef.current = event.shiftKey;
+                              }}
+                              onCheckedChange={(checked) => toggleQuoteSelection(quote.id, checked === true, quoteSelectionShiftKeyRef.current)}
                             />
                           </TableCell>
                         )}
