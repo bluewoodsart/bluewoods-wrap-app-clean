@@ -95,6 +95,7 @@ interface CustomerProofOption {
 type AdminRole = 'owner_admin' | 'staff' | 'sales_rep';
 
 const UNASSIGNED_REP_VALUE = '__unassigned__';
+const ALL_REPS_FILTER_VALUE = '__all_reps__';
 
 interface UploadedFileSummary {
   id?: string;
@@ -820,6 +821,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>('all');
   const [quoteSearch, setQuoteSearch] = useState('');
   const [quickQuoteFilter, setQuickQuoteFilter] = useState<QuickQuoteFilter>('all');
+  const [selectedRepFilter, setSelectedRepFilter] = useState(ALL_REPS_FILTER_VALUE);
   const [customerActionRequests, setCustomerActionRequests] = useState<QuoteCustomerActionRequest[]>([]);
   const [loadingCustomerActions, setLoadingCustomerActions] = useState(false);
   const [customerActionRequestTypes, setCustomerActionRequestTypes] = useState<CustomerActionRequestType[]>([]);
@@ -1887,6 +1889,18 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     return quotes.length;
   };
 
+  const repFilterOptions = Array.from(
+    quotes.reduce<Map<string, string>>((options, quote) => {
+      const repSlug = quote.rep_slug?.trim();
+      if (repSlug) {
+        options.set(repSlug, quote.assigned_rep_name || repSlug);
+      }
+      return options;
+    }, new Map())
+  )
+    .map(([repSlug, label]) => ({ repSlug, label }))
+    .sort((first, second) => first.label.localeCompare(second.label));
+
   const normalizedQuoteSearch = quoteSearch.trim().toLowerCase();
   const filteredQuotes = quotes.filter((quote) => {
     const summary = getFollowUpSummaryForQuote(quote.id);
@@ -1894,6 +1908,15 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     if (quoteListView === 'active') {
       if (followUpFilter === 'open' && summary.follow_up_bucket === 'none') return false;
       if (followUpFilter !== 'all' && followUpFilter !== 'open' && summary.follow_up_bucket !== followUpFilter) return false;
+    }
+
+    if (selectedRepFilter === UNASSIGNED_REP_VALUE && quote.rep_slug) return false;
+    if (
+      selectedRepFilter !== ALL_REPS_FILTER_VALUE &&
+      selectedRepFilter !== UNASSIGNED_REP_VALUE &&
+      quote.rep_slug !== selectedRepFilter
+    ) {
+      return false;
     }
 
     if (quickQuoteFilter === 'junk' && !isLikelyJunkQuote(quote)) return false;
@@ -1958,6 +1981,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const clearQuoteFilters = () => {
     setQuoteSearch('');
     setQuickQuoteFilter('all');
+    setSelectedRepFilter(ALL_REPS_FILTER_VALUE);
     setFollowUpFilter('all');
   };
 
@@ -2050,7 +2074,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
           </CardHeader>
           <CardContent>
             <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-center">
-              <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_auto_auto] md:items-center">
+              <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_minmax(12rem,16rem)_auto_auto] md:items-center">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
@@ -2060,6 +2084,20 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     placeholder="Search name, email, phone, rep, quote ID..."
                   />
                 </div>
+                <Select value={selectedRepFilter} onValueChange={setSelectedRepFilter}>
+                  <SelectTrigger aria-label="Filter by rep">
+                    <SelectValue placeholder="Filter by rep" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_REPS_FILTER_VALUE}>All reps</SelectItem>
+                    <SelectItem value={UNASSIGNED_REP_VALUE}>Unassigned</SelectItem>
+                    {repFilterOptions.map((rep) => (
+                      <SelectItem key={rep.repSlug} value={rep.repSlug}>
+                        {rep.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   type="button"
                   variant={quickQuoteFilter === 'junk' ? 'default' : 'outline'}
