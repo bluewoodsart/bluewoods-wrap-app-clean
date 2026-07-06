@@ -26,25 +26,25 @@ const Index: React.FC<IndexProps> = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="absolute left-0 right-0 top-0 z-20 mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 md:px-8">
-        <Link to="/" className="flex items-center gap-3">
+    <div className="min-h-[100svh] overflow-x-hidden bg-slate-950 text-white">
+      <header className="absolute left-0 right-0 top-0 z-20 mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-5">
+        <Link to="/" className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
           <img
             src="/favicon/favicon1.png"
             alt="Blue Woods Brands logo"
-            className="h-11 w-11 rounded-lg bg-white object-contain p-1"
+            className="h-9 w-9 rounded-lg bg-white object-contain p-1 md:h-11 md:w-11"
           />
           <div>
-            <p className="text-lg font-bold leading-none">SlapWrapz</p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-cyan-200">by Blue Woods Brands</p>
+            <p className="text-base font-bold leading-none md:text-lg">SlapWrapz</p>
+            <p className="mt-1 text-[0.65rem] font-medium uppercase tracking-wide text-cyan-200 md:text-xs">by Blue Woods Brands</p>
           </div>
         </Link>
 
-        <nav className="flex items-center gap-2">
-          <Button asChild variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+        <nav className="hidden shrink-0 items-center gap-2 sm:flex">
+          <Button asChild size="sm" variant="outline" className="h-9 border-white/30 bg-white/10 px-3 text-xs text-white hover:bg-white/20 hover:text-white md:text-sm">
             <Link to="/admin">Login</Link>
           </Button>
-          <Button asChild className="bg-cyan-400 text-slate-950 hover:bg-cyan-300">
+          <Button asChild size="sm" className="h-9 bg-cyan-400 px-3 text-xs text-slate-950 hover:bg-cyan-300 md:text-sm">
             <Link to="/register">Register</Link>
           </Button>
         </nav>
@@ -52,37 +52,37 @@ const Index: React.FC<IndexProps> = () => {
 
       <main>
         <section
-          className="relative flex min-h-screen items-end overflow-hidden bg-cover bg-center px-5 pb-8 pt-28 md:px-8 md:pb-10"
+          className="relative flex min-h-[100svh] items-end overflow-hidden bg-cover bg-[position:62%_center] px-4 pb-6 pt-24 sm:bg-[position:58%_center] md:bg-center md:px-8 md:pb-10 md:pt-28"
           style={{
-            backgroundImage: "linear-gradient(90deg, rgba(2,6,23,0.92) 0%, rgba(2,6,23,0.68) 42%, rgba(2,6,23,0.18) 78%), url('/slapwrapz/vehicle-wraps-hero-no-qr.png')"
+            backgroundImage: "linear-gradient(180deg, rgba(2,6,23,0.88) 0%, rgba(2,6,23,0.58) 34%, rgba(2,6,23,0.92) 100%), url('/slapwrapz/vehicle-wraps-hero-no-qr.png')"
           }}
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(34,211,238,0.22),transparent_34%),radial-gradient(circle_at_80%_20%,rgba(249,115,22,0.2),transparent_28%)]" />
-          <div className="relative z-10 mx-auto w-full max-w-7xl">
-            <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-200">
+          <div className="absolute inset-0 bg-black/10 md:bg-[linear-gradient(90deg,rgba(2,6,23,0.28),transparent_58%)]" />
+          <div className="relative z-10 mx-auto w-full max-w-7xl overflow-hidden">
+            <div className="max-w-[22rem] rounded-none sm:max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200 md:text-sm md:tracking-[0.22em]">
               Wraps, fleet branding, banners, and sales-ready artwork
               </p>
-              <h1 className="mt-5 text-5xl font-black leading-[1.02] text-white drop-shadow-2xl md:text-7xl">
+              <h1 className="mt-3 max-w-full break-words text-[1.7rem] font-black leading-[1.05] text-white drop-shadow-2xl sm:text-4xl md:mt-5 md:text-7xl">
                 SlapWrapz makes your brand impossible to miss.
               </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-100 drop-shadow md:text-xl">
+              <p className="mt-4 max-w-2xl break-words text-sm leading-6 text-slate-100 drop-shadow sm:text-base md:mt-6 md:text-xl md:leading-8">
                 Vehicle wraps, fleet graphics, banners, and production-ready brand visibility. Start with a quote,
                 send your artwork, and keep the project moving.
               </p>
 
-              <div className="mt-8 grid gap-4 lg:grid-cols-2">
-                <div className="border border-cyan-300/40 bg-black/55 p-5 shadow-2xl backdrop-blur-sm">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 md:mt-8 md:gap-4">
+                <div className="border border-cyan-300/40 bg-black/55 p-4 shadow-2xl backdrop-blur-sm md:p-5">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-400 text-slate-950">
-                      <Zap className="h-6 w-6" />
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-400 text-slate-950 md:h-12 md:w-12">
+                      <Zap className="h-5 w-5 md:h-6 md:w-6" />
                     </span>
-                    <div>
-                      <p className="text-2xl font-black uppercase">Quick Quote</p>
-                      <p className="text-sm text-cyan-100">Fast starting point. No full upload needed.</p>
+                    <div className="min-w-0">
+                      <p className="text-xl font-black uppercase md:text-2xl">Quick Quote</p>
+                      <p className="text-xs text-cyan-100 md:text-sm">Fast starting point. No full upload needed.</p>
                     </div>
                   </div>
-                  <Button asChild className="mt-5 h-12 w-full bg-cyan-400 text-base font-black text-slate-950 hover:bg-cyan-300">
+                  <Button asChild className="mt-4 h-11 w-full bg-cyan-400 text-sm font-black text-slate-950 hover:bg-cyan-300 md:mt-5 md:h-12 md:text-base">
                     <Link to="/wraps">
                       Start Quick Quote
                       <ArrowRight className="ml-2 h-4 w-4" />
@@ -90,17 +90,17 @@ const Index: React.FC<IndexProps> = () => {
                   </Button>
                 </div>
 
-                <div className="border border-white/25 bg-white/10 p-5 shadow-2xl backdrop-blur-sm">
+                <div className="border border-white/25 bg-white/10 p-4 shadow-2xl backdrop-blur-sm md:p-5">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-950">
-                      <Sparkles className="h-6 w-6" />
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 md:h-12 md:w-12">
+                      <Sparkles className="h-5 w-5 md:h-6 md:w-6" />
                     </span>
-                    <div>
-                      <p className="text-2xl font-black uppercase">Complete Project</p>
-                      <p className="text-sm text-slate-100">Upload photos, logos, artwork, and project details.</p>
+                    <div className="min-w-0">
+                      <p className="text-xl font-black uppercase md:text-2xl">Complete Project</p>
+                      <p className="text-xs text-slate-100 md:text-sm">Upload photos, logos, artwork, and project details.</p>
                     </div>
                   </div>
-                  <Button asChild className="mt-5 h-12 w-full border border-white/35 bg-white/10 text-base font-black text-white hover:bg-white/20">
+                  <Button asChild className="mt-4 h-11 w-full border border-white/35 bg-white/10 text-sm font-black text-white hover:bg-white/20 md:mt-5 md:h-12 md:text-base">
                     <Link to="/wraps/full">
                       Start Full Project
                       <ArrowRight className="ml-2 h-4 w-4" />
@@ -109,31 +109,31 @@ const Index: React.FC<IndexProps> = () => {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-3 text-sm font-semibold text-cyan-100">
-                <Clock3 className="h-5 w-5 text-cyan-300" />
+              <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-cyan-100 md:gap-3 md:text-sm">
+                <Clock3 className="h-4 w-4 shrink-0 text-cyan-300 md:h-5 md:w-5" />
                 <span>You can save your progress and return later.</span>
               </div>
             </div>
 
-            <div className="mt-8 grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 md:mt-8 md:gap-3 lg:grid-cols-6">
               {serviceTiles.map((tile) => (
                 <Link
                   key={tile.label}
                   to={tile.label === 'Banners' ? '/banners' : tile.label === 'Signs' ? '/signs' : '/wraps'}
-                  className={`min-h-24 border border-white/15 bg-gradient-to-br ${tile.accent} p-4 shadow-xl backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-white/15`}
+                  className={`min-h-16 border border-white/15 bg-gradient-to-br ${tile.accent} p-3 shadow-xl backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-white/15 md:min-h-24 md:p-4`}
                 >
-                  <p className="text-sm font-black uppercase leading-tight text-white">{tile.label}</p>
+                  <p className="text-xs font-black uppercase leading-tight text-white md:text-sm">{tile.label}</p>
                 </Link>
               ))}
             </div>
 
-            <div className="mt-6 grid gap-2 border border-white/15 bg-black/35 p-3 backdrop-blur-sm sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-4 grid grid-cols-2 gap-1.5 border border-white/15 bg-black/35 p-2 backdrop-blur-sm sm:grid-cols-2 md:mt-6 md:gap-2 md:p-3 lg:grid-cols-5">
               {trustBadges.map((badge) => {
                 const Icon = badge.icon;
                 return (
-                  <div key={badge.label} className="flex items-center gap-2 border-white/10 px-2 py-2 lg:border-r last:border-r-0">
-                    <Icon className="h-5 w-5 shrink-0 text-cyan-300" />
-                    <p className="text-xs font-bold uppercase leading-tight text-white">{badge.label}</p>
+                  <div key={badge.label} className="flex items-center gap-2 border-white/10 px-1.5 py-1.5 md:px-2 md:py-2 lg:border-r last:border-r-0">
+                    <Icon className="h-4 w-4 shrink-0 text-cyan-300 md:h-5 md:w-5" />
+                    <p className="text-[0.65rem] font-bold uppercase leading-tight text-white md:text-xs">{badge.label}</p>
                   </div>
                 );
               })}
