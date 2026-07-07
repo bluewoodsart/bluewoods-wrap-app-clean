@@ -124,7 +124,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
                 <LockKeyhole className="h-5 w-5" />
               </div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-200">{eyebrow}</p>
-              <CardTitle className="text-3xl font-black leading-tight md:text-4xl">
+              <CardTitle className="text-3xl font-black leading-tight text-white md:text-4xl">
                 {heading}
               </CardTitle>
             </CardHeader>
