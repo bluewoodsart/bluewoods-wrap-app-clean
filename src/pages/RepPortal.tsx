@@ -437,7 +437,7 @@ const RepPortal = () => {
   ], [quotes]);
   const selectedCallHref = getPhoneHref(selectedQuote?.customer_phone, 'tel');
   const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
-  const showJazzyPartnerPacket = adminUser.rep_slug === 'jazzy';
+  const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
 
   if (loading) {
     return (
