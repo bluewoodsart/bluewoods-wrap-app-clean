@@ -109,6 +109,39 @@ const App = () => {
                     heading="Jazzy Portal Login"
                     backLinkLabel="Back to Jazzy"
                     backLinkTarget="/jazzy"
+                    allowAccountSwitch
+                  />
+                )}
+              />
+              <Route
+                path="/jarrel/login"
+                element={(
+                  <LoginPlaceholder
+                    defaultRedirect="/rep"
+                    brandName="Jarrel Wraps"
+                    brandSubtitle="Powered by SlapWrapz"
+                    uppercaseBrandSubtitle={false}
+                    eyebrow="Jarrel Portal"
+                    heading="Jarrel Portal Login"
+                    backLinkLabel="Back to Jarrel"
+                    backLinkTarget="/jarrel"
+                    allowAccountSwitch
+                  />
+                )}
+              />
+              <Route
+                path="/trapstar/login"
+                element={(
+                  <LoginPlaceholder
+                    defaultRedirect="/rep"
+                    brandName="Trapstar Wraps"
+                    brandSubtitle="Blue Woods Brands"
+                    uppercaseBrandSubtitle={false}
+                    eyebrow="Trapstar Portal"
+                    heading="Trapstar Portal Login"
+                    backLinkLabel="Back to Trapstar"
+                    backLinkTarget="/trapstar"
+                    allowAccountSwitch
                   />
                 )}
               />

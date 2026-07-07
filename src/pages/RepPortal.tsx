@@ -456,7 +456,29 @@ const RepPortal = () => {
   }
 
   if (adminUser && !['sales_rep', 'rep_manager'].includes(adminUser.role)) {
-    return <Navigate to="/admin" replace />;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-5">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Rep account needed.</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-slate-600">
+              You are currently signed in as an admin account. Log out first, then sign in with the rep account for Jazzy, Jarrel, Trapstar, or PressPlay.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button onClick={handleLogout} disabled={signingOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                {signingOut ? 'Signing out...' : 'Log Out'}
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/admin">Admin Dashboard</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (!adminUser) {

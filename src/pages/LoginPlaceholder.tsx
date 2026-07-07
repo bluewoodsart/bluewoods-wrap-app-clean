@@ -16,6 +16,7 @@ interface LoginPlaceholderProps {
   heading?: string;
   backLinkLabel?: string;
   backLinkTarget?: string;
+  allowAccountSwitch?: boolean;
 }
 
 const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
@@ -26,7 +27,8 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
   eyebrow = 'Admin CRM',
   heading = 'Staff and sales rep login',
   backLinkLabel = 'Back to Home',
-  backLinkTarget = '/'
+  backLinkTarget = '/',
+  allowAccountSwitch = false
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,13 +38,31 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectPath = searchParams.get('redirect') || defaultRedirect;
+  const isRepLoginRedirect = redirectPath === '/rep' || redirectPath.startsWith('/rep?');
+  const shouldAllowAccountSwitch = allowAccountSwitch || isRepLoginRedirect;
+
+  const getPostLoginRedirect = async () => {
+    const { data } = await supabase.rpc('get_current_admin_user');
+    const activeAdminUser = data?.[0] as { role?: string } | undefined;
+
+    if (activeAdminUser?.role === 'sales_rep' || activeAdminUser?.role === 'rep_manager') {
+      return '/rep';
+    }
+
+    return redirectPath;
+  };
 
   useEffect(() => {
     const checkExistingSession = async () => {
       const { data } = await supabase.auth.getSession();
 
       if (data.session) {
-        navigate(redirectPath, { replace: true });
+        if (shouldAllowAccountSwitch) {
+          setCheckingSession(false);
+          return;
+        }
+
+        navigate(await getPostLoginRedirect(), { replace: true });
         return;
       }
 
@@ -50,7 +70,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
     };
 
     void checkExistingSession();
-  }, [navigate, redirectPath]);
+  }, [navigate, redirectPath, shouldAllowAccountSwitch]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -69,7 +89,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
       return;
     }
 
-    navigate(redirectPath, { replace: true });
+    navigate(await getPostLoginRedirect(), { replace: true });
   };
 
   if (checkingSession) {
