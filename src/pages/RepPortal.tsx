@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { ExternalLink, FileText, LogOut, MessageSquare, Phone, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -279,6 +279,8 @@ const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') =
   return normalizedPhone ? `${scheme}:${normalizedPhone}` : undefined;
 };
 
+const JAZZY_REFERRAL_ONE_SHEET_PATH = '/jazzy/kevin-jazzy-referral-one-sheet.pdf';
+
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
 
@@ -435,6 +437,7 @@ const RepPortal = () => {
   ], [quotes]);
   const selectedCallHref = getPhoneHref(selectedQuote?.customer_phone, 'tel');
   const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
+  const showJazzyPartnerPacket = adminUser.rep_slug === 'jazzy';
 
   if (loading) {
     return (
@@ -531,6 +534,33 @@ const RepPortal = () => {
             ))}
           </div>
         </section>
+
+        {showJazzyPartnerPacket && (
+          <Card className="border-amber-200 bg-amber-50/70">
+            <CardHeader>
+              <CardTitle className="text-lg text-amber-950">First sale payout packet</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+              <div className="space-y-2 text-sm text-amber-950">
+                <p>
+                  Transit referral one-sheet for the first Jazzy / SlapWrapz booked wrap job.
+                </p>
+                <p className="font-medium">
+                  Check request: $500 payable to Tori Smith after the final balance is collected and the job is past refund risk.
+                </p>
+                <p className="text-xs text-amber-800">
+                  Discussion sheet only. Final payout terms can be adjusted by written agreement before future leads are worked.
+                </p>
+              </div>
+              <Button asChild className="bg-amber-500 text-amber-950 hover:bg-amber-400">
+                <a href={JAZZY_REFERRAL_ONE_SHEET_PATH} target="_blank" rel="noreferrer">
+                  <Download className="mr-2 h-4 w-4" />
+                  Open PDF
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <section className="space-y-4">
           <div>
