@@ -30,6 +30,7 @@ import { getStoredRepSlug } from "@/lib/repTracking";
 const queryClient = new QueryClient();
 const trapstarChannel = getBrandChannel('trapstar');
 const jazzyChannel = getBrandChannel('jazzy');
+const jarrelChannel = getBrandChannel('jarrel');
 
 const RootRoute = ({ isPreviewMode }: { isPreviewMode: boolean }) => {
   return <Index isPreviewMode={isPreviewMode} />;
@@ -88,6 +89,7 @@ const App = () => {
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
               <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
               <Route path="/jazzy" element={<BrandChannelLanding channel={jazzyChannel} />} />
+              <Route path="/jarrel" element={<BrandChannelLanding channel={jarrelChannel} />} />
               <Route path="/wraps" element={<ShortIntakeFlow />} />
               <Route path="/wraps/full" element={<FullWrapQuoteFlow />} />
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />

@@ -75,6 +75,31 @@ export const brandChannels: Record<string, BrandChannel> = {
       'Window Tinting',
       'Paint Protection Film'
     ]
+  },
+  jarrel: {
+    slug: 'jarrel',
+    name: 'Jarrel Wraps',
+    eyebrow: 'Jarrel Rep Portal',
+    headerSubtitle: 'Powered by Blue Woods Brands',
+    parentBrand: 'Powered by SlapWrapz',
+    poweredBy: '',
+    repSlug: 'jarrel',
+    wrapQuotePath: '/wraps?rep=jarrel',
+    bannerQuotePath: '/banners?rep=jarrel',
+    fullProjectPath: '/wraps/full?rep=jarrel',
+    headline: 'Vehicle wraps, banners, and brand visibility with Jarrel as your rep.',
+    description:
+      'Start a wrap, banner, or full project quote through Jarrel and keep the request connected from intake to follow-up.',
+    cardEyebrow: 'Jarrel Rep Page',
+    cardHeadline: 'Quotes connected to Jarrel',
+    cardDescription:
+      'This starter page keeps leads attributed to Jarrel while the rep portal and manager flow are tested.',
+    featureBullets: [
+      'Vehicle wrap quote requests',
+      'Banner and print quote requests',
+      'Lead tracking connected to Jarrel from the first click'
+    ],
+    comingSoonNote: 'Custom cover art can be swapped in after portal testing passes.'
   }
 };
 

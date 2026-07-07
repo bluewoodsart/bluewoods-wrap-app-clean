@@ -13,7 +13,7 @@ interface AdminUser {
   auth_user_id: string;
   email: string;
   display_name: string | null;
-  role: 'owner_admin' | 'staff' | 'sales_rep';
+  role: 'owner_admin' | 'staff' | 'sales_rep' | 'rep_manager';
   rep_slug: string | null;
   is_active: boolean;
 }
@@ -346,14 +346,18 @@ const RepPortal = () => {
     const activeAdminUser = (userData?.[0] as AdminUser | undefined) ?? null;
     setAdminUser(activeAdminUser);
 
-    if (activeAdminUser?.role !== 'sales_rep') {
+    if (!activeAdminUser || !['sales_rep', 'rep_manager'].includes(activeAdminUser.role)) {
       setQuotes([]);
       setLoading(false);
       return;
     }
 
     setLoadingQuotes(true);
-    const { data: quoteData, error: quoteError } = await supabase.rpc('get_rep_assigned_quote_requests_v2');
+    const quoteRpc =
+      activeAdminUser.role === 'rep_manager'
+        ? 'get_rep_manager_quote_requests_v1'
+        : 'get_rep_assigned_quote_requests_v2';
+    const { data: quoteData, error: quoteError } = await supabase.rpc(quoteRpc);
     setLoadingQuotes(false);
 
     if (quoteError) {
@@ -448,7 +452,7 @@ const RepPortal = () => {
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
 
-  if (adminUser && adminUser.role !== 'sales_rep') {
+  if (adminUser && !['sales_rep', 'rep_manager'].includes(adminUser.role)) {
     return <Navigate to="/admin" replace />;
   }
 
@@ -485,7 +489,7 @@ const RepPortal = () => {
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">SlapWrapz Rep Portal</p>
             <p className="text-sm text-slate-800">
-              {adminUser.display_name || adminUser.email} - Assigned quotes only
+              {adminUser.display_name || adminUser.email} - {adminUser.role === 'rep_manager' ? 'Manager team quotes' : 'Assigned quotes only'}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout} disabled={signingOut}>
@@ -500,7 +504,9 @@ const RepPortal = () => {
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-950">{adminUser.display_name || 'Rep Portal'}</h1>
-              <p className="text-sm text-slate-600">Assigned work for rep slug {adminUser.rep_slug || '-'}</p>
+              <p className="text-sm text-slate-600">
+                {adminUser.role === 'rep_manager' ? 'Manager view for' : 'Assigned work for'} rep slug {adminUser.rep_slug || '-'}
+              </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => void loadPortal()} disabled={loadingQuotes}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loadingQuotes ? 'animate-spin' : ''}`} />
@@ -529,7 +535,9 @@ const RepPortal = () => {
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">Priority Work</h2>
-            <p className="text-sm text-slate-600">Grouped from the assigned quotes already available to this rep.</p>
+            <p className="text-sm text-slate-600">
+              Grouped from the assigned quotes already available to this {adminUser.role === 'rep_manager' ? 'manager team' : 'rep'}.
+            </p>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -581,7 +589,7 @@ const RepPortal = () => {
             <div>
               <CardTitle>Assigned Quote Requests</CardTitle>
               <p className="mt-1 text-sm text-slate-600">
-                Showing quotes currently assigned to your rep account.
+                Showing quotes currently assigned to your {adminUser.role === 'rep_manager' ? 'manager team' : 'rep account'}.
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => void loadPortal()} disabled={loadingQuotes}>

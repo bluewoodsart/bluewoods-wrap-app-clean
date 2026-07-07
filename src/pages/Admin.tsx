@@ -14,7 +14,7 @@ interface AdminUser {
   auth_user_id: string;
   email: string;
   display_name: string | null;
-  role: 'owner_admin' | 'staff' | 'sales_rep';
+  role: 'owner_admin' | 'staff' | 'sales_rep' | 'rep_manager';
   rep_slug: string | null;
   is_active: boolean;
 }
@@ -189,7 +189,7 @@ const Admin = () => {
     );
   }
 
-  if (adminUser.role === 'sales_rep') {
+  if (adminUser.role === 'sales_rep' || adminUser.role === 'rep_manager') {
     return <Navigate to="/rep" replace />;
   }
 

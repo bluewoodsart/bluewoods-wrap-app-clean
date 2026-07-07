@@ -20,6 +20,10 @@ const SALES_REPS: Record<string, { name: string; email: string }> = {
     name: 'Jazzy Automotive',
     email: 'jazzyautoimaging@gmail.com'
   },
+  jarrel: {
+    name: 'Jarrel',
+    email: 'flukerjarrel@gmail.com'
+  },
   test: {
     name: 'Test Sales Rep',
     email: 'pressplayadvertising@gmail.com'
