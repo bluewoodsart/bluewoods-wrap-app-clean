@@ -269,10 +269,17 @@ const getFollowUpBucketLabel = (bucket: FollowUpBucket) => {
 };
 
 const getFollowUpBadgeClassName = (bucket: FollowUpBucket) => {
-  if (bucket === 'overdue') return 'bg-red-100 text-red-700';
-  if (bucket === 'due_today') return 'bg-amber-100 text-amber-800';
-  if (bucket === 'upcoming') return 'bg-blue-100 text-blue-700';
+  if (bucket === 'overdue') return 'bg-red-100 text-red-700 ring-1 ring-red-200';
+  if (bucket === 'due_today') return 'bg-amber-100 text-amber-800 ring-1 ring-amber-200';
+  if (bucket === 'upcoming') return 'bg-blue-100 text-blue-700 ring-1 ring-blue-200';
   return 'bg-slate-100 text-slate-600';
+};
+
+const getFollowUpSurfaceClassName = (bucket: FollowUpBucket) => {
+  if (bucket === 'overdue') return 'bg-red-50/80 hover:bg-red-50';
+  if (bucket === 'due_today') return 'bg-amber-50/80 hover:bg-amber-50';
+  if (bucket === 'upcoming') return 'bg-blue-50/45 hover:bg-blue-50';
+  return 'hover:bg-slate-50';
 };
 
 const getStatusBadgeClassName = (status: string) => {
@@ -2013,10 +2020,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
 
         <div className="grid gap-3 md:grid-cols-4">
           {[
-            { filter: 'overdue' as FollowUpFilter, label: 'Overdue', count: followUpCounts.overdue, className: 'border-red-200 bg-red-50 text-red-800' },
-            { filter: 'due_today' as FollowUpFilter, label: 'Due today', count: followUpCounts.dueToday, className: 'border-amber-200 bg-amber-50 text-amber-900' },
-            { filter: 'open' as FollowUpFilter, label: 'Open follow-ups', count: followUpCounts.open, className: 'border-blue-200 bg-blue-50 text-blue-800' },
-            { filter: 'none' as FollowUpFilter, label: 'No follow-up set', count: followUpCounts.none, className: 'border-slate-200 bg-white text-slate-700' }
+            { filter: 'overdue' as FollowUpFilter, label: 'Critical / Late', count: followUpCounts.overdue, className: 'border-red-200 bg-red-50 text-red-800' },
+            { filter: 'due_today' as FollowUpFilter, label: 'Due Today', count: followUpCounts.dueToday, className: 'border-amber-200 bg-amber-50 text-amber-900' },
+            { filter: 'open' as FollowUpFilter, label: 'On Point / Open', count: followUpCounts.open, className: 'border-blue-200 bg-blue-50 text-blue-800' },
+            { filter: 'none' as FollowUpFilter, label: 'No Follow-Up', count: followUpCounts.none, className: 'border-slate-200 bg-white text-slate-700' }
           ].map((item) => (
             <button
               key={item.filter}
@@ -2200,7 +2207,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     const selectedStatus = getSelectedStatus(quote);
                     const isSaving = savingId === quote.id;
                     const followUpSummary = getFollowUpSummaryForQuote(quote.id);
-                    const isOverdue = followUpSummary.follow_up_bucket === 'overdue';
+                    const followUpBucket = followUpSummary.follow_up_bucket;
+                    const isOverdue = followUpBucket === 'overdue';
                     const fileCount = getQuoteFileCount(quote);
                     const rowCallHref = getPhoneHref(quote.customer_phone, 'tel');
                     const rowTextHref = getPhoneHref(quote.customer_phone, 'sms');
@@ -2208,7 +2216,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     return (
                       <TableRow
                         key={quote.id}
-                        className={`cursor-pointer ${getStatusRowClassName(selectedStatus)} ${isOverdue ? 'bg-red-50/70 hover:bg-red-50' : 'hover:bg-slate-50'}`}
+                        className={`cursor-pointer ${getStatusRowClassName(selectedStatus)} ${getFollowUpSurfaceClassName(followUpBucket)}`}
                         onClick={() => openQuoteDetail(quote)}
                       >
                         {enableBulkActions && (

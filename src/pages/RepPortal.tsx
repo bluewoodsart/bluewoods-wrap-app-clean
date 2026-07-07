@@ -223,10 +223,44 @@ const getFollowUpBucketLabel = (summary: FollowUpSummary) => {
 
 const getFollowUpClassName = (summary: FollowUpSummary) => {
   const bucket = getFollowUpBucket(summary);
-  if (bucket === 'overdue') return 'bg-red-100 text-red-700';
-  if (bucket === 'due_today') return 'bg-amber-100 text-amber-800';
-  if (bucket === 'upcoming') return 'bg-blue-100 text-blue-700';
+  if (bucket === 'overdue') return 'bg-red-100 text-red-700 ring-1 ring-red-200';
+  if (bucket === 'due_today') return 'bg-amber-100 text-amber-800 ring-1 ring-amber-200';
+  if (bucket === 'upcoming') return 'bg-blue-100 text-blue-700 ring-1 ring-blue-200';
   return 'bg-slate-100 text-slate-600';
+};
+
+const getFollowUpSurfaceClassName = (summary: FollowUpSummary) => {
+  const bucket = getFollowUpBucket(summary);
+  if (bucket === 'overdue') return 'border-red-200 bg-red-50/75 hover:bg-red-50';
+  if (bucket === 'due_today') return 'border-amber-200 bg-amber-50/75 hover:bg-amber-50';
+  if (bucket === 'upcoming') return 'border-blue-100 bg-blue-50/45 hover:bg-blue-50';
+  return 'border-slate-200 hover:bg-slate-50';
+};
+
+const getDashboardMetricClassName = (label: string) => {
+  if (label === "Today's Follow-ups") return 'border-amber-200 bg-amber-50 text-amber-950';
+  if (label === 'Waiting on Customer') return 'border-red-200 bg-red-50 text-red-950';
+  if (label === 'New Leads') return 'border-blue-200 bg-blue-50 text-blue-950';
+  if (label === 'Ready for Install') return 'border-emerald-200 bg-emerald-50 text-emerald-950';
+  if (label === 'Completed') return 'border-slate-200 bg-slate-100 text-slate-800';
+  if (label === 'Need Deposit') return 'border-violet-200 bg-violet-50 text-violet-950';
+  return 'border-slate-200 bg-white text-slate-950';
+};
+
+const getGroupClassName = (title: string) => {
+  if (title === 'New Leads') return 'border-blue-200 bg-blue-50/40';
+  if (title === 'Waiting for Customer') return 'border-red-200 bg-red-50/45';
+  if (title === 'Ready for Install') return 'border-emerald-200 bg-emerald-50/45';
+  if (title === 'Completed') return 'border-slate-200 bg-slate-100/65';
+  return 'border-slate-200 bg-white';
+};
+
+const getGroupBadgeClassName = (title: string) => {
+  if (title === 'New Leads') return 'bg-blue-100 text-blue-800';
+  if (title === 'Waiting for Customer') return 'bg-red-100 text-red-800';
+  if (title === 'Ready for Install') return 'bg-emerald-100 text-emerald-800';
+  if (title === 'Completed') return 'bg-slate-200 text-slate-700';
+  return 'bg-slate-100 text-slate-700';
 };
 
 const getRequestTypes = (request: CustomerActionRequest) => {
@@ -548,10 +582,10 @@ const RepPortal = () => {
               { label: 'Completed', value: dashboardCounts.completed, detail: 'Assigned complete' },
               { label: 'Need Deposit', value: dashboardCounts.needDeposit, detail: 'Quote sent stage' }
             ].map((metric) => (
-              <div key={metric.label} className="rounded-md border border-slate-200 bg-white p-4">
-                <p className="text-xs font-semibold uppercase text-slate-500">{metric.label}</p>
-                <p className="mt-2 text-3xl font-bold text-slate-950">{metric.value}</p>
-                <p className="mt-1 text-xs text-slate-500">{metric.detail}</p>
+              <div key={metric.label} className={`rounded-md border p-4 shadow-sm ${getDashboardMetricClassName(metric.label)}`}>
+                <p className="text-xs font-semibold uppercase opacity-75">{metric.label}</p>
+                <p className="mt-2 text-3xl font-bold">{metric.value}</p>
+                <p className="mt-1 text-xs opacity-70">{metric.detail}</p>
               </div>
             ))}
           </div>
@@ -594,14 +628,14 @@ const RepPortal = () => {
 
           <div className="grid gap-4 lg:grid-cols-2">
             {groupedQuotes.map((group) => (
-              <div key={group.title} className="rounded-md border border-slate-200 bg-white">
-                <div className="border-b border-slate-200 px-4 py-3">
+              <div key={group.title} className={`rounded-md border shadow-sm ${getGroupClassName(group.title)}`}>
+                <div className="border-b border-current/10 bg-white/65 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold text-slate-950">{group.title}</h3>
                       <p className="text-xs text-slate-500">{group.description}</p>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getGroupBadgeClassName(group.title)}`}>
                       {group.quotes.length}
                     </span>
                   </div>
@@ -614,7 +648,7 @@ const RepPortal = () => {
                       <button
                         key={`${group.title}-${quote.id}`}
                         type="button"
-                        className="block w-full px-4 py-3 text-left hover:bg-slate-50"
+                        className={`block w-full border-l-4 px-4 py-3 text-left ${getFollowUpSurfaceClassName(getFollowUpSummary(quote))}`}
                         onClick={() => setSelectedQuote(quote)}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -623,7 +657,7 @@ const RepPortal = () => {
                             <p className="truncate text-xs text-slate-500">{getProjectTitle(quote)} - {getProductLabel(quote)}</p>
                             <p className="mt-1 line-clamp-2 text-xs text-slate-600">{getQuoteGroupMeta(quote)}</p>
                           </div>
-                          <span className="flex-none rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          <span className={`flex-none rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpClassName(getFollowUpSummary(quote))}`}>
                             {formatLabel(quote.status)}
                           </span>
                         </div>
@@ -681,7 +715,7 @@ const RepPortal = () => {
                       return (
                         <TableRow
                           key={quote.id}
-                          className="cursor-pointer"
+                          className={`cursor-pointer ${getFollowUpSurfaceClassName(followUpSummary)}`}
                           onClick={() => setSelectedQuote(quote)}
                         >
                           <TableCell>
