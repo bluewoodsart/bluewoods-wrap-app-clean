@@ -45,6 +45,14 @@ begin
       10 as source_priority
     union all
     select
+      'jarrel'::text as rep_slug,
+      'Jarrel'::text as assigned_rep_name,
+      'flukerjarrel@gmail.com'::text as rep_email,
+      'rep_manager'::text as type,
+      'active'::text as status,
+      10 as source_priority
+    union all
+    select
       lower(trim(au.rep_slug)) as rep_slug,
       coalesce(nullif(trim(au.display_name), ''), trim(au.email)) as assigned_rep_name,
       trim(au.email) as rep_email,
@@ -56,7 +64,7 @@ begin
       20 as source_priority
     from public.admin_users au
     where au.is_active = true
-      and au.role in ('owner_admin', 'sales_rep')
+      and au.role in ('owner_admin', 'sales_rep', 'rep_manager')
       and nullif(trim(coalesce(au.rep_slug, '')), '') is not null
       and nullif(trim(coalesce(au.email, '')), '') is not null
   ),
@@ -159,13 +167,19 @@ begin
         10 as source_priority
       union all
       select
+        'jarrel'::text as rep_slug,
+        'Jarrel'::text as assigned_rep_name,
+        'flukerjarrel@gmail.com'::text as rep_email,
+        10 as source_priority
+      union all
+      select
         lower(trim(au.rep_slug)) as rep_slug,
         coalesce(nullif(trim(au.display_name), ''), trim(au.email)) as assigned_rep_name,
         trim(au.email) as rep_email,
         20 as source_priority
       from public.admin_users au
       where au.is_active = true
-        and au.role in ('owner_admin', 'sales_rep')
+        and au.role in ('owner_admin', 'sales_rep', 'rep_manager')
         and nullif(trim(coalesce(au.rep_slug, '')), '') is not null
         and nullif(trim(coalesce(au.email, '')), '') is not null
     ),
