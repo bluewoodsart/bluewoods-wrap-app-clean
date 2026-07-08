@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -315,6 +315,9 @@ const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') =
 };
 
 const JAZZY_REFERRAL_ONE_SHEET_PATH = '/jazzy/kevin-jazzy-referral-one-sheet.pdf';
+const JARREL_PUBLIC_PAGE_URL = 'https://www.slapwrapz.com/jarrel';
+const JARREL_QR_PNG_PATH = '/jarrel/jarrel-slapwrapz-qr.png';
+const JARREL_QR_SVG_PATH = '/jarrel/jarrel-slapwrapz-qr.svg';
 
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
@@ -525,6 +528,7 @@ const RepPortal = () => {
   const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
   const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
   const showCoverDirectionPanel = adminUser?.role === 'rep_manager' && adminUser?.rep_slug === 'jarrel';
+  const showJarrelQrPanel = adminUser?.rep_slug === 'jarrel';
 
   if (loading) {
     return (
@@ -667,6 +671,62 @@ const RepPortal = () => {
                   Open PDF
                 </a>
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {showJarrelQrPanel && (
+          <Card className="border-slate-200 bg-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg text-slate-950">
+                <QrCode className="h-5 w-5" />
+                Jarrel QR Code
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+              <div className="space-y-3 text-sm leading-6 text-slate-600">
+                <p>
+                  This QR code sends customers to Jarrel's public quote page. Use the PNG for texting,
+                  social posts, and quick sharing. Use the SVG when making cards or print layouts.
+                </p>
+                <p className="break-all rounded-md border border-slate-200 bg-slate-50 p-3 font-medium text-slate-900">
+                  {JARREL_PUBLIC_PAGE_URL}
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button asChild>
+                    <a href={JARREL_QR_PNG_PATH} download="jarrel-slapwrapz-qr.png">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download PNG
+                    </a>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <a href={JARREL_QR_SVG_PATH} download="jarrel-slapwrapz-qr.svg">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download SVG
+                    </a>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <a href={JARREL_QR_PNG_PATH} target="_blank" rel="noreferrer">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open Large
+                    </a>
+                  </Button>
+                </div>
+              </div>
+
+              <a
+                href={JARREL_QR_PNG_PATH}
+                target="_blank"
+                rel="noreferrer"
+                className="mx-auto block w-full max-w-[22rem] rounded-md border border-slate-200 bg-white p-3 shadow-sm sm:max-w-[26rem] md:p-4"
+                aria-label="Open Jarrel QR code at full size"
+              >
+                <img
+                  src={JARREL_QR_PNG_PATH}
+                  alt="QR code for Jarrel Wraps"
+                  className="aspect-square w-full object-contain"
+                />
+              </a>
             </CardContent>
           </Card>
         )}
