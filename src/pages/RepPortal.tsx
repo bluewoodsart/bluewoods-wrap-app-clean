@@ -5,6 +5,7 @@ import { Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
@@ -84,6 +85,25 @@ interface RepQuoteRow {
   follow_up_summary: FollowUpSummary | string | null;
   follow_up_tasks: FollowUpTask[] | string | null;
   customer_action_requests: CustomerActionRequest[] | string | null;
+  created_at: string;
+}
+
+interface RepPageIdeaRow {
+  id: string;
+  rep_slug: string;
+  brand_name: string;
+  industry: string | null;
+  category: string | null;
+  niche: string | null;
+  page_title: string | null;
+  page_slug: string | null;
+  page_url: string | null;
+  thumbnail_url: string | null;
+  qr_png_url: string | null;
+  qr_svg_url: string | null;
+  status: string;
+  is_featured: boolean;
+  idea_text: string;
   created_at: string;
 }
 
@@ -354,6 +374,15 @@ const coverDirectionFollowUpPrompt = `Would you like to add anything else?
 
 You can send another note, another idea, a photo direction, a color direction, or a correction to the first message.`;
 
+const getIdeaStatusClassName = (status: string, isFeatured: boolean) => {
+  if (isFeatured) return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200';
+  if (status === 'built') return 'bg-blue-100 text-blue-800 ring-1 ring-blue-200';
+  if (status === 'approved') return 'bg-violet-100 text-violet-800 ring-1 ring-violet-200';
+  if (status === 'rejected') return 'bg-red-100 text-red-800 ring-1 ring-red-200';
+  if (status === 'inactive') return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
+  return 'bg-amber-100 text-amber-800 ring-1 ring-amber-200';
+};
+
 const RepPortal = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
@@ -364,6 +393,10 @@ const RepPortal = () => {
   const [error, setError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [coverDirection, setCoverDirection] = useState('');
+  const [pageIdeaIndustry, setPageIdeaIndustry] = useState('');
+  const [pageIdeaCategory, setPageIdeaCategory] = useState('');
+  const [pageIdeaTitle, setPageIdeaTitle] = useState('');
+  const [pageIdeas, setPageIdeas] = useState<RepPageIdeaRow[]>([]);
   const [coverDirectionState, setCoverDirectionState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [coverDirectionMessage, setCoverDirectionMessage] = useState('');
   const location = useLocation();
@@ -428,6 +461,19 @@ const RepPortal = () => {
     }
 
     setQuotes((quoteData ?? []) as RepQuoteRow[]);
+
+    if (activeAdminUser.role === 'rep_manager') {
+      const { data: ideaData, error: ideaError } = await supabase.rpc('list_my_rep_page_ideas_v1');
+      if (ideaError) {
+        console.error('Rep page idea load failed:', ideaError);
+        setPageIdeas([]);
+      } else {
+        setPageIdeas((ideaData ?? []) as RepPageIdeaRow[]);
+      }
+    } else {
+      setPageIdeas([]);
+    }
+
     setLoading(false);
   };
 
@@ -457,8 +503,29 @@ const RepPortal = () => {
 
     setCoverDirectionState('sending');
     setCoverDirectionMessage('');
+    const trimmedDirection = coverDirection.trim();
+
+    if (trimmedDirection.length < 40) {
+      setCoverDirectionState('error');
+      setCoverDirectionMessage('Please add more page direction before submitting.');
+      return;
+    }
 
     try {
+      const { data: savedIdeaData, error: saveIdeaError } = await supabase.rpc('submit_rep_page_idea_v1', {
+        p_idea_text: trimmedDirection,
+        p_industry: pageIdeaIndustry.trim() || null,
+        p_category: pageIdeaCategory.trim() || null,
+        p_niche: null,
+        p_page_title: pageIdeaTitle.trim() || null
+      });
+
+      if (saveIdeaError) {
+        throw new Error(saveIdeaError.message);
+      }
+
+      const savedIdea = (savedIdeaData?.[0] as RepPageIdeaRow | undefined) ?? null;
+
       const response = await fetch('/api/send-rep-cover-direction-email', {
         method: 'POST',
         headers: {
@@ -469,7 +536,7 @@ const RepPortal = () => {
           repName: adminUser.display_name || 'Jarrel',
           repEmail: adminUser.email,
           pageUrl: `https://www.slapwrapz.com/${adminUser.rep_slug || ''}`,
-          direction: coverDirection
+          direction: trimmedDirection
         })
       });
 
@@ -481,11 +548,42 @@ const RepPortal = () => {
 
       setCoverDirectionState('sent');
       setCoverDirection('');
+      setPageIdeaIndustry('');
+      setPageIdeaCategory('');
+      setPageIdeaTitle('');
+      if (savedIdea) {
+        setPageIdeas((current) => [savedIdea, ...current.filter((idea) => idea.id !== savedIdea.id)]);
+      }
       setCoverDirectionMessage('Your page idea was sent to BWB for review. Would you like to add anything else?');
     } catch (coverError) {
       setCoverDirectionState('error');
       setCoverDirectionMessage(coverError instanceof Error ? coverError.message : 'Cover page idea failed to send.');
     }
+  };
+
+  const toggleFeaturedPageIdea = async (idea: RepPageIdeaRow) => {
+    if (!idea.page_url || idea.status !== 'built') return;
+
+    const { data, error: featureError } = await supabase.rpc('set_my_rep_page_idea_featured_v1', {
+      p_idea_id: idea.id,
+      p_is_featured: !idea.is_featured
+    });
+
+    if (featureError) {
+      setCoverDirectionState('error');
+      setCoverDirectionMessage(featureError.message);
+      return;
+    }
+
+    const updated = data?.[0] as { id: string; is_featured: boolean } | undefined;
+    if (!updated) return;
+
+    setPageIdeas((current) =>
+      current.map((pageIdea) => ({
+        ...pageIdea,
+        is_featured: pageIdea.id === updated.id ? updated.is_featured : updated.is_featured ? false : pageIdea.is_featured
+      }))
+    );
   };
 
   const selectedFiles = useMemo(() => (selectedQuote ? getFiles(selectedQuote) : []), [selectedQuote]);
@@ -532,7 +630,8 @@ const RepPortal = () => {
   const selectedCallHref = getPhoneHref(selectedQuote?.customer_phone, 'tel');
   const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
   const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
-  const showCoverDirectionPanel = adminUser?.role === 'rep_manager' && adminUser?.rep_slug === 'jarrel';
+  const repPublicUrl = adminUser?.rep_slug ? `www.slapwrapz.com/${adminUser.rep_slug}` : 'www.slapwrapz.com';
+  const showCoverDirectionPanel = adminUser?.role === 'rep_manager';
   const showJarrelQrPanel = adminUser?.rep_slug === 'jarrel';
 
   if (loading) {
@@ -744,7 +843,7 @@ const RepPortal = () => {
             <CardContent className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
               <div className="space-y-3 text-sm leading-6 text-blue-950">
                 <p>
-                  Use this space to send BWB creative direction for your public page at www.slapwrapz.com/jarrel.
+                  Use this space to send BWB creative direction for a SlapWrapz niche page connected to {repPublicUrl}.
                 </p>
                 <p>
                   The idea can come from you directly, or you can paste a response from ChatGPT, Claude, Gemini,
@@ -753,6 +852,35 @@ const RepPortal = () => {
                 <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
                   Nothing changes live automatically. Ashley approves the direction before the front end is updated.
                 </p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase text-blue-900">Industry</p>
+                    <Input
+                      value={pageIdeaIndustry}
+                      onChange={(event) => setPageIdeaIndustry(event.target.value)}
+                      placeholder="Home Services"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase text-blue-900">Category</p>
+                    <Input
+                      value={pageIdeaCategory}
+                      onChange={(event) => setPageIdeaCategory(event.target.value)}
+                      placeholder="Roofing"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase text-blue-900">Page Name</p>
+                    <Input
+                      value={pageIdeaTitle}
+                      onChange={(event) => setPageIdeaTitle(event.target.value)}
+                      placeholder="Roofing Truck Wraps"
+                      className="bg-white"
+                    />
+                  </div>
+                </div>
                 <Button onClick={submitCoverDirection} disabled={coverDirectionState === 'sending'}>
                   <MessageSquare className="mr-2 h-4 w-4" />
                   {coverDirectionState === 'sending' ? 'Sending...' : 'Send Page Idea'}
@@ -768,8 +896,87 @@ const RepPortal = () => {
                 onChange={(event) => setCoverDirection(event.target.value)}
                 placeholder={coverDirectionState === 'sent' ? coverDirectionFollowUpPrompt : coverDirectionPrompt}
                 className="min-h-[280px] resize-y bg-white text-sm leading-6 text-slate-800"
-                aria-label="Jarrel cover page direction"
+                aria-label="SlapWrapz page direction"
               />
+            </CardContent>
+          </Card>
+        )}
+
+        {showCoverDirectionPanel && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg text-slate-950">Submitted Page Ideas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pageIdeas.length === 0 ? (
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+                  No saved page ideas yet. New ideas submitted above will stay here for review, buildout, QR codes, and active page control.
+                </div>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {pageIdeas.map((idea) => (
+                    <div key={idea.id} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex gap-4">
+                        <div className="flex h-24 w-32 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-950 text-center text-xs font-black uppercase tracking-wide text-white">
+                          {idea.thumbnail_url ? (
+                            <img src={idea.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <span>SlapWrapz<br />Idea</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getIdeaStatusClassName(idea.status, idea.is_featured)}`}>
+                              {idea.is_featured ? 'Active' : formatLabel(idea.status)}
+                            </span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                              {idea.brand_name}
+                            </span>
+                          </div>
+                          <h3 className="mt-2 truncate text-sm font-bold text-slate-950">
+                            {idea.page_title || idea.category || idea.industry || 'Untitled page idea'}
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {[idea.industry, idea.category, idea.niche].filter(Boolean).join(' / ') || 'Uncategorized'}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Submitted {formatDate(idea.created_at)}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-700">{idea.idea_text}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {idea.page_url ? (
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={idea.page_url} target="_blank" rel="noreferrer">
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Open Page
+                            </a>
+                          </Button>
+                        ) : (
+                          <Button variant="outline" size="sm" disabled>
+                            Page not built yet
+                          </Button>
+                        )}
+                        {idea.qr_png_url && (
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={idea.qr_png_url} download>
+                              <Download className="mr-2 h-4 w-4" />
+                              QR
+                            </a>
+                          </Button>
+                        )}
+                        <Button
+                          variant={idea.is_featured ? 'default' : 'outline'}
+                          size="sm"
+                          disabled={!idea.page_url || idea.status !== 'built'}
+                          onClick={() => void toggleFeaturedPageIdea(idea)}
+                        >
+                          {idea.is_featured ? 'Active Page' : 'Make Active'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
