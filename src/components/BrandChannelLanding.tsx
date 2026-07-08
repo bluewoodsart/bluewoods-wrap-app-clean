@@ -187,25 +187,25 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
             </div>
           </div>
 
-          <div className="border border-white/15 bg-white/[0.06] p-6 shadow-2xl">
-            <div className="aspect-[4/3] border border-red-300/25 bg-neutral-900 p-6">
+          <div className="border border-white/15 bg-white/[0.06] p-4 shadow-2xl sm:p-5 md:p-6">
+            <div className="min-h-[26rem] border border-red-300/25 bg-neutral-900 p-5 sm:p-6 md:min-h-[28rem]">
               <div className="flex h-full flex-col justify-between">
                 <div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-500 text-white">
-                    <Building2 className="h-6 w-6" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-red-500 text-white md:h-12 md:w-12">
+                    <Building2 className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
-                  <p className="mt-8 text-sm font-semibold uppercase tracking-[0.22em] text-red-200">
+                  <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-red-200 md:mt-7 md:text-sm md:tracking-[0.22em]">
                     {channel.cardEyebrow}
                   </p>
-                  <h2 className="mt-4 text-3xl font-black leading-tight text-white">
+                  <h2 className="mt-3 break-words text-2xl font-black leading-tight text-white md:mt-4 md:text-3xl">
                     {channel.cardHeadline}
                   </h2>
-                  <p className="mt-4 text-base leading-7 text-neutral-300">
+                  <p className="mt-3 text-sm leading-6 text-neutral-300 md:mt-4 md:text-base md:leading-7">
                     {channel.cardDescription}
                   </p>
                 </div>
 
-                <div className="grid gap-3 text-sm text-neutral-300">
+                <div className="mt-6 grid gap-2.5 text-sm text-neutral-300 md:gap-3">
                   {channel.comingSoonTitle && (
                     <p className="font-semibold text-neutral-100">{channel.comingSoonTitle}</p>
                   )}
