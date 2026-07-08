@@ -350,6 +350,10 @@ Helpful details:
 
 BWB will review your idea before anything changes live.`;
 
+const coverDirectionFollowUpPrompt = `Would you like to add anything else?
+
+You can send another note, another idea, a photo direction, a color direction, or a correction to the first message.`;
+
 const RepPortal = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
@@ -359,7 +363,7 @@ const RepPortal = () => {
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [error, setError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
-  const [coverDirection, setCoverDirection] = useState(coverDirectionPrompt);
+  const [coverDirection, setCoverDirection] = useState('');
   const [coverDirectionState, setCoverDirectionState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [coverDirectionMessage, setCoverDirectionMessage] = useState('');
   const location = useLocation();
@@ -476,7 +480,8 @@ const RepPortal = () => {
       }
 
       setCoverDirectionState('sent');
-      setCoverDirectionMessage('Your page idea was sent to BWB for review.');
+      setCoverDirection('');
+      setCoverDirectionMessage('Your page idea was sent to BWB for review. Would you like to add anything else?');
     } catch (coverError) {
       setCoverDirectionState('error');
       setCoverDirectionMessage(coverError instanceof Error ? coverError.message : 'Cover page idea failed to send.');
@@ -761,6 +766,7 @@ const RepPortal = () => {
               <Textarea
                 value={coverDirection}
                 onChange={(event) => setCoverDirection(event.target.value)}
+                placeholder={coverDirectionState === 'sent' ? coverDirectionFollowUpPrompt : coverDirectionPrompt}
                 className="min-h-[280px] resize-y bg-white text-sm leading-6 text-slate-800"
                 aria-label="Jarrel cover page direction"
               />
