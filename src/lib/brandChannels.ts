@@ -87,16 +87,16 @@ export const brandChannels: Record<string, BrandChannel> = {
     wrapQuotePath: '/wraps?rep=jarrel',
     bannerQuotePath: '/banners?rep=jarrel',
     fullProjectPath: '/wraps/full?rep=jarrel',
-    heroImagePath: '/jarrel/jarrel-atlanta-producer-hero.png',
-    headline: 'Wraps for producers, artists, and brands that need the arrival to hit.',
+    heroImagePath: '/jarrel/jarrel-rap-bus-hero.png',
+    headline: 'Bus wraps, vehicle graphics, and promo visuals built for the whole crew to pull up loud.',
     description:
-      'From studio parking lots to video shoots, Jarrel connects Atlanta music-business energy with vehicle wraps, banners, and brand visibility backed by Blue Woods Brands.',
+      'From studio parking lots to video shoots and event arrivals, Jarrel connects Atlanta music-business energy with bus wraps, vehicle graphics, banners, and brand visibility backed by Blue Woods Brands.',
     cardEyebrow: 'Music Business Quote Path',
     cardHeadline: 'Pull up with presence',
     cardDescription:
-      'Send the vehicle, banner, or brand visibility idea and keep the request connected from first click to follow-up.',
+      'Send the bus, vehicle, banner, or brand visibility idea and keep the request connected from first click to follow-up.',
     featureBullets: [
-      'Wraps for artists, producers, and promo teams',
+      'Bus wraps for artists, producers, and promo teams',
       'Banner and print support for releases or events',
       'Follow-up connected to Jarrel'
     ]
