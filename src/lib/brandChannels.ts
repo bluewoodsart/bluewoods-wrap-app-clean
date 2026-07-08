@@ -87,17 +87,18 @@ export const brandChannels: Record<string, BrandChannel> = {
     wrapQuotePath: '/wraps?rep=jarrel',
     bannerQuotePath: '/banners?rep=jarrel',
     fullProjectPath: '/wraps/full?rep=jarrel',
-    headline: 'Vehicle wraps, banners, and brand visibility with Jarrel guiding the quote.',
+    heroImagePath: '/jarrel/jarrel-atlanta-producer-hero.png',
+    headline: 'Wraps for producers, artists, and brands that need the arrival to hit.',
     description:
-      'Start a wrap, banner, or full project request with a direct path from idea to follow-up, backed by Blue Woods Brands production support.',
-    cardEyebrow: 'Direct Quote Path',
-    cardHeadline: 'Start with Jarrel',
+      'From studio parking lots to video shoots, Jarrel connects Atlanta music-business energy with vehicle wraps, banners, and brand visibility backed by Blue Woods Brands.',
+    cardEyebrow: 'Music Business Quote Path',
+    cardHeadline: 'Pull up with presence',
     cardDescription:
-      'Share the vehicle, banner, or brand visibility project you have in mind and keep the conversation connected from the first request.',
+      'Send the vehicle, banner, or brand visibility idea and keep the request connected from first click to follow-up.',
     featureBullets: [
-      'Vehicle wraps and fleet graphics',
-      'Banner and print quote support',
-      'Follow-up from the first click'
+      'Wraps for artists, producers, and promo teams',
+      'Banner and print support for releases or events',
+      'Follow-up connected to Jarrel'
     ]
   }
 };
