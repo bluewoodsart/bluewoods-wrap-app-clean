@@ -399,6 +399,12 @@ const RepPortal = () => {
   const [pageIdeas, setPageIdeas] = useState<RepPageIdeaRow[]>([]);
   const [coverDirectionState, setCoverDirectionState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [coverDirectionMessage, setCoverDirectionMessage] = useState('');
+  const [meetingNotes, setMeetingNotes] = useState('');
+  const [meetingNextStep, setMeetingNextStep] = useState('');
+  const [meetingDueDate, setMeetingDueDate] = useState('');
+  const [savingMeeting, setSavingMeeting] = useState(false);
+  const [meetingMessage, setMeetingMessage] = useState('');
+  const [meetingError, setMeetingError] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -584,6 +590,72 @@ const RepPortal = () => {
         is_featured: pageIdea.id === updated.id ? updated.is_featured : updated.is_featured ? false : pageIdea.is_featured
       }))
     );
+  };
+
+  const refreshAssignedQuotes = async () => {
+    if (!adminUser) return;
+
+    const quoteRpc =
+      adminUser.role === 'rep_manager'
+        ? 'get_rep_manager_quote_requests_v1'
+        : 'get_rep_assigned_quote_requests_v2';
+    const { data: quoteData, error: quoteRefreshError } = await supabase.rpc(quoteRpc);
+
+    if (quoteRefreshError) {
+      setMeetingError(quoteRefreshError.message);
+      return;
+    }
+
+    const nextQuotes = (quoteData ?? []) as RepQuoteRow[];
+    setQuotes(nextQuotes);
+    setSelectedQuote((current) => {
+      if (!current) return current;
+      return nextQuotes.find((quote) => quote.id === current.id) ?? current;
+    });
+  };
+
+  const saveCustomerMeeting = async () => {
+    if (!selectedQuote || savingMeeting) return;
+
+    const trimmedNotes = meetingNotes.trim();
+    const trimmedNextStep = meetingNextStep.trim();
+
+    if (!trimmedNotes) {
+      setMeetingError('Add what happened in the meeting before saving.');
+      setMeetingMessage('');
+      return;
+    }
+
+    if (trimmedNextStep && !meetingDueDate) {
+      setMeetingError('Choose a due date for the next step.');
+      setMeetingMessage('');
+      return;
+    }
+
+    setSavingMeeting(true);
+    setMeetingError('');
+    setMeetingMessage('Saving meeting...');
+
+    const { error: meetingSaveError } = await supabase.rpc('log_rep_quote_customer_meeting_v1', {
+      p_quote_request_id: selectedQuote.id,
+      p_meeting_notes: trimmedNotes,
+      p_next_step_text: trimmedNextStep || null,
+      p_next_step_due_date: meetingDueDate || null
+    });
+
+    setSavingMeeting(false);
+
+    if (meetingSaveError) {
+      setMeetingError(meetingSaveError.message);
+      setMeetingMessage('');
+      return;
+    }
+
+    setMeetingNotes('');
+    setMeetingNextStep('');
+    setMeetingDueDate('');
+    setMeetingMessage(trimmedNextStep ? 'Meeting saved and next follow-up added.' : 'Meeting saved to the quote timeline.');
+    await refreshAssignedQuotes();
   };
 
   const selectedFiles = useMemo(() => (selectedQuote ? getFiles(selectedQuote) : []), [selectedQuote]);
@@ -1131,7 +1203,18 @@ const RepPortal = () => {
         </Card>
       </main>
 
-      <Dialog open={Boolean(selectedQuote)} onOpenChange={(open) => !open && setSelectedQuote(null)}>
+      <Dialog
+        open={Boolean(selectedQuote)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setSelectedQuote(null);
+          setMeetingNotes('');
+          setMeetingNextStep('');
+          setMeetingDueDate('');
+          setMeetingMessage('');
+          setMeetingError('');
+        }}
+      >
         {selectedQuote && (
           <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
             <DialogHeader>
@@ -1180,6 +1263,60 @@ const RepPortal = () => {
                     </Button>
                   )}
                 </div>
+              </section>
+
+              <section className="rounded-md border border-blue-200 bg-blue-50/60 p-4">
+                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-blue-950">Log Customer Meeting</h3>
+                    <p className="text-xs text-blue-800">
+                      Save what happened, then add the next step if this customer needs follow-up.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-blue-800 ring-1 ring-blue-200">
+                    Rep note
+                  </span>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                  <Textarea
+                    value={meetingNotes}
+                    onChange={(event) => {
+                      setMeetingNotes(event.target.value);
+                      setMeetingError('');
+                    }}
+                    placeholder="Example: I met with the customer. They want a full wrap, budget is tight, and they care most about music promo visibility."
+                    className="min-h-[132px] bg-white"
+                    aria-label="Customer meeting notes"
+                  />
+                  <div className="space-y-3">
+                    <Input
+                      value={meetingNextStep}
+                      onChange={(event) => {
+                        setMeetingNextStep(event.target.value);
+                        setMeetingError('');
+                      }}
+                      placeholder="Next step, optional"
+                      className="bg-white"
+                      aria-label="Meeting next step"
+                    />
+                    <Input
+                      type="date"
+                      value={meetingDueDate}
+                      onChange={(event) => {
+                        setMeetingDueDate(event.target.value);
+                        setMeetingError('');
+                      }}
+                      className="bg-white"
+                      aria-label="Meeting next step due date"
+                    />
+                    <Button onClick={saveCustomerMeeting} disabled={savingMeeting} className="w-full">
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      {savingMeeting ? 'Saving...' : 'Save Meeting'}
+                    </Button>
+                  </div>
+                </div>
+                {meetingMessage && <p className="mt-3 text-sm font-medium text-emerald-700">{meetingMessage}</p>}
+                {meetingError && <p className="mt-3 text-sm font-medium text-red-700">{meetingError}</p>}
               </section>
 
               <section>
