@@ -79,7 +79,7 @@ export const brandChannels: Record<string, BrandChannel> = {
   jarrel: {
     slug: 'jarrel',
     name: 'Jarrel Wraps',
-    eyebrow: 'Jarrel Rep Portal',
+    eyebrow: 'Jarrel Wraps',
     headerSubtitle: 'Powered by Blue Woods Brands',
     parentBrand: 'Powered by SlapWrapz',
     poweredBy: '',
@@ -87,19 +87,19 @@ export const brandChannels: Record<string, BrandChannel> = {
     wrapQuotePath: '/wraps?rep=jarrel',
     bannerQuotePath: '/banners?rep=jarrel',
     fullProjectPath: '/wraps/full?rep=jarrel',
-    headline: 'Vehicle wraps, banners, and brand visibility with Jarrel as your rep.',
+    headline: 'Vehicle wraps, banners, and brand visibility with Jarrel guiding the quote.',
     description:
-      'Start a wrap, banner, or full project quote through Jarrel and keep the request connected from intake to follow-up.',
-    cardEyebrow: 'Jarrel Rep Page',
-    cardHeadline: 'Quotes connected to Jarrel',
+      'Start a wrap, banner, or full project request with a direct path from idea to follow-up, backed by Blue Woods Brands production support.',
+    cardEyebrow: 'Direct Quote Path',
+    cardHeadline: 'Start with Jarrel',
     cardDescription:
-      'This starter page keeps leads attributed to Jarrel while the rep portal and manager flow are tested.',
+      'Share the vehicle, banner, or brand visibility project you have in mind and keep the conversation connected from the first request.',
     featureBullets: [
-      'Vehicle wrap quote requests',
-      'Banner and print quote requests',
-      'Lead tracking connected to Jarrel from the first click'
+      'Vehicle wrap and fleet graphics requests',
+      'Banner and print quote support',
+      'Follow-up connected to Jarrel from the first click'
     ],
-    comingSoonNote: 'Custom cover art can be swapped in after portal testing passes.'
+    comingSoonNote: 'Custom cover direction is being shaped with Jarrel.'
   }
 };
 
