@@ -95,11 +95,10 @@ export const brandChannels: Record<string, BrandChannel> = {
     cardDescription:
       'Share the vehicle, banner, or brand visibility project you have in mind and keep the conversation connected from the first request.',
     featureBullets: [
-      'Vehicle wrap and fleet graphics requests',
+      'Vehicle wraps and fleet graphics',
       'Banner and print quote support',
-      'Follow-up connected to Jarrel from the first click'
-    ],
-    comingSoonNote: 'Custom cover direction is being shaped with Jarrel.'
+      'Follow-up from the first click'
+    ]
   }
 };
 
