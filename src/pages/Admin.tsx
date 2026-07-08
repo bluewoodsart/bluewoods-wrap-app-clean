@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
+import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
 import { supabase } from '@/lib/supabase';
 import AdminStatus from './AdminStatus';
 
@@ -213,8 +214,9 @@ const Admin = () => {
       </div>
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
         <Tabs defaultValue="quote-requests" className="space-y-5">
-          <TabsList className={canViewPricingSandbox ? 'grid w-full max-w-md grid-cols-2' : 'grid w-full max-w-48 grid-cols-1'}>
+          <TabsList className={canViewPricingSandbox ? 'grid w-full max-w-2xl grid-cols-3' : 'grid w-full max-w-md grid-cols-2'}>
             <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
+            <TabsTrigger value="rep-onboarding">Rep Onboarding</TabsTrigger>
             {canViewPricingSandbox && (
               <TabsTrigger value="pricing-sandbox">Pricing Sandbox</TabsTrigger>
             )}
@@ -222,6 +224,10 @@ const Admin = () => {
 
           <TabsContent value="quote-requests" className="mt-0">
             <AdminStatus enableBulkActions currentAdminRole={adminUser.role} />
+          </TabsContent>
+
+          <TabsContent value="rep-onboarding" className="mt-0">
+            <RepOnboardingPromptCard />
           </TabsContent>
 
           {canViewPricingSandbox && (
