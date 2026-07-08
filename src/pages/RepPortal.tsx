@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 
 interface AdminUser {
@@ -333,6 +334,19 @@ const EmptySection = ({ children }: { children: string }) => (
   <p className="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">{children}</p>
 );
 
+const coverDirectionPrompt = `Use this box to describe how you want your public rep page to feel.
+
+You can write it yourself, or paste a creative brief from ChatGPT, Claude, Gemini, or another AI tool.
+
+Helpful details:
+- colors, mood, culture, hobbies, music, cars, sports, business style, or visual references you like
+- the kind of customers you want the page to attract
+- headline or phrase ideas
+- what you do not want the page to look or sound like
+- any photos, logos, or examples BWB should consider
+
+BWB will review your idea before anything changes live.`;
+
 const RepPortal = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
@@ -342,6 +356,9 @@ const RepPortal = () => {
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [error, setError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const [coverDirection, setCoverDirection] = useState(coverDirectionPrompt);
+  const [coverDirectionState, setCoverDirectionState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [coverDirectionMessage, setCoverDirectionMessage] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -428,6 +445,41 @@ const RepPortal = () => {
     navigate('/login?redirect=/rep', { replace: true });
   };
 
+  const submitCoverDirection = async () => {
+    if (!adminUser) return;
+
+    setCoverDirectionState('sending');
+    setCoverDirectionMessage('');
+
+    try {
+      const response = await fetch('/api/send-rep-cover-direction-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          repSlug: adminUser.rep_slug,
+          repName: adminUser.display_name || 'Jarrel',
+          repEmail: adminUser.email,
+          pageUrl: `https://www.slapwrapz.com/${adminUser.rep_slug || ''}`,
+          direction: coverDirection
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(typeof result.error === 'string' ? result.error : 'Cover page idea failed to send.');
+      }
+
+      setCoverDirectionState('sent');
+      setCoverDirectionMessage('Your page idea was sent to BWB for review.');
+    } catch (coverError) {
+      setCoverDirectionState('error');
+      setCoverDirectionMessage(coverError instanceof Error ? coverError.message : 'Cover page idea failed to send.');
+    }
+  };
+
   const selectedFiles = useMemo(() => (selectedQuote ? getFiles(selectedQuote) : []), [selectedQuote]);
   const selectedEvents = useMemo(() => (selectedQuote ? getStatusEvents(selectedQuote) : []), [selectedQuote]);
   const selectedFollowUpSummary = useMemo(() => (selectedQuote ? getFollowUpSummary(selectedQuote) : {}), [selectedQuote]);
@@ -472,6 +524,7 @@ const RepPortal = () => {
   const selectedCallHref = getPhoneHref(selectedQuote?.customer_phone, 'tel');
   const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
   const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
+  const showCoverDirectionPanel = adminUser?.role === 'rep_manager' && adminUser?.rep_slug === 'jarrel';
 
   if (loading) {
     return (
@@ -614,6 +667,43 @@ const RepPortal = () => {
                   Open PDF
                 </a>
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {showCoverDirectionPanel && (
+          <Card className="border-blue-200 bg-blue-50/60">
+            <CardHeader>
+              <CardTitle className="text-lg text-blue-950">Prompt Your Cover Page</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+              <div className="space-y-3 text-sm leading-6 text-blue-950">
+                <p>
+                  Use this space to send BWB creative direction for your public page at www.slapwrapz.com/jarrel.
+                </p>
+                <p>
+                  The idea can come from you directly, or you can paste a response from ChatGPT, Claude, Gemini,
+                  or another AI tool. BWB reviews it first, then Codex can recommend the page update.
+                </p>
+                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  Nothing changes live automatically. Ashley approves the direction before the front end is updated.
+                </p>
+                <Button onClick={submitCoverDirection} disabled={coverDirectionState === 'sending'}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {coverDirectionState === 'sending' ? 'Sending...' : 'Send Page Idea'}
+                </Button>
+                {coverDirectionMessage && (
+                  <p className={coverDirectionState === 'error' ? 'text-sm font-medium text-red-700' : 'text-sm font-medium text-emerald-700'}>
+                    {coverDirectionMessage}
+                  </p>
+                )}
+              </div>
+              <Textarea
+                value={coverDirection}
+                onChange={(event) => setCoverDirection(event.target.value)}
+                className="min-h-[280px] resize-y bg-white text-sm leading-6 text-slate-800"
+                aria-label="Jarrel cover page direction"
+              />
             </CardContent>
           </Card>
         )}

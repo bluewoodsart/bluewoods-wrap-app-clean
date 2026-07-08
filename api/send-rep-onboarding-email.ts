@@ -67,18 +67,18 @@ Your starter rep page is live at www.slapwrapz.com/jarrel. Now we want the cover
 
 Here is what we need you to do:
 
-1. Open ChatGPT.
-2. Paste the prompt below.
-3. Answer ChatGPT's questions in your own words.
-4. Reply back to this email with the creative brief ChatGPT gives you.
+1. Log into your rep portal at www.slapwrapz.com/rep.
+2. Find the Prompt Your Cover Page section.
+3. Write your idea there, or paste the AI prompt below into ChatGPT, Claude, Gemini, or another AI tool first.
+4. Paste the final creative brief into your rep portal and press Send Page Idea.
 
-Once we receive it, Codex can use that direction to update the front end of your Jarrel page.
+BWB will review your direction before anything changes live. Once approved, Codex can use it to update the front end of your Jarrel page.
 
-CHATGPT PROMPT
+AI PROMPT
 
 ${chatGptPrompt}
 
-Reply to this email with the final creative brief when you have it.`;
+You can also reply to this email with the final creative brief if that is easier.`;
 
 const sendEmail = async (apiKey: string, payload: Record<string, unknown>) => {
   if (RESEND_API_URL.protocol !== 'https:') {
@@ -148,7 +148,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         <div style="padding:24px;border-radius:16px;background:#111827;color:#ffffff;">
           <p style="margin:0 0 8px;color:#93c5fd;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">BWB Brands Onboarding</p>
           <h1 style="margin:0;font-size:25px;">Jarrel, let's shape your cover page.</h1>
-          <p style="margin:10px 0 0;color:#d1d5db;">We go straight to the results, then use your direction to update your live SlapWrapz page.</p>
+          <p style="margin:10px 0 0;color:#d1d5db;">We go straight to the results, then review your direction before any live page update.</p>
         </div>
 
         <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
@@ -157,16 +157,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           <p style="margin:0 0 14px;">Your starter rep page is live at <a href="https://www.slapwrapz.com/jarrel" style="color:#2563eb;font-weight:700;">www.slapwrapz.com/jarrel</a>. Now we want the cover page to feel more like you, not just a placeholder.</p>
           <p style="margin:0 0 10px;font-weight:700;">Here is what we need you to do:</p>
           <ol style="margin:0 0 18px;padding-left:20px;">
-            <li>Open ChatGPT.</li>
-            <li>Paste the prompt below.</li>
-            <li>Answer ChatGPT's questions in your own words.</li>
-            <li>Reply back to this email with the creative brief ChatGPT gives you.</li>
+            <li>Log into your rep portal at <a href="https://www.slapwrapz.com/rep" style="color:#2563eb;font-weight:700;">www.slapwrapz.com/rep</a>.</li>
+            <li>Find the <strong>Prompt Your Cover Page</strong> section.</li>
+            <li>Write your idea there, or paste the AI prompt below into ChatGPT, Claude, Gemini, or another AI tool first.</li>
+            <li>Paste the final creative brief into your rep portal and press <strong>Send Page Idea</strong>.</li>
           </ol>
-          <p style="margin:0;">Once we receive it, Codex can use that direction to update the front end of your Jarrel page.</p>
+          <p style="margin:0;">BWB will review your direction before anything changes live. Once approved, Codex can use it to update the front end of your Jarrel page.</p>
         </div>
 
         <div style="margin-top:18px;padding:22px;border:1px solid #dbeafe;border-radius:14px;background:#eff6ff;">
-          <p style="margin:0 0 12px;color:#1d4ed8;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">ChatGPT Prompt</p>
+          <p style="margin:0 0 12px;color:#1d4ed8;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">AI Prompt</p>
           <div style="white-space:normal;padding:16px;border-radius:12px;background:#ffffff;border:1px solid #bfdbfe;color:#0f172a;font-size:14px;">${htmlPrompt}</div>
         </div>
       </div>

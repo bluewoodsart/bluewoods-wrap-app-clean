@@ -31,7 +31,9 @@ During the exciting onboarding process of BWB Brands, we go straight to the resu
 
 Your starter rep page is live at www.slapwrapz.com/jarrel. Now we want the cover page to feel more like you, not just a placeholder.
 
-Use the ChatGPT prompt below. Answer ChatGPT's questions, then reply back to this email with the creative brief it gives you. Once we receive it, Codex can use that direction to update the front end of your Jarrel page.`;
+Log into your rep portal at www.slapwrapz.com/rep and use the Prompt Your Cover Page section. You can write your idea there directly, or use the AI prompt below in ChatGPT, Claude, Gemini, or another AI tool first.
+
+BWB reviews your direction before anything changes live. Once approved, Codex can use it to update the front end of your Jarrel page.`;
 
 const RepOnboardingPromptCard = () => {
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
@@ -90,8 +92,8 @@ const RepOnboardingPromptCard = () => {
               his cover page.
             </p>
             <p>
-              He should reply with ChatGPT's creative brief. That brief becomes the input
-              for updating the front end of <span className="font-semibold text-slate-900">www.slapwrapz.com/jarrel</span>.
+              He should submit his idea from the rep portal, or reply to the email with the
+              creative brief. BWB reviews it before Codex updates the front end of <span className="font-semibold text-slate-900">www.slapwrapz.com/jarrel</span>.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={sendEmail} disabled={emailState === 'sending'}>
