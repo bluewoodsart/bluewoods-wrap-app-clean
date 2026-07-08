@@ -78,8 +78,8 @@ export const brandChannels: Record<string, BrandChannel> = {
   },
   jarrel: {
     slug: 'jarrel',
-    name: 'Jarrel Wraps',
-    eyebrow: 'Jarrel Wraps',
+    name: 'SlapWrapz',
+    eyebrow: 'SlapWrapz',
     headerSubtitle: 'Powered by Blue Woods Brands',
     parentBrand: 'Powered by SlapWrapz',
     poweredBy: '',

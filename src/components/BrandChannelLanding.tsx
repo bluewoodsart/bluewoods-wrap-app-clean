@@ -139,7 +139,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                   Atlanta Music Business Wraps
                 </p>
                 <h1 className="mt-4 max-w-4xl break-words text-5xl font-black leading-[0.95] text-white drop-shadow-2xl md:mt-5 md:text-7xl">
-                  Jarrel Wraps
+                  SlapWrapz
                 </h1>
                 <p className="mt-5 max-w-2xl break-words text-xl font-black leading-tight text-red-200 drop-shadow md:text-4xl">
                   {channel.headline}
