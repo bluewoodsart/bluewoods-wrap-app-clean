@@ -1526,6 +1526,7 @@ const RepPortal = () => {
                     <DetailField label="Delivery Method" value={getBannerValue(selectedQuote, 'deliveryMethod')} />
                     <DetailField label="Banner Text" value={getBannerValue(selectedQuote, 'bannerText')} />
                     <DetailField label="Brand Colors" value={getBannerValue(selectedQuote, 'brandColors')} />
+                    <DetailField label="Building / Placement Notes" value={getBannerValue(selectedQuote, 'placementNotes')} />
                     <DetailField label="Notes" value={getBannerValue(selectedQuote, 'notes')} />
                   </dl>
                 </section>

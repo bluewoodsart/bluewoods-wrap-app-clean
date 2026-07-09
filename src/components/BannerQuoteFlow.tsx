@@ -37,6 +37,7 @@ interface BannerDetails {
   aiDesignPrompt: string;
   bannerText: string;
   brandColors: string;
+  placementNotes: string;
   deadline: string;
   deliveryMethod: string;
   notes: string;
@@ -70,11 +71,13 @@ const BannerQuoteFlow: React.FC = () => {
     aiDesignPrompt: '',
     bannerText: '',
     brandColors: '',
+    placementNotes: '',
     deadline: '',
     deliveryMethod: '',
     notes: ''
   });
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [referenceFiles, setReferenceFiles] = useState<UploadedFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -144,7 +147,8 @@ const BannerQuoteFlow: React.FC = () => {
 
     const repSlug = getStoredRepSlug();
     const repAttribution = getRepAttributionForSlug(repSlug);
-    const uploadedFilePayload = uploadedFiles.map((file) => ({
+    const allUploadedFiles = [...uploadedFiles, ...referenceFiles];
+    const uploadedFilePayload = allUploadedFiles.map((file) => ({
       id: file.id,
       name: file.name,
       url: file.url,
@@ -160,7 +164,7 @@ const BannerQuoteFlow: React.FC = () => {
       selectedService: 'Banner',
       companyName: contactInfo.businessName,
       repSlug,
-      uploadedFileCount: uploadedFiles.length,
+      uploadedFileCount: allUploadedFiles.length,
       banner
     };
 
@@ -186,9 +190,9 @@ const BannerQuoteFlow: React.FC = () => {
       return;
     }
 
-    if (uploadedFiles.length > 0) {
+    if (allUploadedFiles.length > 0) {
       const { error: fileContactError } = await supabase.rpc('attach_contact_to_customer_files', {
-        file_ids: uploadedFiles.map((file) => file.id),
+        file_ids: allUploadedFiles.map((file) => file.id),
         submitted_quote_id: quoteId,
         submitted_customer_name: contactInfo.name,
         submitted_customer_email: contactInfo.email,
@@ -202,7 +206,7 @@ const BannerQuoteFlow: React.FC = () => {
     }
 
     try {
-      await sendQuoteEmails(contactInfo, { ...quoteDetails, ...repAttribution }, uploadedFiles);
+      await sendQuoteEmails(contactInfo, { ...quoteDetails, ...repAttribution }, allUploadedFiles);
     } catch (emailError) {
       console.error('Banner quote email send failed after quote save:', {
         error: emailError,
@@ -456,6 +460,17 @@ const BannerQuoteFlow: React.FC = () => {
                   className="mt-2"
                 />
               </div>
+              <div>
+                <Label htmlFor="banner-placement">Building / Placement Notes</Label>
+                <Textarea
+                  id="banner-placement"
+                  value={banner.placementNotes}
+                  onChange={(event) => updateBanner('placementNotes', event.target.value)}
+                  className="mt-2"
+                  rows={3}
+                  placeholder="Example: This banner is going above the front entrance, on the right side of the building, or across the temporary construction fence."
+                />
+              </div>
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <UploadCloud className="h-5 w-5 text-blue-700" />
@@ -470,6 +485,28 @@ const BannerQuoteFlow: React.FC = () => {
                   title="Upload Banner Files"
                   showCameraButton={false}
                   additionalTags={['banner', 'artwork']}
+                  enforceMaxFilesError={true}
+                />
+              </div>
+              <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <UploadCloud className="h-5 w-5 text-amber-700" />
+                  <div>
+                    <h3 className="font-semibold text-slate-950">Upload Building / Placement Reference Photos</h3>
+                    <p className="text-sm text-slate-600">
+                      Add photos of the wall, window, storefront, fence, lobby, or area where the banner will go.
+                    </p>
+                  </div>
+                </div>
+                <FileUpload
+                  onFilesUploaded={setReferenceFiles}
+                  quoteId={quoteId}
+                  acceptedTypes="image/*,.pdf"
+                  maxFiles={12}
+                  maxFileSizeMB={50}
+                  title="Upload Building Reference Photos"
+                  showCameraButton={true}
+                  additionalTags={['banner', 'reference_image', 'location_photo', 'building_photo']}
                   enforceMaxFilesError={true}
                 />
               </div>

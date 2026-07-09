@@ -2886,6 +2886,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                       <DetailField label="Banner Text" value={getBannerValue(activeQuote, 'bannerText')} />
                       <DetailField label="Brand Colors" value={getBannerValue(activeQuote, 'brandColors')} />
+                      <DetailField label="Building / Placement Notes" value={getBannerValue(activeQuote, 'placementNotes')} />
                     </div>
                     <div className="mt-4">
                       <DetailField label="Notes" value={getBannerValue(activeQuote, 'notes')} />
