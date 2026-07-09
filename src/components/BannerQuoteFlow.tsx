@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Pencil, Save, UploadCloud, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -136,6 +136,7 @@ const BannerQuoteFlow: React.FC = () => {
   const [generatedProofFile, setGeneratedProofFile] = useState<UploadedFile | null>(null);
   const [isGeneratingDesign, setIsGeneratingDesign] = useState(false);
   const [isSavingDesignPreview, setIsSavingDesignPreview] = useState(false);
+  const aiPromptRef = useRef<HTMLTextAreaElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -284,6 +285,19 @@ const BannerQuoteFlow: React.FC = () => {
     } finally {
       setIsSavingDesignPreview(false);
     }
+  };
+
+  const editDesignPrompt = () => {
+    setDesignPreviewSaved(false);
+    setGeneratedProofFile(null);
+    setDesignPreviewUrl('');
+    setDesignPreviewSvg('');
+    setUploadedFiles((current) => current.filter((file) => !file.tags?.includes('ai_generated_proof')));
+
+    window.setTimeout(() => {
+      aiPromptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      aiPromptRef.current?.focus();
+    }, 0);
   };
 
   const sendQuoteEmails = async (
@@ -616,6 +630,7 @@ const BannerQuoteFlow: React.FC = () => {
               <div>
                 <Label htmlFor="banner-ai-prompt">AI Design Prompt</Label>
                 <Textarea
+                  ref={aiPromptRef}
                   id="banner-ai-prompt"
                   value={banner.aiDesignPrompt}
                   onChange={(event) => updateBanner('aiDesignPrompt', event.target.value)}
@@ -667,7 +682,7 @@ const BannerQuoteFlow: React.FC = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setDesignPreviewSaved(false)}
+                          onClick={editDesignPrompt}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit Prompt
@@ -675,7 +690,7 @@ const BannerQuoteFlow: React.FC = () => {
                       </div>
                       <p className={`text-sm font-medium ${designPreviewSaved ? 'text-emerald-700' : 'text-amber-700'}`}>
                         {designPreviewSaved
-                          ? 'Saved with this quote as a proof draft file. The rep can use it with the reference photos for the production proof.'
+                          ? 'Saved as an attached proof draft file. Submit the quote to send it with the banner request.'
                           : 'Review the proof draft. Save it if this is the direction, or edit the prompt and generate again.'}
                       </p>
                     </div>
