@@ -34,6 +34,7 @@ interface BannerDetails {
   polePockets: string;
   materialPreference: string;
   designNeeded: string;
+  aiDesignPrompt: string;
   bannerText: string;
   brandColors: string;
   deadline: string;
@@ -66,6 +67,7 @@ const BannerQuoteFlow: React.FC = () => {
     polePockets: '',
     materialPreference: '',
     designNeeded: '',
+    aiDesignPrompt: '',
     bannerText: '',
     brandColors: '',
     deadline: '',
@@ -420,6 +422,20 @@ const BannerQuoteFlow: React.FC = () => {
                     </div>
                   ))}
                 </RadioGroup>
+              </div>
+              <div>
+                <Label htmlFor="banner-ai-prompt">AI Design Prompt</Label>
+                <Textarea
+                  id="banner-ai-prompt"
+                  value={banner.aiDesignPrompt}
+                  onChange={(event) => updateBanner('aiDesignPrompt', event.target.value)}
+                  className="mt-2"
+                  rows={5}
+                  placeholder="Describe the banner look you want. Example: Create a refined hotel renovation banner for a lobby refresh. Use a clean luxury style, gold and charcoal colors, bold readable text, and a professional call-to-action."
+                />
+                <p className="mt-2 text-sm text-slate-500">
+                  Tell us the style, audience, colors, message, and feeling. This gives the design team a stronger starting point.
+                </p>
               </div>
               <div>
                 <Label htmlFor="banner-text">Banner Text</Label>

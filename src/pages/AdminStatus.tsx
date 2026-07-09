@@ -2879,6 +2879,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                       <DetailField label="Pole Pockets" value={getBannerValue(activeQuote, 'polePockets')} />
                       <DetailField label="Material Preference" value={getBannerValue(activeQuote, 'materialPreference')} />
                       <DetailField label="Design Needed" value={getBannerValue(activeQuote, 'designNeeded')} />
+                      <DetailField label="AI Design Prompt" value={getBannerValue(activeQuote, 'aiDesignPrompt')} />
                       <DetailField label="Deadline" value={getBannerValue(activeQuote, 'deadline')} />
                       <DetailField label="Delivery Method" value={getBannerValue(activeQuote, 'deliveryMethod')} />
                     </dl>
