@@ -98,6 +98,43 @@ const wrapText = (value: string, maxChars: number, maxLines: number) => {
   return lines.slice(0, maxLines);
 };
 
+const looksLikeCreativeDirection = (value: string) =>
+  /award-winning|creative director|your job|never create|always leave|senior advertising|dominant focal point/i.test(value);
+
+const getBannerHeadline = (bannerText: string, businessName: string, aiPrompt: string) => {
+  const directText = bannerText.trim();
+
+  if (/coming soon/i.test(directText)) return 'Coming Soon';
+  if (/grand opening/i.test(directText)) return 'Grand Opening';
+  if (/now open/i.test(directText)) return 'Now Open';
+  if (/sale/i.test(directText)) return directText.split(/[.!?]/)[0].slice(0, 46);
+
+  if (directText) {
+    return directText
+      .replace(/\b\d+\s*x\s*\d+\s*(?:ft|feet|inches|inch|in|')?\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(/[.!?]/)[0]
+      .slice(0, 54);
+  }
+
+  const promptText = aiPrompt.trim();
+  if (promptText && !looksLikeCreativeDirection(promptText)) {
+    return promptText.split(/[.!?]/)[0].slice(0, 54);
+  }
+
+  return businessName.trim() || 'Your Message Here';
+};
+
+const getProofDirection = (aiPrompt: string) => {
+  const promptText = aiPrompt.trim();
+  if (!promptText) return 'Clean, readable layout with strong contrast and room for logo/contact info.';
+  if (looksLikeCreativeDirection(promptText)) {
+    return 'Premium agency-style direction saved. Keep headline readable, uncluttered, and production-ready.';
+  }
+  return promptText.split(/[.!?]/)[0].slice(0, 110);
+};
+
 const BannerQuoteFlow: React.FC = () => {
   const navigate = useNavigate();
   const [quoteId] = useState(createQuoteId);
@@ -181,20 +218,22 @@ const BannerQuoteFlow: React.FC = () => {
       const proofWidth = 1600;
       const proofHeight = Math.round(proofWidth / aspectRatio);
       const canvasHeight = Math.max(proofHeight, 360);
-      const titleLines = wrapText(banner.bannerText || contactInfo.businessName || 'Banner Proof', aspectRatio > 3 ? 32 : 20, 3);
-      const styleLines = wrapText(banner.aiDesignPrompt || 'Clean, readable banner design with strong business visibility.', 92, 2);
+      const headline = getBannerHeadline(banner.bannerText, contactInfo.businessName, banner.aiDesignPrompt);
+      const titleLines = wrapText(headline, aspectRatio > 3 ? 28 : 20, 2);
+      const styleLines = wrapText(getProofDirection(banner.aiDesignPrompt), 92, 2);
       const placementLines = wrapText(banner.placementNotes || 'Placement photos guide scale, spacing, and proof direction.', 92, 2);
-      const businessName = escapeSvgText((contactInfo.businessName || 'SlapWrapz Banner Proof').trim().slice(0, 54));
-      const titleFontSize = aspectRatio > 4 ? 112 : aspectRatio > 2.4 ? 94 : 76;
-      const titleStartY = Math.max(150, Math.round(canvasHeight * 0.36) - ((titleLines.length - 1) * titleFontSize * 0.42));
+      const businessName = escapeSvgText((contactInfo.businessName || 'Business Name').trim().slice(0, 54));
+      const contactLine = escapeSvgText(contactInfo.phone || contactInfo.email || 'Contact info');
+      const titleFontSize = aspectRatio > 4 ? 136 : aspectRatio > 2.4 ? 112 : 84;
+      const titleStartY = Math.max(152, Math.round(canvasHeight * 0.45) - ((titleLines.length - 1) * titleFontSize * 0.42));
       const titleMarkup = titleLines
         .map((line, index) => `<text x="86" y="${titleStartY + index * titleFontSize * 0.92}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="${palette.secondary}">${escapeSvgText(line)}</text>`)
         .join('');
       const styleMarkup = styleLines
-        .map((line, index) => `<text x="88" y="${canvasHeight - 112 + index * 30}" font-family="Arial, sans-serif" font-size="25" fill="#e5e7eb">${escapeSvgText(line)}</text>`)
+        .map((line, index) => `<text x="88" y="${canvasHeight - 128 + index * 28}" font-family="Arial, sans-serif" font-size="23" fill="#e5e7eb">${escapeSvgText(line)}</text>`)
         .join('');
       const placementMarkup = placementLines
-        .map((line, index) => `<text x="88" y="${canvasHeight - 48 + index * 26}" font-family="Arial, sans-serif" font-size="22" fill="#cbd5e1">${escapeSvgText(line)}</text>`)
+        .map((line, index) => `<text x="88" y="${canvasHeight - 60 + index * 24}" font-family="Arial, sans-serif" font-size="20" fill="#cbd5e1">${escapeSvgText(line)}</text>`)
         .join('');
       const sizeLabel = escapeSvgText(`${banner.width || '?'} x ${banner.height || '?'} ${banner.unit}`);
       const svg = `
@@ -212,11 +251,12 @@ const BannerQuoteFlow: React.FC = () => {
           <rect width="${proofWidth}" height="${canvasHeight}" fill="url(#bg)"/>
           <rect width="${proofWidth}" height="${canvasHeight}" fill="url(#glow)"/>
           <rect x="44" y="44" width="${proofWidth - 88}" height="${canvasHeight - 88}" rx="28" fill="none" stroke="${palette.accent}" stroke-width="8"/>
-          <rect x="86" y="78" width="268" height="54" rx="27" fill="${palette.accent}"/>
-          <text x="220" y="114" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="${palette.background}">PRINT PROOF DRAFT</text>
+          <rect x="86" y="76" width="210" height="46" rx="23" fill="${palette.accent}"/>
+          <text x="191" y="106" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="800" fill="${palette.background}">PROOF DRAFT</text>
           <text x="${proofWidth - 86}" y="114" text-anchor="end" font-family="Arial, sans-serif" font-size="25" font-weight="800" fill="${palette.accent}">${sizeLabel}</text>
+          <text x="88" y="184" font-family="Arial, sans-serif" font-size="42" font-weight="900" letter-spacing="3" fill="${palette.accent}">${businessName}</text>
           ${titleMarkup}
-          <text x="88" y="${Math.min(canvasHeight - 158, titleStartY + titleLines.length * titleFontSize)}" font-family="Arial, sans-serif" font-size="34" font-weight="800" fill="${palette.accent}">${businessName}</text>
+          <text x="${proofWidth - 86}" y="${canvasHeight - 88}" text-anchor="end" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="${palette.accent}">${contactLine}</text>
           ${styleMarkup}
           ${placementMarkup}
           <path d="M${proofWidth - 360} 110 C${proofWidth - 220} 160 ${proofWidth - 210} ${canvasHeight - 210} ${proofWidth - 94} ${canvasHeight - 96}" fill="none" stroke="${palette.accent}" stroke-width="18" stroke-linecap="round" opacity="0.44"/>
