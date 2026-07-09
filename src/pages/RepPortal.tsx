@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowDownRight, CalendarDays, Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw } from 'lucide-react';
+import { ArrowDownRight, Bug, CalendarDays, Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -451,6 +451,10 @@ const RepPortal = () => {
   const [meetingError, setMeetingError] = useState('');
   const [meetingSuccessOpen, setMeetingSuccessOpen] = useState(false);
   const [lastMeetingCalendarEvent, setLastMeetingCalendarEvent] = useState<MeetingCalendarEvent | null>(null);
+  const [portalFeedbackType, setPortalFeedbackType] = useState('bug');
+  const [portalFeedbackMessage, setPortalFeedbackMessage] = useState('');
+  const [portalFeedbackState, setPortalFeedbackState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [portalFeedbackStatus, setPortalFeedbackStatus] = useState('');
   const meetingDueDateInputRef = useRef<HTMLInputElement | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -752,6 +756,41 @@ const RepPortal = () => {
     setMeetingMessage('Meeting saved, next follow-up added, and both emails were sent.');
     setMeetingSuccessOpen(true);
     await refreshAssignedQuotes();
+  };
+
+  const submitPortalFeedback = async () => {
+    if (!adminUser || portalFeedbackState === 'sending') return;
+
+    const trimmedMessage = portalFeedbackMessage.trim();
+    if (trimmedMessage.length < 10) {
+      setPortalFeedbackState('error');
+      setPortalFeedbackStatus('Add a little more detail so BWB knows what to fix or improve.');
+      return;
+    }
+
+    setPortalFeedbackState('sending');
+    setPortalFeedbackStatus('Sending portal note...');
+
+    const { error: feedbackError } = await supabase.rpc('submit_rep_portal_feedback_v1', {
+      p_feedback_type: portalFeedbackType,
+      p_message: trimmedMessage,
+      p_page_path: `${window.location.pathname}${window.location.search}`
+    });
+
+    if (feedbackError) {
+      setPortalFeedbackState('error');
+      setPortalFeedbackStatus(
+        feedbackError.message.includes('function')
+          ? 'Feedback box is ready, but the Supabase feedback function still needs to be installed.'
+          : feedbackError.message
+      );
+      return;
+    }
+
+    setPortalFeedbackState('sent');
+    setPortalFeedbackMessage('');
+    setPortalFeedbackType('bug');
+    setPortalFeedbackStatus('Sent to BWB. Thanks. This helps improve the rep portal.');
   };
 
   const selectedFiles = useMemo(() => (selectedQuote ? getFiles(selectedQuote) : []), [selectedQuote]);
@@ -1299,6 +1338,63 @@ const RepPortal = () => {
                 </Table>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 bg-slate-950 text-white shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 rounded-md bg-white/10 p-2 text-cyan-200">
+                <Bug className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-lg text-white">Report a Portal Issue</CardTitle>
+                <p className="mt-1 text-sm leading-6 text-slate-300">
+                  Tell BWB what broke, what confused you, or what would make this portal easier to use.
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-[14rem_1fr]">
+              <select
+                value={portalFeedbackType}
+                onChange={(event) => setPortalFeedbackType(event.target.value)}
+                className="h-11 rounded-md border border-white/10 bg-white px-3 text-sm text-slate-950"
+              >
+                <option value="bug">Something is broken</option>
+                <option value="confusing">Something is confusing</option>
+                <option value="idea">Improvement idea</option>
+                <option value="customer">Customer/sale blocker</option>
+              </select>
+              <Textarea
+                value={portalFeedbackMessage}
+                onChange={(event) => setPortalFeedbackMessage(event.target.value)}
+                rows={3}
+                className="border-white/10 bg-white text-slate-950"
+                placeholder="Example: I clicked Save Meeting and expected a calendar link, but nothing happened."
+              />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className={`text-sm ${
+                portalFeedbackState === 'error'
+                  ? 'text-red-200'
+                  : portalFeedbackState === 'sent'
+                    ? 'text-emerald-200'
+                    : 'text-slate-300'
+              }`}>
+                {portalFeedbackStatus || 'Your note saves with your rep name, email, portal path, and timestamp.'}
+              </p>
+              <Button
+                type="button"
+                onClick={() => void submitPortalFeedback()}
+                disabled={portalFeedbackState === 'sending'}
+                className="bg-cyan-400 text-slate-950 hover:bg-cyan-300"
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                {portalFeedbackState === 'sending' ? 'Sending...' : 'Send Issue'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </main>
