@@ -391,9 +391,9 @@ const isImageFile = (file: FileSummary) => {
 };
 
 const DetailField = ({ label, value }: { label: string; value: unknown }) => (
-  <div>
+  <div className="min-w-0">
     <dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt>
-    <dd className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{formatValue(value)}</dd>
+    <dd className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-900">{formatValue(value)}</dd>
   </div>
 );
 
@@ -1269,74 +1269,123 @@ const RepPortal = () => {
                 No currently assigned quotes.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Next Action</TableHead>
-                      <TableHead>Files</TableHead>
-                      <TableHead>Received</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {quotes.map((quote) => {
-                      const followUpSummary = getFollowUpSummary(quote);
-                      const nextTask = followUpSummary.next_follow_up_task;
+              <>
+                <div className="space-y-3 md:hidden">
+                  {quotes.map((quote) => {
+                    const followUpSummary = getFollowUpSummary(quote);
+                    const nextTask = followUpSummary.next_follow_up_task;
 
-                      return (
-                        <TableRow
-                          key={quote.id}
-                          className={`cursor-pointer ${getFollowUpSurfaceClassName(followUpSummary)}`}
-                          onClick={() => setSelectedQuote(quote)}
-                        >
-                          <TableCell>
-                            <div className="min-w-[13rem] space-y-1">
-                              <p className="font-medium text-slate-900">{quote.customer_name}</p>
-                              <p className="text-xs text-slate-500">{quote.customer_email}</p>
-                              <p className="text-xs text-slate-500">{quote.customer_phone || '-'}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[14rem] space-y-1">
-                              <p className="text-sm text-slate-900">{getProjectTitle(quote)}</p>
-                              <p className="text-xs text-slate-500">{getProductLabel(quote)}</p>
-                              <p className="break-all text-xs text-slate-500">{quote.quote_id || quote.id}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                              {formatLabel(quote.status)}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-xs space-y-1">
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpClassName(followUpSummary)}`}>
-                                {getFollowUpBucketLabel(followUpSummary)}
+                    return (
+                      <button
+                        key={`mobile-${quote.id}`}
+                        type="button"
+                        className={`w-full rounded-md border p-4 text-left shadow-sm ${getFollowUpSurfaceClassName(followUpSummary)}`}
+                        onClick={() => setSelectedQuote(quote)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-slate-950">{quote.customer_name}</p>
+                            <p className="break-words text-xs text-slate-600">{quote.customer_email}</p>
+                            <p className="text-xs text-slate-600">{quote.customer_phone || '-'}</p>
+                          </div>
+                          <span className="flex-none rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                            {formatLabel(quote.status)}
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          <p className="text-sm font-medium text-slate-900">{getProjectTitle(quote)}</p>
+                          <p className="text-xs text-slate-600">{getProductLabel(quote)}</p>
+                          <p className="break-all text-xs text-slate-500">{quote.quote_id || quote.id}</p>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpClassName(followUpSummary)}`}>
+                            {getFollowUpBucketLabel(followUpSummary)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-700">
+                            <FileText className="h-3.5 w-3.5" />
+                            {getFiles(quote).length} files
+                          </span>
+                          <span className="text-xs text-slate-500">{formatDate(quote.created_at)}</span>
+                        </div>
+                        {nextTask?.task_text && (
+                          <div className="mt-3 rounded-md bg-white/70 p-3">
+                            <p className="text-sm text-slate-900">{nextTask.task_text}</p>
+                            <p className="mt-1 text-xs text-slate-500">Due {formatDueDate(nextTask.due_date)}</p>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="hidden overflow-x-auto md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Stage</TableHead>
+                        <TableHead>Next Action</TableHead>
+                        <TableHead>Files</TableHead>
+                        <TableHead>Received</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {quotes.map((quote) => {
+                        const followUpSummary = getFollowUpSummary(quote);
+                        const nextTask = followUpSummary.next_follow_up_task;
+
+                        return (
+                          <TableRow
+                            key={quote.id}
+                            className={`cursor-pointer ${getFollowUpSurfaceClassName(followUpSummary)}`}
+                            onClick={() => setSelectedQuote(quote)}
+                          >
+                            <TableCell>
+                              <div className="min-w-[13rem] space-y-1">
+                                <p className="font-medium text-slate-900">{quote.customer_name}</p>
+                                <p className="text-xs text-slate-500">{quote.customer_email}</p>
+                                <p className="text-xs text-slate-500">{quote.customer_phone || '-'}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="min-w-[14rem] space-y-1">
+                                <p className="text-sm text-slate-900">{getProjectTitle(quote)}</p>
+                                <p className="text-xs text-slate-500">{getProductLabel(quote)}</p>
+                                <p className="break-all text-xs text-slate-500">{quote.quote_id || quote.id}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                                {formatLabel(quote.status)}
                               </span>
-                              {nextTask?.task_text && (
-                                <>
-                                  <p className="line-clamp-2 text-sm text-slate-900">{nextTask.task_text}</p>
-                                  <p className="text-xs text-slate-500">Due {formatDueDate(nextTask.due_date)}</p>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center gap-1 text-sm text-slate-700">
-                              <FileText className="h-4 w-4" />
-                              {getFiles(quote).length}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-sm text-slate-600">{formatDate(quote.created_at)}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="max-w-xs space-y-1">
+                                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getFollowUpClassName(followUpSummary)}`}>
+                                  {getFollowUpBucketLabel(followUpSummary)}
+                                </span>
+                                {nextTask?.task_text && (
+                                  <>
+                                    <p className="line-clamp-2 text-sm text-slate-900">{nextTask.task_text}</p>
+                                    <p className="text-xs text-slate-500">Due {formatDueDate(nextTask.due_date)}</p>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center gap-1 text-sm text-slate-700">
+                                <FileText className="h-4 w-4" />
+                                {getFiles(quote).length}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm text-slate-600">{formatDate(quote.created_at)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -1413,16 +1462,16 @@ const RepPortal = () => {
         }}
       >
         {selectedQuote && (
-          <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+          <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-5xl overflow-y-auto overflow-x-hidden p-4 sm:w-full sm:p-6">
             <DialogHeader>
-              <DialogTitle>{selectedQuote.quote_id || selectedQuote.customer_name}</DialogTitle>
+              <DialogTitle className="break-words">{selectedQuote.quote_id || selectedQuote.customer_name}</DialogTitle>
               <DialogDescription>Read-only assigned quote details</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6">
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
-                <dl className="grid gap-4 md:grid-cols-4">
+                <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <DetailField label="Name" value={selectedQuote.customer_name} />
                   <DetailField label="Email" value={selectedQuote.customer_email} />
                   <DetailField label="Phone" value={selectedQuote.customer_phone} />
@@ -1474,7 +1523,7 @@ const RepPortal = () => {
                     Rep note
                   </span>
                 </div>
-                <div className="grid gap-3 xl:grid-cols-[1.1fr_0.75fr_0.65fr]">
+                <div className="grid min-w-0 gap-3 xl:grid-cols-[1.1fr_0.75fr_0.65fr]">
                   <Textarea
                     value={meetingNotes}
                     onChange={(event) => {
@@ -1506,7 +1555,7 @@ const RepPortal = () => {
                     <label className="block text-xs font-semibold uppercase text-blue-900" htmlFor="meeting-due-date">
                       Date required
                     </label>
-                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                       <Input
                         ref={meetingDueDateInputRef}
                         id="meeting-due-date"
@@ -1576,7 +1625,7 @@ const RepPortal = () => {
 
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Project</h3>
-                <dl className="grid gap-4 md:grid-cols-3">
+                <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <DetailField label="Service" value={getSummaryValue(selectedQuote, ['selectedService', 'quoteType', 'intakeType'])} />
                   <DetailField label="Company" value={getSummaryValue(selectedQuote, 'companyName')} />
                   <DetailField label="Vehicle Type" value={getSummaryValue(selectedQuote, 'vehicleType')} />
@@ -1605,7 +1654,7 @@ const RepPortal = () => {
               {getSummaryValue(selectedQuote, 'banner') && (
                 <section>
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Banner Details</h3>
-                  <dl className="grid gap-4 md:grid-cols-4">
+                  <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <DetailField label="Width" value={getBannerValue(selectedQuote, 'width')} />
                     <DetailField label="Height" value={getBannerValue(selectedQuote, 'height')} />
                     <DetailField label="Unit" value={getBannerValue(selectedQuote, 'unit')} />
@@ -1632,7 +1681,7 @@ const RepPortal = () => {
               {getSummaryValue(selectedQuote, ['signage', 'sign']) && (
                 <section>
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Signage Details</h3>
-                  <dl className="grid gap-4 md:grid-cols-4">
+                  <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <DetailField label="Material" value={getSignageValue(selectedQuote, 'material')} />
                     <DetailField label="Width" value={getSignageValue(selectedQuote, 'width')} />
                     <DetailField label="Height" value={getSignageValue(selectedQuote, 'height')} />
@@ -1751,14 +1800,14 @@ const RepPortal = () => {
                 {selectedFiles.length === 0 ? (
                   <EmptySection>No uploaded files on this quote.</EmptySection>
                 ) : (
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-3 md:grid-cols-2">
                     {selectedFiles.map((file, index) => (
                       <a
                         key={file.id || file.url || index}
                         href={file.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-800 hover:bg-slate-50"
+                        className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-800 hover:bg-slate-50"
                       >
                         <span className="flex min-w-0 flex-1 items-center gap-3">
                           {file.url && isImageFile(file) ? (
