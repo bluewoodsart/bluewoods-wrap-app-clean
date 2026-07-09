@@ -123,6 +123,9 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
               <p className="mt-1 text-[0.7rem] font-bold uppercase tracking-wide text-red-200 md:text-xs">{channel.headerSubtitle}</p>
             </div>
           </Link>
+          <Button asChild size="sm" className="h-9 shrink-0 border border-red-300/40 bg-red-500 px-3 text-xs font-black text-white hover:bg-red-400 md:text-sm">
+            <Link to="/rep">Rep Portal</Link>
+          </Button>
         </header>
 
         <main>
