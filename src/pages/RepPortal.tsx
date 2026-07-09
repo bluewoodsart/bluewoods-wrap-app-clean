@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowDownRight, Bug, CalendarDays, Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw } from 'lucide-react';
+import { ArrowDownRight, Bug, CalendarDays, Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import FileUpload from '@/components/FileUpload';
 import { supabase } from '@/lib/supabase';
+import type { UploadedFile } from '@/types';
 
 interface AdminUser {
   id: string;
@@ -441,6 +443,8 @@ const RepPortal = () => {
   const [pageIdeaCategory, setPageIdeaCategory] = useState('');
   const [pageIdeaTitle, setPageIdeaTitle] = useState('');
   const [pageIdeas, setPageIdeas] = useState<RepPageIdeaRow[]>([]);
+  const [showCoverReferenceUpload, setShowCoverReferenceUpload] = useState(false);
+  const [coverReferenceFiles, setCoverReferenceFiles] = useState<UploadedFile[]>([]);
   const [coverDirectionState, setCoverDirectionState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [coverDirectionMessage, setCoverDirectionMessage] = useState('');
   const [meetingNotes, setMeetingNotes] = useState('');
@@ -557,6 +561,12 @@ const RepPortal = () => {
     setCoverDirectionState('sending');
     setCoverDirectionMessage('');
     const trimmedDirection = coverDirection.trim();
+    const referenceFileLines = coverReferenceFiles
+      .map((file, index) => `${index + 1}. ${file.name}: ${file.url}`)
+      .join('\n');
+    const directionWithReferences = referenceFileLines
+      ? `${trimmedDirection}\n\nREFERENCE UPLOADS:\n${referenceFileLines}`
+      : trimmedDirection;
 
     if (trimmedDirection.length < 40) {
       setCoverDirectionState('error');
@@ -566,7 +576,7 @@ const RepPortal = () => {
 
     try {
       const { data: savedIdeaData, error: saveIdeaError } = await supabase.rpc('submit_rep_page_idea_v1', {
-        p_idea_text: trimmedDirection,
+        p_idea_text: directionWithReferences,
         p_industry: pageIdeaIndustry.trim() || null,
         p_category: pageIdeaCategory.trim() || null,
         p_niche: null,
@@ -589,7 +599,7 @@ const RepPortal = () => {
           repName: adminUser.display_name || 'Jarrel',
           repEmail: adminUser.email,
           pageUrl: `https://www.slapwrapz.com/${adminUser.rep_slug || ''}`,
-          direction: trimmedDirection
+          direction: directionWithReferences
         })
       });
 
@@ -604,6 +614,8 @@ const RepPortal = () => {
       setPageIdeaIndustry('');
       setPageIdeaCategory('');
       setPageIdeaTitle('');
+      setCoverReferenceFiles([]);
+      setShowCoverReferenceUpload(false);
       if (savedIdea) {
         setPageIdeas((current) => [savedIdea, ...current.filter((idea) => idea.id !== savedIdea.id)]);
       }
@@ -1092,10 +1104,54 @@ const RepPortal = () => {
                     />
                   </div>
                 </div>
-                <Button onClick={submitCoverDirection} disabled={coverDirectionState === 'sending'}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  {coverDirectionState === 'sending' ? 'Sending...' : 'Send Page Idea'}
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button onClick={submitCoverDirection} disabled={coverDirectionState === 'sending'}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {coverDirectionState === 'sending' ? 'Sending...' : 'Send Page Idea'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCoverReferenceUpload((current) => !current)}
+                    className="border-blue-200 bg-white text-blue-900 hover:bg-blue-50"
+                  >
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    Upload Reference
+                  </Button>
+                </div>
+                {showCoverReferenceUpload && (
+                  <div className="rounded-md border border-blue-200 bg-white p-4">
+                    <FileUpload
+                      onFilesUploaded={setCoverReferenceFiles}
+                      acceptedTypes="image/*,.pdf,.svg,.ai,.eps"
+                      maxFiles={6}
+                      maxFileSizeMB={25}
+                      title="Upload Reference Files"
+                      showCameraButton
+                      additionalTags={['rep_page_reference', 'cover_page_reference', adminUser.rep_slug ? `rep_${adminUser.rep_slug}` : 'rep_reference']}
+                      enforceMaxFilesError
+                    />
+                    {coverReferenceFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-semibold uppercase text-blue-900">Attached references</p>
+                        <div className="grid gap-2">
+                          {coverReferenceFiles.map((file) => (
+                            <a
+                              key={file.id}
+                              href={file.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex min-w-0 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 hover:bg-slate-100"
+                            >
+                              <FileText className="h-4 w-4 flex-none text-slate-500" />
+                              <span className="truncate">{file.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {coverDirectionMessage && (
                   <p className={coverDirectionState === 'error' ? 'text-sm font-medium text-red-700' : 'text-sm font-medium text-emerald-700'}>
                     {coverDirectionMessage}
