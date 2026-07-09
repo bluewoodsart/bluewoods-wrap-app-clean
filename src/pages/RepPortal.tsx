@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw } from 'lucide-react';
+import { ArrowDownRight, CalendarDays, Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -405,6 +405,7 @@ const RepPortal = () => {
   const [savingMeeting, setSavingMeeting] = useState(false);
   const [meetingMessage, setMeetingMessage] = useState('');
   const [meetingError, setMeetingError] = useState('');
+  const [meetingSuccessOpen, setMeetingSuccessOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -626,7 +627,13 @@ const RepPortal = () => {
       return;
     }
 
-    if (trimmedNextStep && !meetingDueDate) {
+    if (!trimmedNextStep) {
+      setMeetingError('Add the next step before saving. If it is not scheduled, it is not happening.');
+      setMeetingMessage('');
+      return;
+    }
+
+    if (!meetingDueDate) {
       setMeetingError('Choose a due date for the next step.');
       setMeetingMessage('');
       return;
@@ -639,14 +646,40 @@ const RepPortal = () => {
     const { error: meetingSaveError } = await supabase.rpc('log_rep_quote_customer_meeting_v1', {
       p_quote_request_id: selectedQuote.id,
       p_meeting_notes: trimmedNotes,
-      p_next_step_text: trimmedNextStep || null,
-      p_next_step_due_date: meetingDueDate || null
+      p_next_step_text: trimmedNextStep,
+      p_next_step_due_date: meetingDueDate
     });
 
+    if (meetingSaveError) {
+      setSavingMeeting(false);
+      setMeetingError(meetingSaveError.message);
+      setMeetingMessage('');
+      return;
+    }
+
+    const emailResponse = await fetch('/api/send-rep-meeting-follow-up-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        repEmail: adminUser?.email,
+        repName: adminUser?.display_name || adminUser?.email || 'Rep',
+        customerEmail: selectedQuote.customer_email,
+        customerName: selectedQuote.customer_name,
+        quoteId: selectedQuote.quote_id || selectedQuote.id,
+        projectName: getProjectTitle(selectedQuote) || getProductLabel(selectedQuote),
+        meetingNotes: trimmedNotes,
+        nextStep: trimmedNextStep,
+        dueDate: meetingDueDate
+      })
+    });
+
+    const emailResult = await emailResponse.json().catch(() => ({}));
     setSavingMeeting(false);
 
-    if (meetingSaveError) {
-      setMeetingError(meetingSaveError.message);
+    if (!emailResponse.ok) {
+      setMeetingError(typeof emailResult.error === 'string' ? emailResult.error : 'Meeting saved, but email notifications failed.');
       setMeetingMessage('');
       return;
     }
@@ -654,7 +687,8 @@ const RepPortal = () => {
     setMeetingNotes('');
     setMeetingNextStep('');
     setMeetingDueDate('');
-    setMeetingMessage(trimmedNextStep ? 'Meeting saved and next follow-up added.' : 'Meeting saved to the quote timeline.');
+    setMeetingMessage('Meeting saved, next follow-up added, and both emails were sent.');
+    setMeetingSuccessOpen(true);
     await refreshAssignedQuotes();
   };
 
@@ -1213,6 +1247,7 @@ const RepPortal = () => {
           setMeetingDueDate('');
           setMeetingMessage('');
           setMeetingError('');
+          setMeetingSuccessOpen(false);
         }}
       >
         {selectedQuote && (
@@ -1270,14 +1305,14 @@ const RepPortal = () => {
                   <div>
                     <h3 className="text-sm font-semibold text-blue-950">Log Customer Meeting</h3>
                     <p className="text-xs text-blue-800">
-                      Save what happened, then add the next step if this customer needs follow-up.
+                      Save what happened, schedule the next step, and keep the job moving.
                     </p>
                   </div>
                   <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-blue-800 ring-1 ring-blue-200">
                     Rep note
                   </span>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="grid gap-3 xl:grid-cols-[1.1fr_0.75fr_0.65fr]">
                   <Textarea
                     value={meetingNotes}
                     onChange={(event) => {
@@ -1289,17 +1324,26 @@ const RepPortal = () => {
                     aria-label="Customer meeting notes"
                   />
                   <div className="space-y-3">
+                    <label className="block text-xs font-semibold uppercase text-blue-900" htmlFor="meeting-next-step">
+                      Next step required
+                    </label>
                     <Input
+                      id="meeting-next-step"
                       value={meetingNextStep}
                       onChange={(event) => {
                         setMeetingNextStep(event.target.value);
                         setMeetingError('');
                       }}
-                      placeholder="Next step, optional"
+                      placeholder="Example: Call with quote price"
                       className="bg-white"
                       aria-label="Meeting next step"
+                      required
                     />
+                    <label className="block text-xs font-semibold uppercase text-blue-900" htmlFor="meeting-due-date">
+                      Date required
+                    </label>
                     <Input
+                      id="meeting-due-date"
                       type="date"
                       value={meetingDueDate}
                       onChange={(event) => {
@@ -1308,11 +1352,29 @@ const RepPortal = () => {
                       }}
                       className="bg-white"
                       aria-label="Meeting next step due date"
+                      required
                     />
                     <Button onClick={saveCustomerMeeting} disabled={savingMeeting} className="w-full">
                       <MessageSquare className="mr-2 h-4 w-4" />
                       {savingMeeting ? 'Saving...' : 'Save Meeting'}
                     </Button>
+                  </div>
+                  <div className="flex min-h-[132px] flex-col justify-between rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-950">
+                    <div>
+                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-white text-amber-700 ring-1 ring-amber-200">
+                        <CalendarDays className="h-5 w-5" />
+                      </div>
+                      <p className="text-lg font-black leading-tight">
+                        If you do not schedule it, it is not happening.
+                      </p>
+                      <p className="mt-2 text-sm leading-5 text-amber-900">
+                        Pick the date before you save. The reminder becomes the next action below.
+                      </p>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2 text-sm font-bold text-amber-800">
+                      <ArrowDownRight className="h-5 w-5" />
+                      Pointing at the calendar
+                    </div>
                   </div>
                 </div>
                 {meetingMessage && <p className="mt-3 text-sm font-medium text-emerald-700">{meetingMessage}</p>}
@@ -1530,6 +1592,29 @@ const RepPortal = () => {
           </DialogContent>
         )}
       </Dialog>
+
+      {meetingSuccessOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-md rounded-lg border border-emerald-200 bg-white p-6 shadow-xl">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
+              <CalendarDays className="h-6 w-6" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-950">Next step is scheduled.</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              Now look below at your timeline and push it to completion. Never forget again:
+              use the next action, due date, follow-up tasks, and timeline until the job is finished.
+            </p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <Button onClick={() => setMeetingSuccessOpen(false)} className="flex-1">
+                Look at Timeline
+              </Button>
+              <Button variant="outline" onClick={() => setMeetingSuccessOpen(false)} className="flex-1">
+                Keep Working
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
