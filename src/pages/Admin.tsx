@@ -216,7 +216,7 @@ const Admin = () => {
         <Tabs defaultValue="quote-requests" className="space-y-5">
           <TabsList className={canViewPricingSandbox ? 'grid w-full max-w-2xl grid-cols-3' : 'grid w-full max-w-md grid-cols-2'}>
             <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
-            <TabsTrigger value="rep-onboarding">Rep Onboarding</TabsTrigger>
+            <TabsTrigger value="rep-onboarding">Reps</TabsTrigger>
             {canViewPricingSandbox && (
               <TabsTrigger value="pricing-sandbox">Pricing Sandbox</TabsTrigger>
             )}

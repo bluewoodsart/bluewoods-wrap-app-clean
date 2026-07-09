@@ -241,7 +241,14 @@ const RepOnboardingPromptCard = () => {
 
       <div className="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
         <Card>
-          <CardHeader>
+          <CardHeader className="space-y-4">
+            <div className="rounded-md border border-purple-200 bg-purple-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">Onboarding Reps</p>
+              <h2 className="mt-2 text-xl font-bold text-slate-950">Select a rep, send the setup prompt, and manage their SlapWrapz path.</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Every rep stays under SlapWrapz. Use the directory below to find the rep, review their page activity, and send the onboarding packet.
+              </p>
+            </div>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Users className="h-5 w-5 text-purple-600" />
               Rep Directory
