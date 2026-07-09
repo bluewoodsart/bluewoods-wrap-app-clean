@@ -115,12 +115,12 @@ begin
     raise exception 'Unsupported page idea status.';
   end if;
 
-  update public.rep_page_ideas
+  update public.rep_page_ideas rpi
   set
     status = p_status,
     updated_at = now()
-  where id = p_idea_id
-  returning * into updated_idea;
+  where rpi.id = p_idea_id
+  returning rpi.* into updated_idea;
 
   if updated_idea.id is null then
     raise exception 'Rep page idea not found.';
