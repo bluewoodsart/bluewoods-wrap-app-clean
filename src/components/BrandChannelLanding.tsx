@@ -10,7 +10,8 @@ interface BrandChannelLandingProps {
 const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
   const isJazzyChannel = channel.slug === 'jazzy';
   const isTrapstarChannel = channel.slug === 'trapstar';
-  const isRepHeroChannel = channel.slug === 'jarrel' || channel.slug === 'anthony';
+  const isAnthonyChannel = channel.slug === 'anthony';
+  const isRepHeroChannel = channel.slug === 'jarrel';
 
   if (isTrapstarChannel) {
     return (
@@ -99,6 +100,111 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                       <p className="font-semibold">{bullet}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (isAnthonyChannel) {
+    return (
+      <div className="min-h-[100svh] overflow-x-hidden bg-[#11100c] text-white">
+        <header className="absolute left-0 right-0 top-0 z-20 mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-5">
+          <Link to="/" className="flex min-w-0 items-center gap-3">
+            <img
+              src="/favicon/favicon1.png"
+              alt="Blue Woods Brands logo"
+              className="h-10 w-10 rounded-lg bg-white object-contain p-1 md:h-11 md:w-11"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-base font-black leading-none md:text-lg">SlapWrapz</p>
+              <p className="mt-1 text-[0.7rem] font-bold uppercase tracking-wide text-[#d6c08a] md:text-xs">
+                Anthony Gabbard / Hospitality graphics
+              </p>
+            </div>
+          </Link>
+          <Button asChild size="sm" className="h-9 shrink-0 border border-[#d6c08a]/50 bg-[#d6c08a] px-3 text-xs font-black text-[#17140d] hover:bg-[#ead79f] md:text-sm">
+            <Link to="/rep">Rep Portal</Link>
+          </Button>
+        </header>
+
+        <main>
+          <section
+            className="relative flex min-h-[100svh] items-end overflow-hidden bg-cover bg-[position:62%_center] px-4 pb-6 pt-24 md:bg-center md:px-8 md:pb-12 md:pt-28"
+            style={{
+              backgroundImage: `linear-gradient(90deg, rgba(17,16,12,0.98) 0%, rgba(17,16,12,0.9) 42%, rgba(17,16,12,0.52) 74%, rgba(17,16,12,0.84) 100%), url('${channel.heroImagePath}')`
+            }}
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,16,12,0.92),rgba(17,16,12,0.18)_44%,rgba(17,16,12,0.96))]" />
+            <div className="relative z-10 mx-auto grid w-full max-w-7xl items-end gap-6 lg:grid-cols-[1.04fr_0.78fr]">
+              <div className="max-w-3xl pb-2 md:pb-8">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d6c08a] md:text-sm">
+                  Hospitality Renovation Visibility
+                </p>
+                <h1 className="mt-4 max-w-4xl break-words text-5xl font-black leading-[0.95] text-white drop-shadow-2xl md:mt-5 md:text-7xl">
+                  SlapWrapz
+                </h1>
+                <p className="mt-5 max-w-3xl break-words text-xl font-black leading-tight text-[#f1e4bd] drop-shadow md:text-4xl">
+                  Banners first, then vehicle graphics for hospitality projects that need to look organized fast.
+                </p>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-100 drop-shadow md:text-xl md:leading-8">
+                  Anthony helps hotel, restaurant, retail, and renovation teams turn project visibility into clean banners, site graphics, fleet lettering, and wrap quotes.
+                </p>
+
+                <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                  <Button asChild className="h-12 bg-[#d6c08a] px-6 text-base font-black text-[#17140d] hover:bg-[#ead79f]">
+                    <Link to={channel.bannerQuotePath || channel.wrapQuotePath}>
+                      Start a Banner Quote
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    className="h-12 border border-white/25 bg-white/10 px-6 text-base font-black text-white hover:bg-white/20"
+                  >
+                    <Link to={channel.wrapQuotePath}>
+                      Get a Wrap Quote
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mb-2 border border-[#d6c08a]/35 bg-black/55 p-4 shadow-2xl backdrop-blur-sm md:mb-8 md:p-5">
+                <div className="border border-[#d6c08a]/25 bg-[#17140d]/82 p-5 md:p-6">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#d6c08a] text-[#17140d]">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <p className="mt-6 text-xs font-black uppercase tracking-[0.24em] text-[#d6c08a] md:text-sm">
+                    Banner Quote Space
+                  </p>
+                  <h2 className="mt-3 break-words text-3xl font-black leading-tight text-white md:text-4xl">
+                    Job-site banners that make the project feel handled.
+                  </h2>
+                  <p className="mt-4 text-sm leading-6 text-neutral-200 md:text-base md:leading-7">
+                    Start with the banner: property name, renovation message, grand opening, wayfinding, sponsor panel, or temporary visibility while the project is moving.
+                  </p>
+                  <div className="mt-6 grid gap-3 text-sm text-neutral-100">
+                    {[
+                      'Hotel, restaurant, retail, and property improvement banners',
+                      'Temporary construction, renovation, and rebrand signage',
+                      'Vehicle graphics and fleet follow-up connected to Anthony'
+                    ].map((bullet) => (
+                      <div key={bullet} className="flex items-start gap-3">
+                        <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#d6c08a]" />
+                        <p>{bullet}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <Button asChild className="mt-6 h-11 w-full bg-white text-sm font-black text-[#17140d] hover:bg-[#f1e4bd]">
+                    <Link to={channel.bannerQuotePath || channel.wrapQuotePath}>
+                      Open Banner Quote
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </div>

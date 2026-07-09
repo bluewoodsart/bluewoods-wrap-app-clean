@@ -104,7 +104,7 @@ export const brandChannels: Record<string, BrandChannel> = {
   anthony: {
     slug: 'anthony',
     name: 'SlapWrapz',
-    eyebrow: 'Anthony Rep Portal',
+    eyebrow: 'Hospitality Renovation Visibility',
     headerSubtitle: 'Powered by Blue Woods Brands',
     parentBrand: 'Powered by SlapWrapz',
     poweredBy: '',
@@ -113,17 +113,17 @@ export const brandChannels: Record<string, BrandChannel> = {
     bannerQuotePath: '/banners?rep=anthony',
     fullProjectPath: '/wraps/full?rep=anthony',
     heroImagePath: '/slapwrapz/vehicle-wraps-hero-no-qr.png',
-    headline: 'Vehicle wraps, fleet graphics, and brand visibility built to get business noticed.',
+    headline: 'Banners first, then vehicle graphics for hospitality projects that need to look organized fast.',
     description:
-      'Anthony connects businesses with SlapWrapz wrap quotes, banner support, and follow-up through Blue Woods Brands production.',
-    cardEyebrow: 'Direct Quote Path',
-    cardHeadline: 'Start with Anthony',
+      'Anthony connects hotel, restaurant, retail, and renovation teams with SlapWrapz banner quotes, site graphics, fleet lettering, and wrap follow-up through Blue Woods Brands production.',
+    cardEyebrow: 'Banner Quote Space',
+    cardHeadline: 'Start with the banner',
     cardDescription:
-      'Send the vehicle, banner, or brand visibility idea and keep the request connected from first click to follow-up.',
+      'Send the property, project, opening, event, or renovation message and keep the quote connected from first click to follow-up.',
     featureBullets: [
-      'Vehicle wrap and fleet graphics requests',
-      'Banner and print quote support',
-      'Follow-up connected to Anthony'
+      'Hospitality, restaurant, retail, and property banners',
+      'Temporary renovation, rebrand, and wayfinding signage',
+      'Vehicle graphics follow-up connected to Anthony'
     ]
   }
 };
