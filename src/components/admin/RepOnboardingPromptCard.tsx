@@ -396,9 +396,14 @@ const RepOnboardingPromptCard = () => {
           <CardHeader>
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <CardTitle>{selectedRep ? getRepName(selectedRep) : 'Select a rep'}</CardTitle>
+                <CardTitle className="text-lg">Selected Rep</CardTitle>
                 {selectedRep && (
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm font-semibold text-slate-950">
+                    {getRepName(selectedRep)}
+                  </p>
+                )}
+                {selectedRep && (
+                  <p className="mt-1 text-xs text-slate-500">
                     {formatRole(selectedRep.role)} / {getRepSlug(selectedRep)} / {selectedRep.is_active ? 'Active' : 'Paused'}
                   </p>
                 )}
@@ -424,22 +429,22 @@ const RepOnboardingPromptCard = () => {
           <CardContent className="space-y-5">
             {selectedRep ? (
               <>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-4">
                   <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-semibold uppercase text-slate-500">Leads</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-950">{selectedRep.assigned_quote_count}</p>
+                    <p className="mt-1 text-xl font-bold text-slate-950">{selectedRep.assigned_quote_count}</p>
                   </div>
                   <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-semibold uppercase text-slate-500">Page Ideas</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-950">{selectedRep.page_idea_count}</p>
+                    <p className="mt-1 text-xl font-bold text-slate-950">{selectedRep.page_idea_count}</p>
                   </div>
                   <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-semibold uppercase text-slate-500">Built Pages</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-950">{selectedRep.built_page_count}</p>
+                    <p className="mt-1 text-xl font-bold text-slate-950">{selectedRep.built_page_count}</p>
                   </div>
                   <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-semibold uppercase text-slate-500">Team</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-950">
+                    <p className="mt-1 text-xl font-bold text-slate-950">
                       {selectedRep.role === 'rep_manager'
                         ? `${selectedRep.child_rep_count}/${selectedRep.max_child_reps || 5}`
                         : selectedRep.manager_display_name || '-'}
@@ -447,21 +452,36 @@ const RepOnboardingPromptCard = () => {
                   </div>
                 </div>
 
-                <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                  <p>
-                    This is the selected rep. Use the buttons above for their portal or public page.
-                  </p>
+                <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 md:flex-row md:items-center md:justify-between">
                   <p>
                     Latest page idea activity: <span className="font-semibold text-slate-900">{formatDate(selectedRep.latest_page_idea_at)}</span>
                   </p>
-                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                    Reps and managers create niche SlapWrapz pages. The rep path owns attribution and follow-up, not a separate customer-facing brand.
-                  </div>
-                  <Button variant="outline" onClick={() => void loadReps()}>
+                  <Button variant="outline" size="sm" onClick={() => void loadReps()}>
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Refresh Reps
                   </Button>
                 </div>
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+                  Reps and managers create niche SlapWrapz pages. The rep path owns attribution and follow-up, not a separate customer-facing brand.
+                </div>
+                {selectedRepIdeas.length > 0 && (
+                  <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <p className="mb-3 text-sm font-semibold text-slate-950">Recent Page Ideas</p>
+                    <div className="space-y-2">
+                      {selectedRepIdeas.slice(0, 3).map((idea) => (
+                        <div key={idea.id} className="flex flex-col gap-1 rounded-md bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{idea.page_title || idea.category || 'Untitled idea'}</p>
+                            <p className="text-xs text-slate-500">{formatDate(idea.created_at)}</p>
+                          </div>
+                          <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${getIdeaStatusClassName(idea.status)}`}>
+                            {formatStatus(idea.status)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <p className="rounded-md border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
