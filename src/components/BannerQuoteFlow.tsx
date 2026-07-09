@@ -12,7 +12,9 @@ import FileUpload from './FileUpload';
 import { supabase } from '@/lib/supabase';
 import { getStoredRepSlug } from '@/lib/repTracking';
 import { getRepAttributionForSlug } from '@/lib/salesReps';
+import { stringToUuid } from '@/lib/utils';
 import { UploadedFile } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ContactInfo {
   name: string;
@@ -72,6 +74,30 @@ const getPreviewPalette = (colors: string) => {
   return { background: '#111827', accent: '#60a5fa', secondary: '#f8fafc' };
 };
 
+const parsePositiveNumber = (value: string) => {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const wrapText = (value: string, maxChars: number, maxLines: number) => {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  words.forEach((word) => {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    if (nextLine.length > maxChars && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+      return;
+    }
+    currentLine = nextLine;
+  });
+
+  if (currentLine) lines.push(currentLine);
+  return lines.slice(0, maxLines);
+};
+
 const BannerQuoteFlow: React.FC = () => {
   const navigate = useNavigate();
   const [quoteId] = useState(createQuoteId);
@@ -105,8 +131,11 @@ const BannerQuoteFlow: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [referenceFiles, setReferenceFiles] = useState<UploadedFile[]>([]);
   const [designPreviewUrl, setDesignPreviewUrl] = useState('');
+  const [designPreviewSvg, setDesignPreviewSvg] = useState('');
   const [designPreviewSaved, setDesignPreviewSaved] = useState(false);
+  const [generatedProofFile, setGeneratedProofFile] = useState<UploadedFile | null>(null);
   const [isGeneratingDesign, setIsGeneratingDesign] = useState(false);
+  const [isSavingDesignPreview, setIsSavingDesignPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -141,15 +170,34 @@ const BannerQuoteFlow: React.FC = () => {
   const generateDesignPreview = () => {
     setIsGeneratingDesign(true);
     setDesignPreviewSaved(false);
+    setGeneratedProofFile(null);
 
     window.setTimeout(() => {
       const palette = getPreviewPalette(banner.brandColors);
-      const headline = escapeSvgText((banner.bannerText || contactInfo.businessName || 'COMING SOON').trim().slice(0, 64));
-      const promptLine = escapeSvgText((banner.aiDesignPrompt || 'Clean, readable banner design with strong business visibility.').trim().slice(0, 130));
-      const placementLine = escapeSvgText((banner.placementNotes || 'Placement reference will guide scale, spacing, and proof direction.').trim().slice(0, 110));
-      const businessName = escapeSvgText((contactInfo.businessName || 'SlapWrapz Banner Concept').trim().slice(0, 54));
+      const widthValue = parsePositiveNumber(banner.width);
+      const heightValue = parsePositiveNumber(banner.height);
+      const aspectRatio = widthValue && heightValue ? Math.min(Math.max(widthValue / heightValue, 1.4), 8) : 4;
+      const proofWidth = 1600;
+      const proofHeight = Math.round(proofWidth / aspectRatio);
+      const canvasHeight = Math.max(proofHeight, 360);
+      const titleLines = wrapText(banner.bannerText || contactInfo.businessName || 'Banner Proof', aspectRatio > 3 ? 32 : 20, 3);
+      const styleLines = wrapText(banner.aiDesignPrompt || 'Clean, readable banner design with strong business visibility.', 92, 2);
+      const placementLines = wrapText(banner.placementNotes || 'Placement photos guide scale, spacing, and proof direction.', 92, 2);
+      const businessName = escapeSvgText((contactInfo.businessName || 'SlapWrapz Banner Proof').trim().slice(0, 54));
+      const titleFontSize = aspectRatio > 4 ? 112 : aspectRatio > 2.4 ? 94 : 76;
+      const titleStartY = Math.max(150, Math.round(canvasHeight * 0.36) - ((titleLines.length - 1) * titleFontSize * 0.42));
+      const titleMarkup = titleLines
+        .map((line, index) => `<text x="86" y="${titleStartY + index * titleFontSize * 0.92}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="${palette.secondary}">${escapeSvgText(line)}</text>`)
+        .join('');
+      const styleMarkup = styleLines
+        .map((line, index) => `<text x="88" y="${canvasHeight - 112 + index * 30}" font-family="Arial, sans-serif" font-size="25" fill="#e5e7eb">${escapeSvgText(line)}</text>`)
+        .join('');
+      const placementMarkup = placementLines
+        .map((line, index) => `<text x="88" y="${canvasHeight - 48 + index * 26}" font-family="Arial, sans-serif" font-size="22" fill="#cbd5e1">${escapeSvgText(line)}</text>`)
+        .join('');
+      const sizeLabel = escapeSvgText(`${banner.width || '?'} x ${banner.height || '?'} ${banner.unit}`);
       const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+        <svg xmlns="http://www.w3.org/2000/svg" width="${proofWidth}" height="${canvasHeight}" viewBox="0 0 ${proofWidth} ${canvasHeight}">
           <defs>
             <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stop-color="${palette.background}"/>
@@ -160,23 +208,82 @@ const BannerQuoteFlow: React.FC = () => {
               <stop offset="1" stop-color="${palette.accent}" stop-opacity="0"/>
             </radialGradient>
           </defs>
-          <rect width="1200" height="520" fill="url(#bg)"/>
-          <rect width="1200" height="520" fill="url(#glow)"/>
-          <rect x="44" y="44" width="1112" height="432" rx="28" fill="none" stroke="${palette.accent}" stroke-width="6"/>
-          <rect x="86" y="82" width="206" height="54" rx="27" fill="${palette.accent}"/>
-          <text x="189" y="118" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="800" fill="${palette.background}">BANNER PROOF</text>
-          <text x="86" y="222" font-family="Arial, sans-serif" font-size="72" font-weight="900" fill="${palette.secondary}">${headline}</text>
-          <text x="88" y="294" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="${palette.accent}">${businessName}</text>
-          <text x="88" y="358" font-family="Arial, sans-serif" font-size="25" fill="#e5e7eb">${promptLine}</text>
-          <text x="88" y="410" font-family="Arial, sans-serif" font-size="22" fill="#cbd5e1">${placementLine}</text>
-          <path d="M875 136 C970 172 1032 246 1114 380" fill="none" stroke="${palette.accent}" stroke-width="18" stroke-linecap="round" opacity="0.65"/>
-          <circle cx="1016" cy="206" r="74" fill="${palette.accent}" opacity="0.22"/>
+          <rect width="${proofWidth}" height="${canvasHeight}" fill="url(#bg)"/>
+          <rect width="${proofWidth}" height="${canvasHeight}" fill="url(#glow)"/>
+          <rect x="44" y="44" width="${proofWidth - 88}" height="${canvasHeight - 88}" rx="28" fill="none" stroke="${palette.accent}" stroke-width="8"/>
+          <rect x="86" y="78" width="268" height="54" rx="27" fill="${palette.accent}"/>
+          <text x="220" y="114" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="${palette.background}">PRINT PROOF DRAFT</text>
+          <text x="${proofWidth - 86}" y="114" text-anchor="end" font-family="Arial, sans-serif" font-size="25" font-weight="800" fill="${palette.accent}">${sizeLabel}</text>
+          ${titleMarkup}
+          <text x="88" y="${Math.min(canvasHeight - 158, titleStartY + titleLines.length * titleFontSize)}" font-family="Arial, sans-serif" font-size="34" font-weight="800" fill="${palette.accent}">${businessName}</text>
+          ${styleMarkup}
+          ${placementMarkup}
+          <path d="M${proofWidth - 360} 110 C${proofWidth - 220} 160 ${proofWidth - 210} ${canvasHeight - 210} ${proofWidth - 94} ${canvasHeight - 96}" fill="none" stroke="${palette.accent}" stroke-width="18" stroke-linecap="round" opacity="0.44"/>
+          <circle cx="${proofWidth - 216}" cy="168" r="92" fill="${palette.accent}" opacity="0.16"/>
         </svg>
       `;
 
+      setDesignPreviewSvg(svg);
       setDesignPreviewUrl(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
       setIsGeneratingDesign(false);
     }, 900);
+  };
+
+  const saveDesignPreview = async () => {
+    if (!designPreviewSvg) return;
+
+    setIsSavingDesignPreview(true);
+    setError('');
+
+    try {
+      const fileRecordId = uuidv4();
+      const fileName = `${quoteId}-banner-proof-${Date.now()}.svg`;
+      const proofBlob = new Blob([designPreviewSvg], { type: 'image/svg+xml' });
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('customer-uploads')
+        .upload(fileName, proofBlob, { contentType: 'image/svg+xml' });
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { data: publicUrlData } = supabase.storage
+        .from('customer-uploads')
+        .getPublicUrl(uploadData.path);
+
+      const proofFile: UploadedFile = {
+        id: fileRecordId,
+        name: 'Generated banner proof draft.svg',
+        url: publicUrlData.publicUrl,
+        type: 'image/svg+xml',
+        size: proofBlob.size,
+        tags: ['banner', 'ai_generated_proof', 'proof_image', 'print_proof_draft']
+      };
+
+      const { error: dbError } = await supabase
+        .from('customer_files')
+        .insert({
+          id: fileRecordId,
+          project_id: stringToUuid(quoteId),
+          file_url: proofFile.url,
+          file_name: proofFile.name,
+          file_type: proofFile.type,
+          file_size: proofFile.size,
+          tags: proofFile.tags
+        });
+
+      if (dbError) throw new Error(dbError.message);
+
+      setUploadedFiles((current) => {
+        const withoutOldProofs = current.filter((file) => !file.tags?.includes('ai_generated_proof'));
+        return [...withoutOldProofs, proofFile];
+      });
+      setGeneratedProofFile(proofFile);
+      setDesignPreviewSaved(true);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Could not save the generated proof.');
+    } finally {
+      setIsSavingDesignPreview(false);
+    }
   };
 
   const sendQuoteEmails = async (
@@ -217,7 +324,11 @@ const BannerQuoteFlow: React.FC = () => {
 
     const repSlug = getStoredRepSlug();
     const repAttribution = getRepAttributionForSlug(repSlug);
-    const allUploadedFiles = [...uploadedFiles, ...referenceFiles];
+    const allUploadedFiles = [
+      ...uploadedFiles,
+      ...(generatedProofFile && !uploadedFiles.some((file) => file.id === generatedProofFile.id) ? [generatedProofFile] : []),
+      ...referenceFiles
+    ];
     const uploadedFilePayload = allUploadedFiles.map((file) => ({
       id: file.id,
       name: file.name,
@@ -518,9 +629,9 @@ const BannerQuoteFlow: React.FC = () => {
                 <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h3 className="font-semibold text-slate-950">Design Preview</h3>
+                      <h3 className="font-semibold text-slate-950">Banner Proof Draft</h3>
                       <p className="text-sm text-slate-600">
-                        Generate a quick first-look banner concept from the prompt, text, colors, and placement notes.
+                        Generate a proof-style banner draft using the actual text, size ratio, colors, prompt, and placement notes.
                       </p>
                     </div>
                     <Button
@@ -530,7 +641,7 @@ const BannerQuoteFlow: React.FC = () => {
                       className="bg-blue-700 text-white hover:bg-blue-600"
                     >
                       <Wand2 className="mr-2 h-4 w-4" />
-                      {isGeneratingDesign ? 'Designing...' : 'Generate Design Preview'}
+                      {isGeneratingDesign ? 'Building Proof...' : 'Generate Banner Proof'}
                     </Button>
                   </div>
 
@@ -539,18 +650,19 @@ const BannerQuoteFlow: React.FC = () => {
                       <div className="overflow-hidden rounded-xl border border-blue-200 bg-white p-2 shadow-sm">
                         <img
                           src={designPreviewUrl}
-                          alt="Generated banner design preview"
+                          alt="Generated banner proof draft"
                           className="h-auto w-full rounded-lg"
                         />
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row">
                         <Button
                           type="button"
-                          onClick={() => setDesignPreviewSaved(true)}
-                          className="bg-emerald-600 text-white hover:bg-emerald-500"
+                          onClick={() => void saveDesignPreview()}
+                          disabled={isSavingDesignPreview}
+                          className="bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-70"
                         >
                           <Save className="mr-2 h-4 w-4" />
-                          {designPreviewSaved ? 'Preview Saved' : 'Save Preview'}
+                          {isSavingDesignPreview ? 'Saving...' : designPreviewSaved ? 'Proof Saved' : 'Save Proof'}
                         </Button>
                         <Button
                           type="button"
@@ -563,8 +675,8 @@ const BannerQuoteFlow: React.FC = () => {
                       </div>
                       <p className={`text-sm font-medium ${designPreviewSaved ? 'text-emerald-700' : 'text-amber-700'}`}>
                         {designPreviewSaved
-                          ? 'Saved with this quote. The rep can use this preview with the reference photos to prompt the proof.'
-                          : 'Review the preview. Save it if this is the direction, or edit the prompt and generate again.'}
+                          ? 'Saved with this quote as a proof draft file. The rep can use it with the reference photos for the production proof.'
+                          : 'Review the proof draft. Save it if this is the direction, or edit the prompt and generate again.'}
                       </p>
                     </div>
                   )}
