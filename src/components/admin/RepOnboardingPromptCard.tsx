@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle2, ExternalLink, RefreshCw, Search, Users, XCircle } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Plus, RefreshCw, Search, Users, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ interface RepOnboardingRow {
   role: 'sales_rep' | 'rep_manager';
   rep_slug: string | null;
   is_active: boolean;
+  auth_linked: boolean;
   manager_admin_user_id: string | null;
   manager_display_name: string | null;
   rep_manager_status: string | null;
@@ -94,6 +95,13 @@ const RepOnboardingPromptCard = () => {
   const [pageIdeaError, setPageIdeaError] = useState('');
   const [pageIdeaMessage, setPageIdeaMessage] = useState('');
   const [updatingIdeaId, setUpdatingIdeaId] = useState('');
+  const [newRepName, setNewRepName] = useState('');
+  const [newRepEmail, setNewRepEmail] = useState('');
+  const [newRepRole, setNewRepRole] = useState<'sales_rep' | 'rep_manager'>('sales_rep');
+  const [newRepSlug, setNewRepSlug] = useState('');
+  const [savingRep, setSavingRep] = useState(false);
+  const [repCreateMessage, setRepCreateMessage] = useState('');
+  const [repCreateError, setRepCreateError] = useState('');
 
   const loadPageIdeas = async () => {
     setPageIdeaError('');
@@ -211,6 +219,35 @@ const RepOnboardingPromptCard = () => {
     );
   };
 
+  const createRep = async () => {
+    setSavingRep(true);
+    setRepCreateError('');
+    setRepCreateMessage('');
+
+    const { data, error } = await supabase.rpc('create_admin_rep_onboarding_v1', {
+      p_display_name: newRepName,
+      p_email: newRepEmail,
+      p_role: newRepRole,
+      p_rep_slug: newRepSlug
+    });
+
+    setSavingRep(false);
+
+    if (error) {
+      setRepCreateError(error.message);
+      return;
+    }
+
+    const createdRep = data?.[0] as { id?: string; rep_slug?: string } | undefined;
+    setRepCreateMessage(`${newRepName.trim() || 'Rep'} is in the directory. Login is pending until the Supabase Auth user is created or linked.`);
+    setNewRepName('');
+    setNewRepEmail('');
+    setNewRepRole('sales_rep');
+    setNewRepSlug('');
+    await loadReps();
+    if (createdRep?.id) setSelectedRepId(createdRep.id);
+  };
+
   if (loading) {
     return (
       <Card>
@@ -250,7 +287,7 @@ const RepOnboardingPromptCard = () => {
                 <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">Rep Admin View</p>
                 <CardTitle className="mt-1 text-2xl">{getRepName(selectedRep)}</CardTitle>
                 <p className="mt-1 text-sm text-slate-500">
-                  {formatRole(selectedRep.role)} / {getRepSlug(selectedRep)} / {selectedRep.email} / {selectedRep.is_active ? 'Active' : 'Paused'}
+                  {formatRole(selectedRep.role)} / {getRepSlug(selectedRep)} / {selectedRep.email} / {selectedRep.is_active ? 'Active' : 'Paused'} / {selectedRep.auth_linked ? 'Login linked' : 'Login pending'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -295,6 +332,11 @@ const RepOnboardingPromptCard = () => {
 
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
               This view is only for {getRepName(selectedRep)}. Use it to review their page ideas, public page, portal, and attribution path.
+              {!selectedRep.auth_linked && (
+                <span className="mt-2 block font-semibold">
+                  Login pending: create this same email in Supabase Auth with a password, then link the Auth user to this rep.
+                </span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -490,6 +532,53 @@ const RepOnboardingPromptCard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Plus className="h-4 w-4 text-purple-600" />
+                <p className="text-sm font-semibold text-slate-950">Start New Rep</p>
+              </div>
+              <div className="grid gap-2">
+                <Input
+                  value={newRepName}
+                  onChange={(event) => setNewRepName(event.target.value)}
+                  placeholder="Rep name"
+                />
+                <Input
+                  value={newRepEmail}
+                  onChange={(event) => setNewRepEmail(event.target.value)}
+                  placeholder="Rep email"
+                  type="email"
+                />
+                <Input
+                  value={newRepSlug}
+                  onChange={(event) => setNewRepSlug(event.target.value)}
+                  placeholder="Page slug, like anthony"
+                />
+                <select
+                  value={newRepRole}
+                  onChange={(event) => setNewRepRole(event.target.value as 'sales_rep' | 'rep_manager')}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm text-slate-900"
+                >
+                  <option value="sales_rep">Sales Rep</option>
+                  <option value="rep_manager">Rep Manager</option>
+                </select>
+                <Button onClick={() => void createRep()} disabled={savingRep}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {savingRep ? 'Starting Rep...' : 'Start Rep'}
+                </Button>
+              </div>
+              {repCreateMessage && (
+                <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs font-medium text-emerald-800">
+                  {repCreateMessage}
+                </p>
+              )}
+              {repCreateError && (
+                <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs font-medium text-red-700">
+                  {repCreateError}
+                </p>
+              )}
+            </div>
+
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -533,6 +622,7 @@ const RepOnboardingPromptCard = () => {
                       <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">{formatRole(rep.role)}</span>
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">/{getRepSlug(rep)}</span>
+                        {!rep.auth_linked && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-900">Login pending</span>}
                         {isSelected && <span className="rounded-full bg-purple-600 px-2 py-0.5 font-semibold text-white">Selected</span>}
                       </div>
                     </button>
@@ -555,7 +645,7 @@ const RepOnboardingPromptCard = () => {
                 )}
                 {selectedRep && (
                   <p className="mt-1 text-xs text-slate-500">
-                    {formatRole(selectedRep.role)} / {getRepSlug(selectedRep)} / {selectedRep.is_active ? 'Active' : 'Paused'}
+                    {formatRole(selectedRep.role)} / {getRepSlug(selectedRep)} / {selectedRep.is_active ? 'Active' : 'Paused'} / {selectedRep.auth_linked ? 'Login linked' : 'Login pending'}
                   </p>
                 )}
               </div>
@@ -614,6 +704,11 @@ const RepOnboardingPromptCard = () => {
                 </div>
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
                   Reps and managers create niche SlapWrapz pages. The rep path owns attribution and follow-up, not a separate customer-facing brand.
+                  {!selectedRep.auth_linked && (
+                    <span className="mt-2 block font-semibold">
+                      Login pending: the rep is started here, but the Supabase Auth user still needs to be created or linked before they can sign in.
+                    </span>
+                  )}
                 </div>
                 {selectedRepIdeas.length > 0 && (
                   <div className="rounded-md border border-slate-200 bg-white p-4">
