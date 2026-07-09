@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, RefreshCw, Search, Users } from 'lucide-react';
+import { CheckCircle2, ExternalLink, RefreshCw, Search, Users, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,28 @@ interface RepOnboardingRow {
   built_page_count: number;
   latest_page_idea_at: string | null;
   created_at: string;
+}
+
+interface RepPageIdeaReviewRow {
+  id: string;
+  rep_slug: string;
+  rep_name: string | null;
+  rep_email: string | null;
+  brand_name: string;
+  industry: string | null;
+  category: string | null;
+  niche: string | null;
+  page_title: string | null;
+  page_slug: string | null;
+  page_url: string | null;
+  thumbnail_url: string | null;
+  qr_png_url: string | null;
+  qr_svg_url: string | null;
+  status: 'pending_review' | 'approved' | 'built' | 'inactive' | 'rejected' | string;
+  is_featured: boolean;
+  idea_text: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const formatRole = (role: RepOnboardingRow['role']) =>
@@ -48,16 +70,48 @@ const getRepStatusClassName = (rep: RepOnboardingRow) =>
     ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200'
     : 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
 
+const getIdeaStatusClassName = (status: string) => {
+  if (status === 'pending_review') return 'bg-amber-100 text-amber-900 ring-1 ring-amber-200';
+  if (status === 'approved') return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200';
+  if (status === 'rejected') return 'bg-red-100 text-red-800 ring-1 ring-red-200';
+  if (status === 'built') return 'bg-blue-100 text-blue-800 ring-1 ring-blue-200';
+  return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
+};
+
+const formatStatus = (status: string) =>
+  status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
 const RepOnboardingPromptCard = () => {
   const [reps, setReps] = useState<RepOnboardingRow[]>([]);
   const [selectedRepId, setSelectedRepId] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [pageIdeas, setPageIdeas] = useState<RepPageIdeaReviewRow[]>([]);
+  const [pageIdeaError, setPageIdeaError] = useState('');
+  const [pageIdeaMessage, setPageIdeaMessage] = useState('');
+  const [updatingIdeaId, setUpdatingIdeaId] = useState('');
+
+  const loadPageIdeas = async () => {
+    setPageIdeaError('');
+
+    const { data, error } = await supabase.rpc('list_admin_rep_page_ideas_v1', {
+      p_rep_slug: null
+    });
+
+    if (error) {
+      setPageIdeaError(error.message);
+      setPageIdeas([]);
+      return;
+    }
+
+    setPageIdeas((data ?? []) as RepPageIdeaReviewRow[]);
+  };
 
   const loadReps = async () => {
     setLoading(true);
     setLoadError('');
+    setPageIdeaMessage('');
 
     const { data, error } = await supabase.rpc('list_rep_onboarding_directory_v1');
 
@@ -75,6 +129,7 @@ const RepOnboardingPromptCard = () => {
       if (current && nextReps.some((rep) => rep.id === current)) return current;
       return nextReps.find((rep) => rep.rep_slug === 'jarrel')?.id || nextReps[0]?.id || '';
     });
+    void loadPageIdeas();
   };
 
   useEffect(() => {
@@ -98,6 +153,43 @@ const RepOnboardingPromptCard = () => {
   const activeReps = reps.filter((rep) => rep.is_active).length;
   const managerCount = reps.filter((rep) => rep.role === 'rep_manager').length;
   const totalLeads = reps.reduce((total, rep) => total + (rep.assigned_quote_count || 0), 0);
+  const selectedRepSlug = selectedRep ? getRepSlug(selectedRep) : '';
+  const selectedRepIdeas = pageIdeas.filter((idea) => idea.rep_slug === selectedRepSlug);
+  const selectedPendingIdeas = selectedRepIdeas.filter((idea) => idea.status === 'pending_review');
+  const allPendingIdeas = pageIdeas.filter((idea) => idea.status === 'pending_review');
+  const visibleIdeas = selectedPendingIdeas.length > 0 ? selectedPendingIdeas : allPendingIdeas.slice(0, 5);
+
+  const updateIdeaStatus = async (idea: RepPageIdeaReviewRow, status: 'approved' | 'rejected') => {
+    setUpdatingIdeaId(idea.id);
+    setPageIdeaError('');
+    setPageIdeaMessage('');
+
+    const { data, error } = await supabase.rpc('update_admin_rep_page_idea_status_v1', {
+      p_idea_id: idea.id,
+      p_status: status
+    });
+
+    setUpdatingIdeaId('');
+
+    if (error) {
+      setPageIdeaError(error.message);
+      return;
+    }
+
+    const updated = data?.[0] as { id: string; status: string; updated_at: string } | undefined;
+    setPageIdeas((current) =>
+      current.map((pageIdea) =>
+        pageIdea.id === idea.id
+          ? { ...pageIdea, status: updated?.status || status, updated_at: updated?.updated_at || new Date().toISOString() }
+          : pageIdea
+      )
+    );
+    setPageIdeaMessage(
+      status === 'approved'
+        ? `${idea.rep_name || idea.rep_slug}'s page idea is approved. Codex can now build it when you ask.`
+        : `${idea.rep_name || idea.rep_slug}'s page idea was rejected.`
+    );
+  };
 
   if (loading) {
     return (
@@ -146,6 +238,90 @@ const RepOnboardingPromptCard = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <CardTitle>Rep Page Idea Approval Queue</CardTitle>
+              <p className="mt-1 text-sm text-slate-600">
+                This is the handoff: reps submit page ideas, Ashley reviews them here, then Codex builds only after approval.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void loadPageIdeas()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Ideas
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {pageIdeaMessage && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
+              {pageIdeaMessage}
+            </div>
+          )}
+          {pageIdeaError && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+              {pageIdeaError}
+            </div>
+          )}
+          {visibleIdeas.length === 0 ? (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              No pending rep page ideas are waiting for approval.
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {visibleIdeas.map((idea) => (
+                <div key={idea.id} className="rounded-md border border-slate-200 bg-white p-4">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">
+                        {idea.page_title || idea.category || `${idea.rep_name || idea.rep_slug} page idea`}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {idea.rep_name || idea.rep_slug} / {idea.rep_email || 'No email'} / {formatDate(idea.created_at)}
+                      </p>
+                    </div>
+                    <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${getIdeaStatusClassName(idea.status)}`}>
+                      {formatStatus(idea.status)}
+                    </span>
+                  </div>
+                  <p className="line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                    {idea.idea_text}
+                  </p>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      size="sm"
+                      onClick={() => void updateIdeaStatus(idea, 'approved')}
+                      disabled={updatingIdeaId === idea.id}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void updateIdeaStatus(idea, 'rejected')}
+                      disabled={updatingIdeaId === idea.id}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                    {idea.page_url && (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={idea.page_url} target="_blank" rel="noreferrer">
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Page
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)]">
         <Card>
