@@ -41,6 +41,7 @@ const parseBody = (body: unknown): CoverDirectionBody => {
 };
 
 const getEmailDomain = (email: string) => email.split('@').pop() || 'unknown';
+const isValidRepSlug = (value: string) => /^[a-z0-9-]{1,64}$/.test(value);
 
 const sendEmail = async (apiKey: string, payload: Record<string, unknown>) => {
   if (RESEND_API_URL.protocol !== 'https:') {
@@ -105,15 +106,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const pageUrl = body.pageUrl?.trim() || `https://www.slapwrapz.com/${repSlug}`;
   const direction = body.direction?.trim() || '';
 
-  if (repSlug !== 'jarrel') {
-    return res.status(400).json({ error: 'Unsupported rep cover direction request' });
+  if (!isValidRepSlug(repSlug)) {
+    return res.status(400).json({ error: 'Invalid rep cover direction request' });
   }
 
   if (direction.length < 40) {
     return res.status(400).json({ error: 'Please add more page direction before submitting.' });
   }
 
-  const subject = `Jarrel cover page direction submission`;
+  const subject = `${repName} cover page direction submission`;
   const htmlDirection = escapeHtml(direction).replace(/\n/g, '<br />');
   const html = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
@@ -140,7 +141,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
         <div style="margin-top:18px;padding:18px;border-radius:14px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;">
           <p style="margin:0;font-weight:700;">Approval step required</p>
-          <p style="margin:8px 0 0;">Codex should summarize this recommendation and wait for owner approval before updating www.slapwrapz.com/jarrel.</p>
+          <p style="margin:8px 0 0;">Codex should summarize this recommendation and wait for owner approval before updating ${escapeHtml(pageUrl)}.</p>
         </div>
       </div>
     </div>

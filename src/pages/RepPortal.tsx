@@ -335,9 +335,6 @@ const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') =
 };
 
 const JAZZY_REFERRAL_ONE_SHEET_PATH = '/jazzy/kevin-jazzy-referral-one-sheet.pdf';
-const JARREL_PUBLIC_PAGE_URL = 'https://www.slapwrapz.com/jarrel';
-const JARREL_QR_PNG_PATH = '/jarrel/jarrel-slapwrapz-qr.png';
-const JARREL_QR_SVG_PATH = '/jarrel/jarrel-slapwrapz-qr.svg';
 
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
@@ -469,16 +466,12 @@ const RepPortal = () => {
 
     setQuotes((quoteData ?? []) as RepQuoteRow[]);
 
-    if (activeAdminUser.role === 'rep_manager') {
-      const { data: ideaData, error: ideaError } = await supabase.rpc('list_my_rep_page_ideas_v1');
-      if (ideaError) {
-        console.error('Rep page idea load failed:', ideaError);
-        setPageIdeas([]);
-      } else {
-        setPageIdeas((ideaData ?? []) as RepPageIdeaRow[]);
-      }
-    } else {
+    const { data: ideaData, error: ideaError } = await supabase.rpc('list_my_rep_page_ideas_v1');
+    if (ideaError) {
+      console.error('Rep page idea load failed:', ideaError);
       setPageIdeas([]);
+    } else {
+      setPageIdeas((ideaData ?? []) as RepPageIdeaRow[]);
     }
 
     setLoading(false);
@@ -737,8 +730,12 @@ const RepPortal = () => {
   const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
   const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
   const repPublicUrl = adminUser?.rep_slug ? `www.slapwrapz.com/${adminUser.rep_slug}` : 'www.slapwrapz.com';
-  const showCoverDirectionPanel = adminUser?.role === 'rep_manager';
-  const showJarrelQrPanel = adminUser?.rep_slug === 'jarrel';
+  const repPublicPageUrl = `https://${repPublicUrl}`;
+  const repDisplayName = adminUser?.display_name || adminUser?.email || 'Rep';
+  const repQrPngUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&margin=24&data=${encodeURIComponent(repPublicPageUrl)}`;
+  const repQrSvgUrl = `https://api.qrserver.com/v1/create-qr-code/?format=svg&size=900x900&margin=24&data=${encodeURIComponent(repPublicPageUrl)}`;
+  const showCoverDirectionPanel = adminUser?.role === 'sales_rep' || adminUser?.role === 'rep_manager';
+  const showRepQrPanel = Boolean(adminUser?.rep_slug);
 
   if (loading) {
     return (
@@ -885,55 +882,55 @@ const RepPortal = () => {
           </Card>
         )}
 
-        {showJarrelQrPanel && (
+        {showRepQrPanel && (
           <Card className="border-slate-200 bg-white">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg text-slate-950">
                 <QrCode className="h-5 w-5" />
-                Jarrel QR Code
+                {repDisplayName} QR Code
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
               <div className="space-y-3 text-sm leading-6 text-slate-600">
                 <p>
-                  This QR code sends customers to Jarrel's public quote page. Use the PNG for texting,
+                  This QR code sends customers to this rep's public SlapWrapz quote page. Use the PNG for texting,
                   social posts, and quick sharing. Use the SVG when making cards or print layouts.
                 </p>
                 <p className="break-all rounded-md border border-slate-200 bg-slate-50 p-3 font-medium text-slate-900">
-                  {JARREL_PUBLIC_PAGE_URL}
+                  {repPublicPageUrl}
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button asChild>
-                    <a href={JARREL_QR_PNG_PATH} download="jarrel-slapwrapz-qr.png">
+                    <a href={repQrPngUrl} target="_blank" rel="noreferrer">
                       <Download className="mr-2 h-4 w-4" />
-                      Download PNG
+                      Open PNG
                     </a>
                   </Button>
                   <Button variant="outline" asChild>
-                    <a href={JARREL_QR_SVG_PATH} download="jarrel-slapwrapz-qr.svg">
+                    <a href={repQrSvgUrl} target="_blank" rel="noreferrer">
                       <Download className="mr-2 h-4 w-4" />
-                      Download SVG
+                      Open SVG
                     </a>
                   </Button>
                   <Button variant="outline" asChild>
-                    <a href={JARREL_QR_PNG_PATH} target="_blank" rel="noreferrer">
+                    <a href={repPublicPageUrl} target="_blank" rel="noreferrer">
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      Open Large
+                      Open Page
                     </a>
                   </Button>
                 </div>
               </div>
 
               <a
-                href={JARREL_QR_PNG_PATH}
+                href={repQrPngUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="mx-auto block w-full max-w-[22rem] rounded-md border border-slate-200 bg-white p-3 shadow-sm sm:max-w-[26rem] md:p-4"
-                aria-label="Open Jarrel QR code at full size"
+                aria-label="Open rep QR code at full size"
               >
                 <img
-                  src={JARREL_QR_PNG_PATH}
-                  alt="QR code for Jarrel Wraps"
+                  src={repQrPngUrl}
+                  alt={`QR code for ${repDisplayName}`}
                   className="aspect-square w-full object-contain"
                 />
               </a>
