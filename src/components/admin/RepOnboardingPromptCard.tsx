@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Clipboard, ExternalLink, Mail, RefreshCw, Search, Users } from 'lucide-react';
+import { ExternalLink, RefreshCw, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 
 interface RepOnboardingRow {
@@ -44,49 +43,6 @@ const getRepName = (rep: RepOnboardingRow) =>
 const getRepSlug = (rep: RepOnboardingRow) =>
   rep.rep_slug?.trim().toLowerCase() || getRepName(rep).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-const buildChatGptPrompt = (rep: RepOnboardingRow) => {
-  const repName = getRepName(rep);
-  const repSlug = getRepSlug(rep);
-
-  return `I am working with Blue Woods Brands / SlapWrapz to build my custom rep cover page at www.slapwrapz.com/${repSlug}.
-
-The page should say SlapWrapz first. I am the rep path behind the customer follow-up, not a separate wrap brand.
-
-The page should mix my own taste, passions, personality, and audience with vehicle wraps, banners, business visibility, and real results.
-
-Act like a creative director. Ask me up to 10 quick questions about:
-- my personal style and interests
-- colors, music, sports, cars, business, culture, or visuals I like
-- what kind of customers I want to attract
-- the energy I want the page to have
-- what I do not want the page to look or sound like
-
-After I answer, turn my answers into a clean creative brief for ${repName} with:
-1. overall vibe
-2. color direction
-3. image/background ideas
-4. headline ideas that still keep SlapWrapz as the brand
-5. short page copy
-6. words or themes to avoid
-7. the kind of lead/customer this page should attract
-8. anything Blue Woods Brands should know before updating my page`;
-};
-
-const buildEmailPreview = (rep: RepOnboardingRow) => {
-  const repName = getRepName(rep);
-  const repSlug = getRepSlug(rep);
-
-  return `Hi ${repName},
-
-During the exciting onboarding process of BWB Brands, we go straight to the results.
-
-Your starter rep page is live at www.slapwrapz.com/${repSlug}. Now we want the cover page to feel more like you, while keeping SlapWrapz as the customer-facing brand.
-
-Log into your rep portal at www.slapwrapz.com/rep and use the Prompt Your Cover Page section. You can write your idea there directly, or use the AI prompt below in ChatGPT, Claude, Gemini, or another AI tool first.
-
-BWB reviews your direction before anything changes live. Once approved, Codex can use it to recommend the front-end update for your SlapWrapz rep page.`;
-};
-
 const getRepStatusClassName = (rep: RepOnboardingRow) =>
   rep.is_active
     ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200'
@@ -98,9 +54,6 @@ const RepOnboardingPromptCard = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
-  const [emailState, setEmailState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  const [emailMessage, setEmailMessage] = useState('');
 
   const loadReps = async () => {
     setLoading(true);
@@ -146,51 +99,6 @@ const RepOnboardingPromptCard = () => {
   const managerCount = reps.filter((rep) => rep.role === 'rep_manager').length;
   const totalLeads = reps.reduce((total, rep) => total + (rep.assigned_quote_count || 0), 0);
 
-  const fullSnippet = useMemo(() => {
-    if (!selectedRep) return '';
-    return `${buildEmailPreview(selectedRep)}\n\nCHATGPT PROMPT\n\n${buildChatGptPrompt(selectedRep)}`;
-  }, [selectedRep]);
-
-  const copyPrompt = async () => {
-    if (!fullSnippet) return;
-    await navigator.clipboard.writeText(fullSnippet);
-    setCopyState('copied');
-    window.setTimeout(() => setCopyState('idle'), 1800);
-  };
-
-  const sendEmail = async () => {
-    if (!selectedRep) return;
-
-    setEmailState('sending');
-    setEmailMessage('');
-
-    try {
-      const response = await fetch('/api/send-rep-onboarding-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          repSlug: selectedRep.rep_slug,
-          repName: getRepName(selectedRep),
-          repEmail: selectedRep.email
-        })
-      });
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(typeof result.error === 'string' ? result.error : 'Email failed');
-      }
-
-      setEmailState('sent');
-      setEmailMessage(`${getRepName(selectedRep)} was sent the cover page direction prompt.`);
-    } catch (error) {
-      setEmailState('error');
-      setEmailMessage(error instanceof Error ? error.message : 'Email failed');
-    }
-  };
-
   if (loading) {
     return (
       <Card>
@@ -204,9 +112,9 @@ const RepOnboardingPromptCard = () => {
 
   if (loadError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Rep Onboarding</CardTitle>
+        <Card>
+          <CardHeader>
+          <CardTitle>Reps</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-red-700">{loadError}</p>
@@ -239,14 +147,14 @@ const RepOnboardingPromptCard = () => {
         </Card>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)]">
         <Card>
           <CardHeader className="space-y-4">
             <div className="rounded-md border border-purple-200 bg-purple-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">Onboarding Reps</p>
-              <h2 className="mt-2 text-xl font-bold text-slate-950">Select a rep, send the setup prompt, and manage their SlapWrapz path.</h2>
+              <h2 className="mt-2 text-xl font-bold text-slate-950">Search a rep, select them, then manage their SlapWrapz path.</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Every rep stays under SlapWrapz. Use the directory below to find the rep, review their page activity, and send the onboarding packet.
+                Every rep stays under SlapWrapz. The directory below is the starting point for rep setup, page ideas, QR links, and lead follow-up.
               </p>
             </div>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -279,8 +187,6 @@ const RepOnboardingPromptCard = () => {
                       type="button"
                       onClick={() => {
                         setSelectedRepId(rep.id);
-                        setEmailState('idle');
-                        setEmailMessage('');
                       }}
                       className={`w-full rounded-md border p-3 text-left transition ${
                         isSelected
@@ -300,6 +206,7 @@ const RepOnboardingPromptCard = () => {
                       <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">{formatRole(rep.role)}</span>
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">/{getRepSlug(rep)}</span>
+                        {isSelected && <span className="rounded-full bg-purple-600 px-2 py-0.5 font-semibold text-white">Selected</span>}
                       </div>
                     </button>
                   );
@@ -364,55 +271,20 @@ const RepOnboardingPromptCard = () => {
                   </div>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-                  <div className="space-y-3 text-sm leading-6 text-slate-600">
-                    <p>
-                      Use this selected-rep packet to onboard the rep, send the creative prompt,
-                      and keep SlapWrapz as the customer-facing brand.
-                    </p>
-                    <p>
-                      Latest page idea activity: <span className="font-semibold text-slate-900">{formatDate(selectedRep.latest_page_idea_at)}</span>
-                    </p>
-                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                      Reps and managers create niche SlapWrapz pages. The rep path owns attribution and follow-up, not a separate customer-facing brand.
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Button onClick={sendEmail} disabled={emailState === 'sending' || !selectedRep.rep_slug}>
-                        {emailState === 'sending' ? (
-                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        ) : emailState === 'sent' ? (
-                          <Check className="mr-2 h-4 w-4" />
-                        ) : (
-                          <Mail className="mr-2 h-4 w-4" />
-                        )}
-                        {emailState === 'sending' ? 'Sending...' : `Email ${getRepName(selectedRep).split(' ')[0]}`}
-                      </Button>
-                      <Button variant="outline" onClick={copyPrompt}>
-                        {copyState === 'copied' ? (
-                          <Check className="mr-2 h-4 w-4" />
-                        ) : (
-                          <Clipboard className="mr-2 h-4 w-4" />
-                        )}
-                        {copyState === 'copied' ? 'Copied' : 'Copy Snippet'}
-                      </Button>
-                      <Button variant="outline" onClick={() => void loadReps()}>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Refresh
-                      </Button>
-                    </div>
-                    {emailMessage && (
-                      <p className={emailState === 'error' ? 'text-sm font-medium text-red-600' : 'text-sm font-medium text-emerald-700'}>
-                        {emailMessage}
-                      </p>
-                    )}
+                <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                  <p>
+                    This is the selected rep. Use the buttons above for their portal or public page.
+                  </p>
+                  <p>
+                    Latest page idea activity: <span className="font-semibold text-slate-900">{formatDate(selectedRep.latest_page_idea_at)}</span>
+                  </p>
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                    Reps and managers create niche SlapWrapz pages. The rep path owns attribution and follow-up, not a separate customer-facing brand.
                   </div>
-
-                  <Textarea
-                    readOnly
-                    value={fullSnippet}
-                    className="min-h-[380px] resize-y bg-slate-50 font-mono text-xs leading-5 text-slate-700"
-                    aria-label="Selected rep ChatGPT prompt and onboarding email snippet"
-                  />
+                  <Button variant="outline" onClick={() => void loadReps()}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh Reps
+                  </Button>
                 </div>
               </>
             ) : (
