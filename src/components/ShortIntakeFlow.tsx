@@ -12,7 +12,7 @@ import FileUpload from './FileUpload';
 import { supabase } from '@/lib/supabase';
 import { CustomerData, UploadedFile } from '@/types';
 import { vehicleMakes, vehicleModels, generateYears } from '@/data/vehicleData';
-import { getStoredRepSlug } from '@/lib/repTracking';
+import { getRepAwareBackTarget, getStoredRepSlug } from '@/lib/repTracking';
 import { getRepAttributionForSlug } from '@/lib/salesReps';
 
 interface ContactInfo {
@@ -169,7 +169,12 @@ const ShortIntakeFlow: React.FC = () => {
 
   const handleBack = () => {
     if (step === 1) {
-      navigate('/');
+      const target = getRepAwareBackTarget();
+      if (typeof target === 'number') {
+        navigate(target);
+        return;
+      }
+      navigate(target);
       return;
     }
 

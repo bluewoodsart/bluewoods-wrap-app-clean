@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from './FileUpload';
 import { supabase } from '@/lib/supabase';
-import { getStoredRepSlug } from '@/lib/repTracking';
+import { getRepAwareBackTarget, getStoredRepSlug } from '@/lib/repTracking';
 import { getRepAttributionForSlug } from '@/lib/salesReps';
 import { UploadedFile } from '@/types';
 
@@ -66,6 +66,15 @@ const SignageQuoteFlow: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const handleBack = () => {
+    const target = getRepAwareBackTarget();
+    if (typeof target === 'number') {
+      navigate(target);
+      return;
+    }
+    navigate(target);
+  };
 
   const updateContact = (key: keyof ContactInfo, value: string) => {
     setContactInfo((current) => ({ ...current, [key]: value }));
@@ -229,7 +238,7 @@ const SignageQuoteFlow: React.FC = () => {
           type="button"
           variant="ghost"
           className="mb-4 text-slate-700"
-          onClick={() => navigate('/')}
+          onClick={handleBack}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back

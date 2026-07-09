@@ -19,3 +19,23 @@ export const getStoredRepSlug = () => {
   if (typeof window === 'undefined') return '';
   return sanitizeRepSlug(window.sessionStorage.getItem(REP_SLUG_STORAGE_KEY));
 };
+
+export const getRepLandingPath = (repSlug?: string | null) => {
+  const sanitizedSlug = sanitizeRepSlug(repSlug || getStoredRepSlug());
+  return sanitizedSlug ? `/${sanitizedSlug}` : '/';
+};
+
+export const getRepAwareBackTarget = () => {
+  if (typeof window === 'undefined') return '/';
+
+  const sameSiteReferrer = document.referrer && (() => {
+    try {
+      return new URL(document.referrer).origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  })();
+
+  if (sameSiteReferrer && window.history.length > 1) return -1;
+  return getRepLandingPath();
+};

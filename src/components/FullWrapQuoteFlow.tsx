@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from './FileUpload';
 import { supabase } from '@/lib/supabase';
-import { getStoredRepSlug } from '@/lib/repTracking';
+import { getRepAwareBackTarget, getStoredRepSlug } from '@/lib/repTracking';
 import { getRepAttributionForSlug } from '@/lib/salesReps';
 import {
   bodyStyleOptions,
@@ -109,6 +109,15 @@ const FullWrapQuoteFlow: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const handleBack = () => {
+    const target = getRepAwareBackTarget();
+    if (typeof target === 'number') {
+      navigate(target);
+      return;
+    }
+    navigate(target);
+  };
 
   const uploadedFiles = useMemo(
     () =>
@@ -319,7 +328,7 @@ const FullWrapQuoteFlow: React.FC = () => {
           type="button"
           variant="ghost"
           className="mb-4 text-slate-700"
-          onClick={() => navigate('/')}
+          onClick={handleBack}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back

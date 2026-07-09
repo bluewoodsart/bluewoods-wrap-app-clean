@@ -1,14 +1,23 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerFlow from '@/components/CustomerFlow';
+import { getRepAwareBackTarget } from '@/lib/repTracking';
 
 const FullProject: React.FC = () => {
   const navigate = useNavigate();
+  const handleBack = () => {
+    const target = getRepAwareBackTarget();
+    if (typeof target === 'number') {
+      navigate(target);
+      return;
+    }
+    navigate(target);
+  };
 
   return (
     <CustomerFlow
       flowType="vehicle-wrap"
-      onBack={() => navigate('/')}
+      onBack={handleBack}
     />
   );
 };

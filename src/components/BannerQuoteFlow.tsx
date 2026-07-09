@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from './FileUpload';
 import { supabase } from '@/lib/supabase';
-import { getStoredRepSlug } from '@/lib/repTracking';
+import { getRepAwareBackTarget, getStoredRepSlug } from '@/lib/repTracking';
 import { getRepAttributionForSlug } from '@/lib/salesReps';
 import { stringToUuid } from '@/lib/utils';
 import { UploadedFile } from '@/types';
@@ -174,6 +174,15 @@ const BannerQuoteFlow: React.FC = () => {
   const [isGeneratingDesign, setIsGeneratingDesign] = useState(false);
   const [isSavingDesignPreview, setIsSavingDesignPreview] = useState(false);
   const aiPromptRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const handleBack = () => {
+    const target = getRepAwareBackTarget();
+    if (typeof target === 'number') {
+      navigate(target);
+      return;
+    }
+    navigate(target);
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -474,7 +483,7 @@ const BannerQuoteFlow: React.FC = () => {
           type="button"
           variant="ghost"
           className="mb-4 text-slate-700"
-          onClick={() => navigate('/')}
+          onClick={handleBack}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
