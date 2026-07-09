@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle2, ExternalLink, Plus, RefreshCw, Search, Users, XCircle } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Mail, Plus, RefreshCw, Search, Users, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -102,6 +102,9 @@ const RepOnboardingPromptCard = () => {
   const [savingRep, setSavingRep] = useState(false);
   const [repCreateMessage, setRepCreateMessage] = useState('');
   const [repCreateError, setRepCreateError] = useState('');
+  const [emailingRepId, setEmailingRepId] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const loadPageIdeas = async () => {
     setPageIdeaError('');
@@ -248,6 +251,37 @@ const RepOnboardingPromptCard = () => {
     if (createdRep?.id) setSelectedRepId(createdRep.id);
   };
 
+  const sendOnboardingEmail = async (rep: RepOnboardingRow) => {
+    setEmailingRepId(rep.id);
+    setEmailMessage('');
+    setEmailError('');
+
+    try {
+      const response = await fetch('/api/send-rep-onboarding-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          repSlug: getRepSlug(rep),
+          repName: getRepName(rep),
+          repEmail: rep.email
+        })
+      });
+
+      if (!response.ok) {
+        const responseBody = await response.text();
+        throw new Error(responseBody || 'Onboarding email failed.');
+      }
+
+      setEmailMessage(`Onboarding email sent to ${getRepName(rep)}.`);
+    } catch (error) {
+      setEmailError(error instanceof Error ? error.message : 'Onboarding email failed.');
+    } finally {
+      setEmailingRepId('');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -303,10 +337,29 @@ const RepOnboardingPromptCard = () => {
                     Public Page
                   </a>
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void sendOnboardingEmail(selectedRep)}
+                  disabled={emailingRepId === selectedRep.id}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  {emailingRepId === selectedRep.id ? 'Sending...' : 'Send Onboarding Email'}
+                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
+            {emailMessage && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
+                {emailMessage}
+              </div>
+            )}
+            {emailError && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                {emailError}
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-4">
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-semibold uppercase text-slate-500">Leads</p>
@@ -663,11 +716,30 @@ const RepOnboardingPromptCard = () => {
                       Public Page
                     </a>
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void sendOnboardingEmail(selectedRep)}
+                    disabled={emailingRepId === selectedRep.id}
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    {emailingRepId === selectedRep.id ? 'Sending...' : 'Onboarding Email'}
+                  </Button>
                 </div>
               )}
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
+            {emailMessage && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
+                {emailMessage}
+              </div>
+            )}
+            {emailError && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                {emailError}
+              </div>
+            )}
             {selectedRep ? (
               <>
                 <div className="grid gap-3 sm:grid-cols-4">
