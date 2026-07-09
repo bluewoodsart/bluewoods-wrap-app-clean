@@ -10,7 +10,7 @@ interface BrandChannelLandingProps {
 const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
   const isJazzyChannel = channel.slug === 'jazzy';
   const isTrapstarChannel = channel.slug === 'trapstar';
-  const isJarrelChannel = channel.slug === 'jarrel';
+  const isRepHeroChannel = channel.slug === 'jarrel' || channel.slug === 'anthony';
 
   if (isTrapstarChannel) {
     return (
@@ -108,7 +108,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
     );
   }
 
-  if (isJarrelChannel) {
+  if (isRepHeroChannel) {
     return (
       <div className="min-h-[100svh] overflow-x-hidden bg-neutral-950 text-white">
         <header className="absolute left-0 right-0 top-0 z-20 mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-5">
@@ -139,7 +139,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
             <div className="relative z-10 mx-auto grid w-full max-w-7xl items-end gap-6 lg:grid-cols-[1.02fr_0.72fr]">
               <div className="max-w-3xl pb-2 md:pb-8">
                 <p className="text-xs font-black uppercase tracking-[0.28em] text-red-200 md:text-sm">
-                  Atlanta Music Business Wraps
+                  {channel.eyebrow}
                 </p>
                 <h1 className="mt-4 max-w-4xl break-words text-5xl font-black leading-[0.95] text-white drop-shadow-2xl md:mt-5 md:text-7xl">
                   SlapWrapz

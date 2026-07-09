@@ -100,6 +100,31 @@ export const brandChannels: Record<string, BrandChannel> = {
       'Banner and print support for releases or events',
       'Follow-up connected to Jarrel'
     ]
+  },
+  anthony: {
+    slug: 'anthony',
+    name: 'SlapWrapz',
+    eyebrow: 'Anthony Rep Portal',
+    headerSubtitle: 'Powered by Blue Woods Brands',
+    parentBrand: 'Powered by SlapWrapz',
+    poweredBy: '',
+    repSlug: 'anthony',
+    wrapQuotePath: '/wraps?rep=anthony',
+    bannerQuotePath: '/banners?rep=anthony',
+    fullProjectPath: '/wraps/full?rep=anthony',
+    heroImagePath: '/slapwrapz/vehicle-wraps-hero-no-qr.png',
+    headline: 'Vehicle wraps, fleet graphics, and brand visibility built to get business noticed.',
+    description:
+      'Anthony connects businesses with SlapWrapz wrap quotes, banner support, and follow-up through Blue Woods Brands production.',
+    cardEyebrow: 'Direct Quote Path',
+    cardHeadline: 'Start with Anthony',
+    cardDescription:
+      'Send the vehicle, banner, or brand visibility idea and keep the request connected from first click to follow-up.',
+    featureBullets: [
+      'Vehicle wrap and fleet graphics requests',
+      'Banner and print quote support',
+      'Follow-up connected to Anthony'
+    ]
   }
 };
 

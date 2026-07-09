@@ -31,6 +31,7 @@ const queryClient = new QueryClient();
 const trapstarChannel = getBrandChannel('trapstar');
 const jazzyChannel = getBrandChannel('jazzy');
 const jarrelChannel = getBrandChannel('jarrel');
+const anthonyChannel = getBrandChannel('anthony');
 
 const RootRoute = ({ isPreviewMode }: { isPreviewMode: boolean }) => {
   return <Index isPreviewMode={isPreviewMode} />;
@@ -90,6 +91,7 @@ const App = () => {
               <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
               <Route path="/jazzy" element={<BrandChannelLanding channel={jazzyChannel} />} />
               <Route path="/jarrel" element={<BrandChannelLanding channel={jarrelChannel} />} />
+              <Route path="/anthony" element={<BrandChannelLanding channel={anthonyChannel} />} />
               <Route path="/wraps" element={<ShortIntakeFlow />} />
               <Route path="/wraps/full" element={<FullWrapQuoteFlow />} />
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />
@@ -141,6 +143,22 @@ const App = () => {
                     heading="Trapstar Portal Login"
                     backLinkLabel="Back to Trapstar"
                     backLinkTarget="/trapstar"
+                    allowAccountSwitch
+                  />
+                )}
+              />
+              <Route
+                path="/anthony/login"
+                element={(
+                  <LoginPlaceholder
+                    defaultRedirect="/rep"
+                    brandName="SlapWrapz"
+                    brandSubtitle="Powered by Blue Woods Brands"
+                    uppercaseBrandSubtitle={false}
+                    eyebrow="Anthony Portal"
+                    heading="Anthony Portal Login"
+                    backLinkLabel="Back to Anthony"
+                    backLinkTarget="/anthony"
                     allowAccountSwitch
                   />
                 )}
