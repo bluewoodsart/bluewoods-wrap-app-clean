@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { ArrowDownRight, CalendarDays, Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw } from 'lucide-react';
@@ -107,6 +107,12 @@ interface RepPageIdeaRow {
   created_at: string;
 }
 
+interface MeetingCalendarEvent {
+  title: string;
+  dueDate: string;
+  details: string;
+}
+
 const formatDate = (value: string | null | undefined) => {
   if (!value) return '-';
 
@@ -127,6 +133,47 @@ const formatDueDate = (value: string | null | undefined) => {
     day: 'numeric',
     year: 'numeric'
   }).format(new Date(`${value}T00:00:00`));
+};
+
+const getTodayInputValue = () => new Date().toISOString().slice(0, 10);
+
+const getCalendarDateStamp = (value: string) => value.replace(/-/g, '');
+
+const getNextCalendarDateStamp = (value: string) => {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10).replace(/-/g, '');
+};
+
+const buildGoogleCalendarHref = (event: MeetingCalendarEvent) =>
+  `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${getCalendarDateStamp(event.dueDate)}/${getNextCalendarDateStamp(event.dueDate)}&details=${encodeURIComponent(event.details)}`;
+
+const downloadCalendarFile = (event: MeetingCalendarEvent) => {
+  const escapeIcsValue = (value: string) =>
+    value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//SlapWrapz//Rep Follow Up//EN',
+    'BEGIN:VEVENT',
+    `UID:${Date.now()}@slapwrapz.com`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}`,
+    `DTSTART;VALUE=DATE:${getCalendarDateStamp(event.dueDate)}`,
+    `DTEND;VALUE=DATE:${getNextCalendarDateStamp(event.dueDate)}`,
+    `SUMMARY:${escapeIcsValue(event.title)}`,
+    `DESCRIPTION:${escapeIcsValue(event.details)}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'slapwrapz-follow-up.ics';
+  anchor.click();
+  URL.revokeObjectURL(url);
 };
 
 const formatLabel = (value: string | null | undefined) =>
@@ -403,6 +450,8 @@ const RepPortal = () => {
   const [meetingMessage, setMeetingMessage] = useState('');
   const [meetingError, setMeetingError] = useState('');
   const [meetingSuccessOpen, setMeetingSuccessOpen] = useState(false);
+  const [lastMeetingCalendarEvent, setLastMeetingCalendarEvent] = useState<MeetingCalendarEvent | null>(null);
+  const meetingDueDateInputRef = useRef<HTMLInputElement | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -650,6 +699,21 @@ const RepPortal = () => {
       return;
     }
 
+    const calendarEvent = {
+      title: `SlapWrapz follow-up: ${trimmedNextStep}`,
+      dueDate: meetingDueDate,
+      details: [
+        `Customer: ${selectedQuote.customer_name}`,
+        `Project: ${getProjectTitle(selectedQuote) || getProductLabel(selectedQuote)}`,
+        `Quote: ${selectedQuote.quote_id || selectedQuote.id}`,
+        `Next step: ${trimmedNextStep}`,
+        '',
+        'Meeting notes:',
+        trimmedNotes
+      ].join('\n')
+    };
+    setLastMeetingCalendarEvent(calendarEvent);
+
     const emailResponse = await fetch('/api/send-rep-meeting-follow-up-email', {
       method: 'POST',
       headers: {
@@ -672,8 +736,13 @@ const RepPortal = () => {
     setSavingMeeting(false);
 
     if (!emailResponse.ok) {
-      setMeetingError(typeof emailResult.error === 'string' ? emailResult.error : 'Meeting saved, but email notifications failed.');
-      setMeetingMessage('');
+      setMeetingNotes('');
+      setMeetingNextStep('');
+      setMeetingDueDate('');
+      setMeetingMessage('Meeting saved and next follow-up added.');
+      setMeetingError(typeof emailResult.error === 'string' ? emailResult.error : 'Email notifications failed, but the meeting was saved.');
+      setMeetingSuccessOpen(true);
+      await refreshAssignedQuotes();
       return;
     }
 
@@ -1315,6 +1384,7 @@ const RepPortal = () => {
                     onChange={(event) => {
                       setMeetingNotes(event.target.value);
                       setMeetingError('');
+                      setMeetingMessage('');
                     }}
                     placeholder="Example: I met with the customer. They want a full wrap, budget is tight, and they care most about music promo visibility."
                     className="min-h-[132px] bg-white"
@@ -1330,6 +1400,7 @@ const RepPortal = () => {
                       onChange={(event) => {
                         setMeetingNextStep(event.target.value);
                         setMeetingError('');
+                        setMeetingMessage('');
                       }}
                       placeholder="Example: Call with quote price"
                       className="bg-white"
@@ -1339,18 +1410,49 @@ const RepPortal = () => {
                     <label className="block text-xs font-semibold uppercase text-blue-900" htmlFor="meeting-due-date">
                       Date required
                     </label>
-                    <Input
-                      id="meeting-due-date"
-                      type="date"
-                      value={meetingDueDate}
-                      onChange={(event) => {
-                        setMeetingDueDate(event.target.value);
-                        setMeetingError('');
-                      }}
-                      className="bg-white"
-                      aria-label="Meeting next step due date"
-                      required
-                    />
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <Input
+                        ref={meetingDueDateInputRef}
+                        id="meeting-due-date"
+                        type="date"
+                        min={getTodayInputValue()}
+                        value={meetingDueDate}
+                        onChange={(event) => {
+                          setMeetingDueDate(event.target.value);
+                          setMeetingError('');
+                          setMeetingMessage('');
+                        }}
+                        className="bg-white"
+                        aria-label="Meeting next step due date"
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          const dateInput = meetingDueDateInputRef.current;
+                          if (dateInput && 'showPicker' in dateInput) {
+                            dateInput.showPicker();
+                            return;
+                          }
+                          dateInput?.focus();
+                        }}
+                      >
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Open Calendar
+                      </Button>
+                    </div>
+                    {(meetingError || meetingMessage) && (
+                      <div
+                        className={`rounded-md border p-3 text-sm font-medium ${
+                          meetingError
+                            ? 'border-red-200 bg-red-50 text-red-700'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {meetingError || meetingMessage}
+                      </div>
+                    )}
                     <Button onClick={saveCustomerMeeting} disabled={savingMeeting} className="w-full">
                       <MessageSquare className="mr-2 h-4 w-4" />
                       {savingMeeting ? 'Saving...' : 'Save Meeting'}
@@ -1374,8 +1476,6 @@ const RepPortal = () => {
                     </div>
                   </div>
                 </div>
-                {meetingMessage && <p className="mt-3 text-sm font-medium text-emerald-700">{meetingMessage}</p>}
-                {meetingError && <p className="mt-3 text-sm font-medium text-red-700">{meetingError}</p>}
               </section>
 
               <section>
@@ -1601,6 +1701,20 @@ const RepPortal = () => {
               Now look below at your timeline and push it to completion. Never forget again:
               use the next action, due date, follow-up tasks, and timeline until the job is finished.
             </p>
+            {lastMeetingCalendarEvent && (
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <Button variant="outline" asChild>
+                  <a href={buildGoogleCalendarHref(lastMeetingCalendarEvent)} target="_blank" rel="noreferrer">
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Google Calendar
+                  </a>
+                </Button>
+                <Button variant="outline" onClick={() => downloadCalendarFile(lastMeetingCalendarEvent)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Calendar File
+                </Button>
+              </div>
+            )}
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <Button onClick={() => setMeetingSuccessOpen(false)} className="flex-1">
                 Look at Timeline
