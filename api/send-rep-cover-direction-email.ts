@@ -1,8 +1,8 @@
 import { request } from 'node:https';
 
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
-const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
-const REVIEW_EMAIL = 'quotes@slapwrapz.com';
+const FROM_EMAIL = process.env.SLAPWRAPZ_FROM_EMAIL?.trim() || 'SlapWrapz <quotes@slapwrapz.com>';
+const REVIEW_EMAIL = process.env.REP_COVER_REVIEW_EMAIL?.trim() || 'slapwrapzquotes@gmail.com';
 
 interface ApiRequest {
   method?: string;
@@ -114,7 +114,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(400).json({ error: 'Please add more page direction before submitting.' });
   }
 
-  const subject = `${repName} cover page direction submission`;
+  const subject = `[Rep Page Idea Approval] ${repName} cover direction`;
   const htmlDirection = escapeHtml(direction).replace(/\n/g, '<br />');
   const html = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
@@ -150,7 +150,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     console.log('rep cover direction email attempt started:', {
       repSlug,
-      repEmailDomain: repEmail ? getEmailDomain(repEmail) : 'none'
+      repEmailDomain: repEmail ? getEmailDomain(repEmail) : 'none',
+      reviewEmailDomain: getEmailDomain(REVIEW_EMAIL)
     });
     await sendEmail(apiKey, {
       from: FROM_EMAIL,
