@@ -113,15 +113,16 @@ export const brandChannels: Record<string, BrandChannel> = {
     bannerQuotePath: '/banners?rep=anthony',
     fullProjectPath: '/wraps/full?rep=anthony',
     heroImagePath: '/slapwrapz/vehicle-wraps-hero-no-qr.png',
-    headline: 'Banners first, then vehicle graphics for hospitality projects that need to look organized fast.',
+    headline: 'Banners, window graphics, and vehicle visibility for hospitality projects that need to look organized fast.',
     description:
-      'Anthony connects hotel, restaurant, retail, and renovation teams with SlapWrapz banner quotes, site graphics, fleet lettering, and wrap follow-up through Blue Woods Brands production.',
+      'Anthony connects hotel, restaurant, retail, and renovation teams with SlapWrapz banner quotes, large window graphics, site graphics, fleet lettering, and wrap follow-up through Blue Woods Brands production.',
     cardEyebrow: 'Banner Quote Space',
     cardHeadline: 'Start with the banner',
     cardDescription:
       'Send the property, project, opening, event, or renovation message and keep the quote connected from first click to follow-up.',
     featureBullets: [
       'Hospitality, restaurant, retail, and property banners',
+      'Large window graphics, decals, and storefront visibility',
       'Temporary renovation, rebrand, and wayfinding signage',
       'Vehicle graphics follow-up connected to Anthony'
     ]

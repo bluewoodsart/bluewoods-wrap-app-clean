@@ -127,7 +127,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
             </div>
           </Link>
           <Button asChild size="sm" className="h-9 shrink-0 border border-[#d6c08a]/50 bg-[#d6c08a] px-3 text-xs font-black text-[#17140d] hover:bg-[#ead79f] md:text-sm">
-            <Link to="/rep">Rep Portal</Link>
+            <Link to="/anthony/login">Log In</Link>
           </Button>
         </header>
 
@@ -154,7 +154,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                   Anthony helps hotel, restaurant, retail, and renovation teams turn project visibility into clean banners, site graphics, fleet lettering, and wrap quotes.
                 </p>
 
-                <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                <div className="mt-7 grid gap-3 sm:grid-cols-3">
                   <Button asChild className="h-12 bg-[#d6c08a] px-6 text-base font-black text-[#17140d] hover:bg-[#ead79f]">
                     <Link to={channel.bannerQuotePath || channel.wrapQuotePath}>
                       Start a Banner Quote
@@ -163,7 +163,16 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                   </Button>
                   <Button
                     asChild
-                    className="h-12 border border-white/25 bg-white/10 px-6 text-base font-black text-white hover:bg-white/20"
+                    className="h-12 border border-[#d6c08a]/35 bg-[#d6c08a]/15 px-5 text-sm font-black text-[#f1e4bd] hover:bg-[#d6c08a]/25 md:text-base"
+                  >
+                    <Link to="/signs?rep=anthony">
+                      Window Graphics Quote
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    className="h-12 border border-white/25 bg-white/10 px-5 text-sm font-black text-white hover:bg-white/20 md:text-base"
                   >
                     <Link to={channel.wrapQuotePath}>
                       Get a Wrap Quote
@@ -190,6 +199,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                   <div className="mt-6 grid gap-3 text-sm text-neutral-100">
                     {[
                       'Hotel, restaurant, retail, and property improvement banners',
+                      'Large window graphics, decals, and storefront visibility',
                       'Temporary construction, renovation, and rebrand signage',
                       'Vehicle graphics and fleet follow-up connected to Anthony'
                     ].map((bullet) => (
@@ -200,6 +210,12 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                     ))}
                   </div>
                   <Button asChild className="mt-6 h-11 w-full bg-white text-sm font-black text-[#17140d] hover:bg-[#f1e4bd]">
+                    <Link to="/signs?rep=anthony">
+                      Open Window Graphics Quote
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button asChild className="mt-3 h-11 w-full border border-white/20 bg-white/10 text-sm font-black text-white hover:bg-white/20">
                     <Link to={channel.bannerQuotePath || channel.wrapQuotePath}>
                       Open Banner Quote
                       <ArrowRight className="ml-2 h-4 w-4" />
