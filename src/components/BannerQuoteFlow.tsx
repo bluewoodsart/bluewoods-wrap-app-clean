@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, UploadCloud } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Pencil, Save, UploadCloud, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,32 @@ interface BannerDetails {
 const createQuoteId = () =>
   `banner_${Date.now()}_${Math.random().toString(36).substring(2)}`;
 
+const escapeSvgText = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+const getPreviewPalette = (colors: string) => {
+  const normalizedColors = colors.toLowerCase();
+
+  if (normalizedColors.includes('gold') || normalizedColors.includes('charcoal')) {
+    return { background: '#17140d', accent: '#d6c08a', secondary: '#f1e4bd' };
+  }
+  if (normalizedColors.includes('blue')) {
+    return { background: '#0f2f57', accent: '#38bdf8', secondary: '#dbeafe' };
+  }
+  if (normalizedColors.includes('green')) {
+    return { background: '#123326', accent: '#34d399', secondary: '#dcfce7' };
+  }
+  if (normalizedColors.includes('red')) {
+    return { background: '#3b1111', accent: '#f87171', secondary: '#fee2e2' };
+  }
+
+  return { background: '#111827', accent: '#60a5fa', secondary: '#f8fafc' };
+};
+
 const BannerQuoteFlow: React.FC = () => {
   const navigate = useNavigate();
   const [quoteId] = useState(createQuoteId);
@@ -78,6 +104,9 @@ const BannerQuoteFlow: React.FC = () => {
   });
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [referenceFiles, setReferenceFiles] = useState<UploadedFile[]>([]);
+  const [designPreviewUrl, setDesignPreviewUrl] = useState('');
+  const [designPreviewSaved, setDesignPreviewSaved] = useState(false);
+  const [isGeneratingDesign, setIsGeneratingDesign] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -107,6 +136,47 @@ const BannerQuoteFlow: React.FC = () => {
 
     setError('');
     return true;
+  };
+
+  const generateDesignPreview = () => {
+    setIsGeneratingDesign(true);
+    setDesignPreviewSaved(false);
+
+    window.setTimeout(() => {
+      const palette = getPreviewPalette(banner.brandColors);
+      const headline = escapeSvgText((banner.bannerText || contactInfo.businessName || 'COMING SOON').trim().slice(0, 64));
+      const promptLine = escapeSvgText((banner.aiDesignPrompt || 'Clean, readable banner design with strong business visibility.').trim().slice(0, 130));
+      const placementLine = escapeSvgText((banner.placementNotes || 'Placement reference will guide scale, spacing, and proof direction.').trim().slice(0, 110));
+      const businessName = escapeSvgText((contactInfo.businessName || 'SlapWrapz Banner Concept').trim().slice(0, 54));
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="${palette.background}"/>
+              <stop offset="1" stop-color="#020617"/>
+            </linearGradient>
+            <radialGradient id="glow" cx="78%" cy="12%" r="70%">
+              <stop offset="0" stop-color="${palette.accent}" stop-opacity="0.42"/>
+              <stop offset="1" stop-color="${palette.accent}" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="1200" height="520" fill="url(#bg)"/>
+          <rect width="1200" height="520" fill="url(#glow)"/>
+          <rect x="44" y="44" width="1112" height="432" rx="28" fill="none" stroke="${palette.accent}" stroke-width="6"/>
+          <rect x="86" y="82" width="206" height="54" rx="27" fill="${palette.accent}"/>
+          <text x="189" y="118" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="800" fill="${palette.background}">BANNER PROOF</text>
+          <text x="86" y="222" font-family="Arial, sans-serif" font-size="72" font-weight="900" fill="${palette.secondary}">${headline}</text>
+          <text x="88" y="294" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="${palette.accent}">${businessName}</text>
+          <text x="88" y="358" font-family="Arial, sans-serif" font-size="25" fill="#e5e7eb">${promptLine}</text>
+          <text x="88" y="410" font-family="Arial, sans-serif" font-size="22" fill="#cbd5e1">${placementLine}</text>
+          <path d="M875 136 C970 172 1032 246 1114 380" fill="none" stroke="${palette.accent}" stroke-width="18" stroke-linecap="round" opacity="0.65"/>
+          <circle cx="1016" cy="206" r="74" fill="${palette.accent}" opacity="0.22"/>
+        </svg>
+      `;
+
+      setDesignPreviewUrl(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+      setIsGeneratingDesign(false);
+    }, 900);
   };
 
   const sendQuoteEmails = async (
@@ -165,7 +235,12 @@ const BannerQuoteFlow: React.FC = () => {
       companyName: contactInfo.businessName,
       repSlug,
       uploadedFileCount: allUploadedFiles.length,
-      banner
+      banner: {
+        ...banner,
+        aiDesignPreviewSaved: designPreviewSaved,
+        aiDesignPreviewUrl: designPreviewSaved ? designPreviewUrl : '',
+        aiDesignPreviewType: designPreviewUrl ? 'instant_banner_preview' : ''
+      }
     };
 
     const { error: finalizeError } = await supabase
@@ -440,6 +515,60 @@ const BannerQuoteFlow: React.FC = () => {
                 <p className="mt-2 text-sm text-slate-500">
                   Tell us the style, audience, colors, message, and feeling. This gives the design team a stronger starting point.
                 </p>
+                <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-950">Design Preview</h3>
+                      <p className="text-sm text-slate-600">
+                        Generate a quick first-look banner concept from the prompt, text, colors, and placement notes.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={generateDesignPreview}
+                      disabled={isGeneratingDesign}
+                      className="bg-blue-700 text-white hover:bg-blue-600"
+                    >
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      {isGeneratingDesign ? 'Designing...' : 'Generate Design Preview'}
+                    </Button>
+                  </div>
+
+                  {designPreviewUrl && (
+                    <div className="mt-4 space-y-3">
+                      <div className="overflow-hidden rounded-xl border border-blue-200 bg-white p-2 shadow-sm">
+                        <img
+                          src={designPreviewUrl}
+                          alt="Generated banner design preview"
+                          className="h-auto w-full rounded-lg"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          type="button"
+                          onClick={() => setDesignPreviewSaved(true)}
+                          className="bg-emerald-600 text-white hover:bg-emerald-500"
+                        >
+                          <Save className="mr-2 h-4 w-4" />
+                          {designPreviewSaved ? 'Preview Saved' : 'Save Preview'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setDesignPreviewSaved(false)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit Prompt
+                        </Button>
+                      </div>
+                      <p className={`text-sm font-medium ${designPreviewSaved ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {designPreviewSaved
+                          ? 'Saved with this quote. The rep can use this preview with the reference photos to prompt the proof.'
+                          : 'Review the preview. Save it if this is the direction, or edit the prompt and generate again.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <Label htmlFor="banner-text">Banner Text</Label>
