@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, ExternalLink, RefreshCw, Search, Users, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,8 +83,10 @@ const formatStatus = (status: string) =>
   status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 const RepOnboardingPromptCard = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [reps, setReps] = useState<RepOnboardingRow[]>([]);
   const [selectedRepId, setSelectedRepId] = useState('');
+  const [detailRepSlug, setDetailRepSlug] = useState(searchParams.get('rep') || '');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -124,9 +127,14 @@ const RepOnboardingPromptCard = () => {
     }
 
     const nextReps = (data ?? []) as RepOnboardingRow[];
+    const requestedRepSlug = searchParams.get('rep') || detailRepSlug;
     setReps(nextReps);
     setSelectedRepId((current) => {
       if (current && nextReps.some((rep) => rep.id === current)) return current;
+      const requestedRep = requestedRepSlug
+        ? nextReps.find((rep) => getRepSlug(rep) === requestedRepSlug)
+        : null;
+      if (requestedRep) return requestedRep.id;
       return nextReps.find((rep) => rep.rep_slug === 'jarrel')?.id || nextReps[0]?.id || '';
     });
     void loadPageIdeas();
@@ -158,6 +166,18 @@ const RepOnboardingPromptCard = () => {
   const selectedPendingIdeas = selectedRepIdeas.filter((idea) => idea.status === 'pending_review');
   const allPendingIdeas = pageIdeas.filter((idea) => idea.status === 'pending_review');
   const visibleIdeas = selectedPendingIdeas.length > 0 ? selectedPendingIdeas : allPendingIdeas.slice(0, 5);
+
+  const openRepDetail = (rep: RepOnboardingRow) => {
+    const repSlug = getRepSlug(rep);
+    setSelectedRepId(rep.id);
+    setDetailRepSlug(repSlug);
+    setSearchParams({ rep: repSlug });
+  };
+
+  const closeRepDetail = () => {
+    setDetailRepSlug('');
+    setSearchParams({});
+  };
 
   const updateIdeaStatus = async (idea: RepPageIdeaReviewRow, status: 'approved' | 'rejected') => {
     setUpdatingIdeaId(idea.id);
@@ -213,6 +233,137 @@ const RepOnboardingPromptCard = () => {
           <Button onClick={() => void loadReps()}>Try Again</Button>
         </CardContent>
       </Card>
+    );
+  }
+
+  if (detailRepSlug && selectedRep) {
+    return (
+      <div className="space-y-5">
+        <Button variant="outline" onClick={closeRepDetail}>
+          Back to Rep Directory
+        </Button>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">Rep Admin View</p>
+                <CardTitle className="mt-1 text-2xl">{getRepName(selectedRep)}</CardTitle>
+                <p className="mt-1 text-sm text-slate-500">
+                  {formatRole(selectedRep.role)} / {getRepSlug(selectedRep)} / {selectedRep.email} / {selectedRep.is_active ? 'Active' : 'Paused'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <a href="/rep" target="_blank" rel="noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Portal
+                  </a>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`/${getRepSlug(selectedRep)}`} target="_blank" rel="noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Public Page
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">Leads</p>
+                <p className="mt-1 text-xl font-bold text-slate-950">{selectedRep.assigned_quote_count}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">Page Ideas</p>
+                <p className="mt-1 text-xl font-bold text-slate-950">{selectedRep.page_idea_count}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">Built Pages</p>
+                <p className="mt-1 text-xl font-bold text-slate-950">{selectedRep.built_page_count}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">Team</p>
+                <p className="mt-1 text-xl font-bold text-slate-950">
+                  {selectedRep.role === 'rep_manager'
+                    ? `${selectedRep.child_rep_count}/${selectedRep.max_child_reps || 5}`
+                    : selectedRep.manager_display_name || '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+              This view is only for {getRepName(selectedRep)}. Use it to review their page ideas, public page, portal, and attribution path.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <CardTitle>{getRepName(selectedRep)} Page Ideas</CardTitle>
+                <p className="mt-1 text-sm text-slate-600">
+                  Approve or reject this rep's submitted page ideas before asking Codex to build anything live.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => void loadPageIdeas()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh Ideas
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {pageIdeaMessage && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
+                {pageIdeaMessage}
+              </div>
+            )}
+            {pageIdeaError && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                {pageIdeaError}
+              </div>
+            )}
+            {selectedRepIdeas.length === 0 ? (
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                No page ideas have been submitted by this rep yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedRepIdeas.map((idea) => (
+                  <div key={idea.id} className="rounded-md border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">
+                          {idea.page_title || idea.category || 'Untitled page idea'}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">{formatDate(idea.created_at)}</p>
+                      </div>
+                      <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${getIdeaStatusClassName(idea.status)}`}>
+                        {formatStatus(idea.status)}
+                      </span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{idea.idea_text}</p>
+                    {idea.status === 'pending_review' && (
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <Button size="sm" onClick={() => void updateIdeaStatus(idea, 'approved')} disabled={updatingIdeaId === idea.id}>
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => void updateIdeaStatus(idea, 'rejected')} disabled={updatingIdeaId === idea.id}>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -362,7 +513,7 @@ const RepOnboardingPromptCard = () => {
                       key={rep.id}
                       type="button"
                       onClick={() => {
-                        setSelectedRepId(rep.id);
+                        openRepDetail(rep);
                       }}
                       className={`w-full rounded-md border p-3 text-left transition ${
                         isSelected
