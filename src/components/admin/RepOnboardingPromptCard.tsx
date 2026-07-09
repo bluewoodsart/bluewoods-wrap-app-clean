@@ -170,7 +170,11 @@ const RepOnboardingPromptCard = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ repSlug: selectedRep.rep_slug })
+        body: JSON.stringify({
+          repSlug: selectedRep.rep_slug,
+          repName: getRepName(selectedRep),
+          repEmail: selectedRep.email
+        })
       });
 
       const result = await response.json().catch(() => ({}));

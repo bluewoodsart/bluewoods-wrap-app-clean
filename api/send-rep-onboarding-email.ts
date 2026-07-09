@@ -3,9 +3,6 @@ import { request } from 'node:https';
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
 
-const JARREL_EMAIL = 'flukerjarrel@gmail.com';
-const SUBJECT = 'Jarrel cover page direction for BWB Brands onboarding';
-
 interface ApiRequest {
   method?: string;
   body: unknown;
@@ -20,6 +17,8 @@ interface ApiResponse {
 
 interface RepOnboardingBody {
   repSlug?: string | null;
+  repName?: string | null;
+  repEmail?: string | null;
 }
 
 const escapeHtml = (value: unknown) =>
@@ -38,7 +37,17 @@ const parseBody = (body: unknown): RepOnboardingBody => {
   return (body ?? {}) as RepOnboardingBody;
 };
 
-const chatGptPrompt = `I am working with Blue Woods Brands / SlapWrapz to build my custom rep cover page at www.slapwrapz.com/jarrel.
+const normalizeSlug = (value: unknown) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase();
+
+const isValidRepSlug = (value: string) => /^[a-z0-9-]{1,64}$/.test(value);
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const buildChatGptPrompt = (repName: string, repSlug: string) => `I am working with Blue Woods Brands / SlapWrapz to build my custom rep cover page at www.slapwrapz.com/${repSlug}.
+
+The page should say SlapWrapz first. I am the rep path behind the customer follow-up, not a separate wrap brand.
 
 The page should mix my own taste, passions, personality, and audience with vehicle wraps, banners, business visibility, and real results.
 
@@ -49,21 +58,21 @@ Act like a creative director. Ask me up to 10 quick questions about:
 - the energy I want the page to have
 - what I do not want the page to look or sound like
 
-After I answer, turn my answers into a clean creative brief with:
+After I answer, turn my answers into a clean creative brief for ${repName} with:
 1. overall vibe
 2. color direction
 3. image/background ideas
-4. headline ideas
+4. headline ideas that still keep SlapWrapz as the brand
 5. short page copy
 6. words or themes to avoid
 7. the kind of lead/customer this page should attract
 8. anything Blue Woods Brands should know before updating my page`;
 
-const plainText = `Hi Jarrel,
+const buildPlainText = (repName: string, repSlug: string, chatGptPrompt: string) => `Hi ${repName},
 
 During the exciting onboarding process of BWB Brands, we go straight to the results.
 
-Your starter rep page is live at www.slapwrapz.com/jarrel. Now we want the cover page to feel more like you, not just a placeholder.
+Your starter rep page is live at www.slapwrapz.com/${repSlug}. Now we want the cover page to feel more like you, while keeping SlapWrapz as the customer-facing brand.
 
 Here is what we need you to do:
 
@@ -72,7 +81,7 @@ Here is what we need you to do:
 3. Write your idea there, or paste the AI prompt below into ChatGPT, Claude, Gemini, or another AI tool first.
 4. Paste the final creative brief into your rep portal and press Send Page Idea.
 
-BWB will review your direction before anything changes live. Once approved, Codex can use it to update the front end of your Jarrel page.
+BWB will review your direction before anything changes live. Once approved, Codex can use it to recommend the front-end update for your SlapWrapz rep page.
 
 AI PROMPT
 
@@ -136,25 +145,38 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
   }
 
-  const { repSlug } = parseBody(req.body);
-  if (repSlug?.trim().toLowerCase() !== 'jarrel') {
-    return res.status(400).json({ error: 'Unsupported rep onboarding request' });
+  const body = parseBody(req.body);
+  const repSlug = normalizeSlug(body.repSlug);
+  const repName = String(body.repName ?? '').trim() || repSlug || 'Rep';
+  const repEmail = String(body.repEmail ?? '').trim().toLowerCase();
+
+  if (!isValidRepSlug(repSlug)) {
+    return res.status(400).json({ error: 'Invalid rep onboarding request' });
   }
 
+  if (!isValidEmail(repEmail)) {
+    return res.status(400).json({ error: 'Selected rep is missing a valid email' });
+  }
+
+  const chatGptPrompt = buildChatGptPrompt(repName, repSlug);
+  const plainText = buildPlainText(repName, repSlug, chatGptPrompt);
   const htmlPrompt = escapeHtml(chatGptPrompt).replace(/\n/g, '<br />');
+  const safeRepName = escapeHtml(repName);
+  const safeRepSlug = escapeHtml(repSlug);
+  const subject = `${repName} cover page direction for BWB Brands onboarding`;
   const html = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:680px;margin:0 auto;">
         <div style="padding:24px;border-radius:16px;background:#111827;color:#ffffff;">
           <p style="margin:0 0 8px;color:#93c5fd;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">BWB Brands Onboarding</p>
-          <h1 style="margin:0;font-size:25px;">Jarrel, let's shape your cover page.</h1>
+          <h1 style="margin:0;font-size:25px;">${safeRepName}, let's shape your SlapWrapz page.</h1>
           <p style="margin:10px 0 0;color:#d1d5db;">We go straight to the results, then review your direction before any live page update.</p>
         </div>
 
         <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
-          <p style="margin:0 0 14px;">Hi Jarrel,</p>
+          <p style="margin:0 0 14px;">Hi ${safeRepName},</p>
           <p style="margin:0 0 14px;">During the exciting onboarding process of BWB Brands, we go straight to the results.</p>
-          <p style="margin:0 0 14px;">Your starter rep page is live at <a href="https://www.slapwrapz.com/jarrel" style="color:#2563eb;font-weight:700;">www.slapwrapz.com/jarrel</a>. Now we want the cover page to feel more like you, not just a placeholder.</p>
+          <p style="margin:0 0 14px;">Your starter rep page is live at <a href="https://www.slapwrapz.com/${safeRepSlug}" style="color:#2563eb;font-weight:700;">www.slapwrapz.com/${safeRepSlug}</a>. Now we want the cover page to feel more like you, while keeping SlapWrapz as the customer-facing brand.</p>
           <p style="margin:0 0 10px;font-weight:700;">Here is what we need you to do:</p>
           <ol style="margin:0 0 18px;padding-left:20px;">
             <li>Log into your rep portal at <a href="https://www.slapwrapz.com/rep" style="color:#2563eb;font-weight:700;">www.slapwrapz.com/rep</a>.</li>
@@ -162,7 +184,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             <li>Write your idea there, or paste the AI prompt below into ChatGPT, Claude, Gemini, or another AI tool first.</li>
             <li>Paste the final creative brief into your rep portal and press <strong>Send Page Idea</strong>.</li>
           </ol>
-          <p style="margin:0;">BWB will review your direction before anything changes live. Once approved, Codex can use it to update the front end of your Jarrel page.</p>
+          <p style="margin:0;">BWB will review your direction before anything changes live. Once approved, Codex can use it to recommend the front-end update for your SlapWrapz rep page.</p>
         </div>
 
         <div style="margin-top:18px;padding:22px;border:1px solid #dbeafe;border-radius:14px;background:#eff6ff;">
@@ -176,8 +198,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     await sendEmail(apiKey, {
       from: FROM_EMAIL,
-      to: JARREL_EMAIL,
-      subject: SUBJECT,
+      to: repEmail,
+      subject,
       html,
       text: plainText
     });
