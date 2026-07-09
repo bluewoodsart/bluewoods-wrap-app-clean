@@ -25,17 +25,62 @@ export const getRepLandingPath = (repSlug?: string | null) => {
   return sanitizedSlug ? `/${sanitizedSlug}` : '/';
 };
 
-export const getRepAwareBackTarget = () => {
-  if (typeof window === 'undefined') return '/';
+export const getSafeQuoteBackPath = (repSlug?: string | null) =>
+  getRepLandingPath(repSlug);
 
-  const sameSiteReferrer = document.referrer && (() => {
-    try {
-      return new URL(document.referrer).origin === window.location.origin;
-    } catch {
-      return false;
-    }
-  })();
+export const getSafeStartOverPath = (repSlug?: string | null) =>
+  getRepLandingPath(repSlug);
 
-  if (sameSiteReferrer && window.history.length > 1) return -1;
-  return getRepLandingPath();
+export const getRepAwareBackTarget = () => getSafeQuoteBackPath();
+
+const SAFE_REDIRECT_PATHS = [
+  '/',
+  '/admin',
+  '/admin-status',
+  '/rep',
+  '/wraps',
+  '/wraps/full',
+  '/quick-quote',
+  '/full-project',
+  '/banners',
+  '/signs',
+  '/thank-you',
+  '/confirmation',
+  '/trapstar',
+  '/jazzy',
+  '/jarrel',
+  '/anthony'
+];
+
+export const getSafeInternalRedirect = (
+  redirectPath: string | null | undefined,
+  fallback = '/'
+) => {
+  const trimmedPath = (redirectPath || '').trim();
+  if (!trimmedPath || !trimmedPath.startsWith('/') || trimmedPath.startsWith('//')) return fallback;
+
+  const pathOnly = trimmedPath.split('?')[0].split('#')[0];
+  if (SAFE_REDIRECT_PATHS.includes(pathOnly)) return trimmedPath;
+
+  if (/^\/upload-assets\/[A-Za-z0-9_-]+$/.test(pathOnly)) return trimmedPath;
+  if (/^\/proof\/[A-Za-z0-9_-]+$/.test(pathOnly)) return trimmedPath;
+
+  return fallback;
+};
+
+export const getRoleSafePostLoginRedirect = (
+  redirectPath: string | null | undefined,
+  role: string | null | undefined,
+  fallback = '/admin'
+) => {
+  const safeRedirect = getSafeInternalRedirect(redirectPath, fallback);
+
+  if (role === 'sales_rep' || role === 'rep_manager') return '/rep';
+  if (role === 'owner_admin' || role === 'staff') {
+    return safeRedirect === '/admin' || safeRedirect.startsWith('/admin?') || safeRedirect === '/admin-status'
+      ? safeRedirect
+      : '/admin';
+  }
+
+  return safeRedirect;
 };

@@ -25,7 +25,7 @@ import FullWrapQuoteFlow from "./components/FullWrapQuoteFlow";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 import { getBrandChannel } from "@/lib/brandChannels";
-import { getStoredRepSlug } from "@/lib/repTracking";
+import { getSafeStartOverPath, getStoredRepSlug } from "@/lib/repTracking";
 
 const queryClient = new QueryClient();
 const trapstarChannel = getBrandChannel('trapstar');
@@ -171,7 +171,7 @@ const App = () => {
               <Route path="/upload-assets/:token" element={<UploadAssets />} />
               <Route path="/proof/:token" element={<CustomerProofPortal />} />
               <Route path="/thank-you" element={<ThankYou />} />
-              <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = '/'} />} />
+              <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = getSafeStartOverPath()} />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

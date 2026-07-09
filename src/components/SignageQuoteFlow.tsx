@@ -68,12 +68,7 @@ const SignageQuoteFlow: React.FC = () => {
   const [error, setError] = useState('');
 
   const handleBack = () => {
-    const target = getRepAwareBackTarget();
-    if (typeof target === 'number') {
-      navigate(target);
-      return;
-    }
-    navigate(target);
+    navigate(getRepAwareBackTarget());
   };
 
   const updateContact = (key: keyof ContactInfo, value: string) => {

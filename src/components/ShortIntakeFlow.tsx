@@ -169,12 +169,7 @@ const ShortIntakeFlow: React.FC = () => {
 
   const handleBack = () => {
     if (step === 1) {
-      const target = getRepAwareBackTarget();
-      if (typeof target === 'number') {
-        navigate(target);
-        return;
-      }
-      navigate(target);
+      navigate(getRepAwareBackTarget());
       return;
     }
 

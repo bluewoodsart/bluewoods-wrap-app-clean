@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
+import { getRoleSafePostLoginRedirect, getSafeInternalRedirect } from '@/lib/repTracking';
 
 interface LoginPlaceholderProps {
   defaultRedirect?: string;
@@ -37,7 +38,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || defaultRedirect;
+  const redirectPath = getSafeInternalRedirect(searchParams.get('redirect'), defaultRedirect);
   const isRepLoginRedirect = redirectPath === '/rep' || redirectPath.startsWith('/rep?');
   const shouldAllowAccountSwitch = allowAccountSwitch || isRepLoginRedirect;
 
@@ -45,11 +46,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
     const { data } = await supabase.rpc('get_current_admin_user');
     const activeAdminUser = data?.[0] as { role?: string } | undefined;
 
-    if (activeAdminUser?.role === 'sales_rep' || activeAdminUser?.role === 'rep_manager') {
-      return '/rep';
-    }
-
-    return redirectPath;
+    return getRoleSafePostLoginRedirect(redirectPath, activeAdminUser?.role, defaultRedirect);
   };
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Home, Mail, Timer } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getSafeStartOverPath } from '@/lib/repTracking';
 
 interface ThankYouLocationState {
   customerEmail?: string;
@@ -61,7 +62,7 @@ const ThankYou = () => {
 
         <div className="space-y-4">
           <Button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(getSafeStartOverPath())}
             className="bg-blue-700 px-8 text-white hover:bg-blue-800"
             size="lg"
           >

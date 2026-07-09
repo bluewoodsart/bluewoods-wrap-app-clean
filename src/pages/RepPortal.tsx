@@ -857,7 +857,7 @@ const RepPortal = () => {
   }
 
   if (!session) {
-    const redirect = encodeURIComponent(location.pathname);
+    const redirect = encodeURIComponent(`${location.pathname}${location.search}`);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
 

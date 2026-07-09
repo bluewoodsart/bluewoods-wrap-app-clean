@@ -176,12 +176,7 @@ const BannerQuoteFlow: React.FC = () => {
   const aiPromptRef = useRef<HTMLTextAreaElement | null>(null);
 
   const handleBack = () => {
-    const target = getRepAwareBackTarget();
-    if (typeof target === 'number') {
-      navigate(target);
-      return;
-    }
-    navigate(target);
+    navigate(getRepAwareBackTarget());
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');

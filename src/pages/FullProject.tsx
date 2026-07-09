@@ -6,12 +6,7 @@ import { getRepAwareBackTarget } from '@/lib/repTracking';
 const FullProject: React.FC = () => {
   const navigate = useNavigate();
   const handleBack = () => {
-    const target = getRepAwareBackTarget();
-    if (typeof target === 'number') {
-      navigate(target);
-      return;
-    }
-    navigate(target);
+    navigate(getRepAwareBackTarget());
   };
 
   return (
