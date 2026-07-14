@@ -80,6 +80,14 @@ const getIdeaStatusClassName = (status: string) => {
   return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
 };
 
+const getIdeaBuildHint = (idea: RepPageIdeaReviewRow) => {
+  if (idea.status === 'built') return 'Built look is ready to inspect.';
+  if (idea.status === 'approved') return 'Approved for Codex test build and correction.';
+  if (idea.status === 'pending_review') return 'Waiting for admin review.';
+  if (idea.status === 'rejected') return 'Rejected idea. Do not build.';
+  return formatStatus(idea.status);
+};
+
 const formatStatus = (status: string) =>
   status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 
@@ -440,6 +448,36 @@ const RepOnboardingPromptCard = () => {
                       </span>
                     </div>
                     <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{idea.idea_text}</p>
+                    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase text-slate-500">Test Look</p>
+                          <p className="mt-1 text-sm font-medium text-slate-900">{getIdeaBuildHint(idea)}</p>
+                          {idea.page_url && (
+                            <p className="mt-1 truncate text-xs text-slate-500">{idea.page_url}</p>
+                          )}
+                        </div>
+                        {idea.thumbnail_url ? (
+                          <img
+                            src={idea.thumbnail_url}
+                            alt={idea.page_title || 'Page test look'}
+                            className="h-20 w-32 rounded-md border border-slate-200 bg-white object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-medium text-slate-500">
+                            {idea.status === 'approved' ? 'First look next' : 'No preview yet'}
+                          </div>
+                        )}
+                      </div>
+                      {idea.page_url && (
+                        <Button className="mt-3" size="sm" variant="outline" asChild>
+                          <a href={idea.page_url} target="_blank" rel="noreferrer">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Open Test Look
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                     {idea.status === 'pending_review' && (
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                         <Button size="sm" onClick={() => void updateIdeaStatus(idea, 'approved')} disabled={updatingIdeaId === idea.id}>
@@ -535,6 +573,25 @@ const RepOnboardingPromptCard = () => {
                   <p className="line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                     {idea.idea_text}
                   </p>
+                  <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase text-slate-500">Test Look</p>
+                        <p className="mt-1 text-sm font-medium text-slate-900">{getIdeaBuildHint(idea)}</p>
+                      </div>
+                      {idea.thumbnail_url ? (
+                        <img
+                          src={idea.thumbnail_url}
+                          alt={idea.page_title || 'Page test look'}
+                          className="h-16 w-28 rounded-md border border-slate-200 bg-white object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-medium text-slate-500">
+                          {idea.status === 'approved' ? 'Ready to build' : 'No preview'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <Button
                       size="sm"

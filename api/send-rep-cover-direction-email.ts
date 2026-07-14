@@ -105,6 +105,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const repEmail = body.repEmail?.trim() || '';
   const pageUrl = body.pageUrl?.trim() || `https://www.slapwrapz.com/${repSlug}`;
   const direction = body.direction?.trim() || '';
+  const isJarrelTestLane = repSlug === 'jarrel';
 
   if (!isValidRepSlug(repSlug)) {
     return res.status(400).json({ error: 'Invalid rep cover direction request' });
@@ -114,15 +115,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(400).json({ error: 'Please add more page direction before submitting.' });
   }
 
-  const subject = `[Rep Page Idea Approval] ${repName} cover direction`;
+  const subject = isJarrelTestLane
+    ? `[Jarrel Auto-Approved Test] ${repName} page idea`
+    : `[Rep Page Idea Approval] ${repName} cover direction`;
   const htmlDirection = escapeHtml(direction).replace(/\n/g, '<br />');
   const html = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:720px;margin:0 auto;">
         <div style="padding:24px;border-radius:16px;background:#111827;color:#ffffff;">
-          <p style="margin:0 0 8px;color:#93c5fd;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Rep Cover Page Review</p>
-          <h1 style="margin:0;font-size:25px;">${escapeHtml(repName)} submitted cover page direction.</h1>
-          <p style="margin:10px 0 0;color:#d1d5db;">Review this before approving any live front-end change.</p>
+          <p style="margin:0 0 8px;color:#93c5fd;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${isJarrelTestLane ? 'Rep Page Test Lane' : 'Rep Cover Page Review'}</p>
+          <h1 style="margin:0;font-size:25px;">${escapeHtml(repName)} submitted page direction.</h1>
+          <p style="margin:10px 0 0;color:#d1d5db;">${isJarrelTestLane ? 'Jarrel ideas are auto-approved for testing. Build, test, correct, and record the look.' : 'Review this before approving any live front-end change.'}</p>
         </div>
 
         <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
@@ -140,8 +143,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         </div>
 
         <div style="margin-top:18px;padding:18px;border-radius:14px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;">
-          <p style="margin:0;font-weight:700;">Approval step required</p>
-          <p style="margin:8px 0 0;">Codex should summarize this recommendation and wait for owner approval before updating ${escapeHtml(pageUrl)}.</p>
+          <p style="margin:0;font-weight:700;">${isJarrelTestLane ? 'Auto-approved for test build' : 'Approval step required'}</p>
+          <p style="margin:8px 0 0;">${isJarrelTestLane ? `Codex can build/test this Jarrel page idea, make corrections, and show the result before treating it as final. Page path: ${escapeHtml(pageUrl)}.` : `Codex should summarize this recommendation and wait for owner approval before updating ${escapeHtml(pageUrl)}.`}</p>
         </div>
       </div>
     </div>
@@ -159,8 +162,48 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       reply_to: repEmail || undefined,
       subject,
       html,
-      text: `Rep cover page direction submitted.\n\nRep: ${repName} (${repSlug})\nEmail: ${repEmail || 'Not provided'}\nPage: ${pageUrl}\n\nSubmitted direction:\n${direction}\n\nApproval step required before updating the live page.`
+      text: `Rep page direction submitted.\n\nRep: ${repName} (${repSlug})\nEmail: ${repEmail || 'Not provided'}\nPage: ${pageUrl}\n\nSubmitted direction:\n${direction}\n\n${isJarrelTestLane ? 'Jarrel test lane: auto-approved for build/test/correction. Show the look before finalizing.' : 'Approval step required before updating the live page.'}`
     });
+
+    if (isJarrelTestLane && repEmail) {
+      await sendEmail(apiKey, {
+        from: FROM_EMAIL,
+        to: repEmail,
+        reply_to: REVIEW_EMAIL,
+        subject: 'Jarrel page idea received for testing',
+        html: `
+          <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+            <div style="max-width:680px;margin:0 auto;">
+              <div style="padding:22px;border-radius:16px;background:#111827;color:#ffffff;">
+                <p style="margin:0 0 8px;color:#93c5fd;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">SlapWrapz Page Test</p>
+                <h1 style="margin:0;font-size:24px;">We received your page idea.</h1>
+                <p style="margin:10px 0 0;color:#d1d5db;">This one is approved for testing, so BWB can build a first look and make corrections.</p>
+              </div>
+              <div style="margin-top:18px;padding:20px;border-radius:14px;background:#ffffff;border:1px solid #e5e7eb;">
+                <p style="margin:0 0 12px;">Jarrel, keep testing this flow from your rep portal. For each page idea, send:</p>
+                <ul style="margin:0 0 16px;padding-left:20px;">
+                  <li>the customer or industry you want the page to attract</li>
+                  <li>the look, colors, mood, or culture that should shape it</li>
+                  <li>any photos, references, links, or corrections after you see the first look</li>
+                </ul>
+                <p style="margin:0 0 12px;">Your test page path stays connected here:</p>
+                <p style="margin:0;"><a href="${escapeHtml(pageUrl)}" style="color:#2563eb;font-weight:700;">${escapeHtml(pageUrl)}</a></p>
+              </div>
+            </div>
+          </div>
+        `,
+        text: [
+          'Jarrel, we received your page idea and it is approved for testing.',
+          '',
+          'Keep testing from your rep portal. For each page idea, send:',
+          '- the customer or industry you want the page to attract',
+          '- the look, colors, mood, or culture that should shape it',
+          '- any photos, references, links, or corrections after you see the first look',
+          '',
+          `Your page path: ${pageUrl}`
+        ].join('\n')
+      });
+    }
 
     return res.status(200).json({ ok: true });
   } catch (error) {

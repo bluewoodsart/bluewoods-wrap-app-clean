@@ -619,7 +619,11 @@ const RepPortal = () => {
       if (savedIdea) {
         setPageIdeas((current) => [savedIdea, ...current.filter((idea) => idea.id !== savedIdea.id)]);
       }
-      setCoverDirectionMessage('Your page idea was sent to BWB for review. Would you like to add anything else?');
+      setCoverDirectionMessage(
+        adminUser.rep_slug === 'jarrel'
+          ? 'Your page idea was sent to BWB and auto-approved for testing. Would you like to add anything else?'
+          : 'Your page idea was sent to BWB for review. Would you like to add anything else?'
+      );
     } catch (coverError) {
       setCoverDirectionState('error');
       setCoverDirectionMessage(coverError instanceof Error ? coverError.message : 'Cover page idea failed to send.');
