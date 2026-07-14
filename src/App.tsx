@@ -14,6 +14,7 @@ import RepPortal from "./pages/RepPortal";
 import FullProject from "./pages/FullProject";
 import UploadAssets from "./pages/UploadAssets";
 import CustomerProofPortal from "./pages/CustomerProofPortal";
+import DesignerPacketPortal from "./pages/DesignerPacketPortal";
 import LoginPlaceholder from "./pages/LoginPlaceholder";
 import RegisterPlaceholder from "./pages/RegisterPlaceholder";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
@@ -170,6 +171,7 @@ const App = () => {
               <Route path="/rep" element={<RepPortal />} />
               <Route path="/upload-assets/:token" element={<UploadAssets />} />
               <Route path="/proof/:token" element={<CustomerProofPortal />} />
+              <Route path="/designer/:token" element={<DesignerPacketPortal />} />
               <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = getSafeStartOverPath()} />} />
               <Route path="*" element={<NotFound />} />

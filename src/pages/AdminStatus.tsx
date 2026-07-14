@@ -1,5 +1,5 @@
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, MessageSquare, Phone, RefreshCw, Search, Trash2, Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, MessageSquare, Phone, RefreshCw, Search, Send, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -195,6 +195,35 @@ interface QuoteCustomerActionRequest {
   created_by: string;
   created_at: string;
   sent_at: string;
+}
+
+interface DesignerPacket {
+  id: string;
+  quote_request_id: string;
+  token: string;
+  designer_email: string;
+  designer_name: string | null;
+  instructions: string;
+  cloud_folder_url: string | null;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+  notes?: Array<{
+    id: string;
+    author_type: string;
+    author_email: string | null;
+    note_text: string;
+    created_at: string;
+  }> | string | null;
+  files?: Array<{
+    id: string;
+    file_name: string;
+    file_url: string;
+    file_type: string | null;
+    file_size: number | null;
+    created_at: string;
+  }> | string | null;
 }
 
 const getCustomerActionRequestLabel = (requestType: string) =>
@@ -437,6 +466,9 @@ const getAssignedChannelLabel = (quote: QuoteRequestRow) => {
 const getCustomerProofLink = (token: string | null | undefined) =>
   token ? `${window.location.origin}/proof/${token}` : '';
 
+const getDesignerPacketLink = (token: string | null | undefined) =>
+  token ? `${window.location.origin}/designer/${token}` : '';
+
 const getSafeProofFileName = (fileName: string) =>
   fileName
     .trim()
@@ -454,6 +486,46 @@ const getCustomerProofOptions = (quote: QuoteRequestRow | null | undefined) => {
   } catch {
     return [];
   }
+};
+
+const getDesignerPacketDefaultInstructions = (quote: QuoteRequestRow) => {
+  const productLabel = getProductLabel(quote);
+  const lines = [
+    `Please review and design the ${productLabel.toLowerCase()} proof for ${quote.customer_name}.`,
+    '',
+    `Customer: ${quote.customer_name}`,
+    `Quote ID: ${quote.quote_id || quote.id}`,
+    `Product: ${productLabel}`,
+    quote.rep_slug ? `Rep: ${quote.rep_slug}` : '',
+    '',
+    'Use the attached customer/reference files and quote notes. Send proof files, working files, and any questions back through this designer packet link so the job stays connected to the quote.'
+  ];
+
+  const productType = getProductType(quote);
+  if (productType === 'banner') {
+    lines.push(
+      '',
+      'Banner details:',
+      `- Size: ${formatValue(getBannerValue(quote, 'width'))} x ${formatValue(getBannerValue(quote, 'height'))} ${formatValue(getBannerValue(quote, 'unit'))}`,
+      `- Banner text: ${formatValue(getBannerValue(quote, 'bannerText'))}`,
+      `- Brand colors: ${formatValue(getBannerValue(quote, 'brandColors'))}`,
+      `- Placement notes: ${formatValue(getBannerValue(quote, 'placementNotes'))}`,
+      `- AI/design prompt: ${formatValue(getBannerValue(quote, 'aiDesignPrompt'))}`
+    );
+  }
+
+  if (productType === 'sign' || productType === 'signage') {
+    lines.push(
+      '',
+      'Signage details:',
+      `- Size: ${formatValue(getSignageValue(quote, 'width'))} x ${formatValue(getSignageValue(quote, 'height'))} ${formatValue(getSignageValue(quote, 'unit'))}`,
+      `- Sign text: ${formatValue(getSignageValue(quote, 'signText'))}`,
+      `- Material: ${formatValue(getSignageValue(quote, 'material'))}`,
+      `- Notes: ${formatValue(getSignageValue(quote, 'notes'))}`
+    );
+  }
+
+  return lines.filter(Boolean).join('\n');
 };
 
 const getBannerValue = (quote: QuoteRequestRow, key: string) => {
@@ -836,6 +908,15 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [sendingCustomerAction, setSendingCustomerAction] = useState(false);
   const [customerActionMessageStatus, setCustomerActionMessageStatus] = useState('');
   const [customerActionError, setCustomerActionError] = useState('');
+  const [designerPacket, setDesignerPacket] = useState<DesignerPacket | null>(null);
+  const [loadingDesignerPacket, setLoadingDesignerPacket] = useState(false);
+  const [designerEmail, setDesignerEmail] = useState('');
+  const [designerName, setDesignerName] = useState('');
+  const [designerInstructions, setDesignerInstructions] = useState('');
+  const [designerCloudFolderUrl, setDesignerCloudFolderUrl] = useState('');
+  const [sendingDesignerPacket, setSendingDesignerPacket] = useState(false);
+  const [designerPacketMessage, setDesignerPacketMessage] = useState('');
+  const [designerPacketError, setDesignerPacketError] = useState('');
   const [pendingStatuses, setPendingStatuses] = useState<Record<string, QuoteStatus>>({});
   const [quoteListView, setQuoteListView] = useState<QuoteListView>('active');
   const [activeQuoteCount, setActiveQuoteCount] = useState(0);
@@ -1045,6 +1126,41 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setCustomerActionRequests(data ?? []);
   };
 
+  const loadDesignerPacket = async (quoteRequestId: string, activeQuote?: QuoteRequestRow) => {
+    setLoadingDesignerPacket(true);
+    setDesignerPacketError('');
+
+    const { data, error: packetLoadError } = await supabase
+      .rpc('get_designer_packet_admin', {
+        p_quote_request_id: quoteRequestId
+      });
+
+    setLoadingDesignerPacket(false);
+
+    if (packetLoadError) {
+      console.error('Designer packet load failed:', packetLoadError);
+      setDesignerPacket(null);
+      setDesignerPacketError('Designer packet setup is not installed yet. Run supabase-designer-packets.sql in Supabase.');
+      return;
+    }
+
+    const nextPacket = data?.[0] as DesignerPacket | undefined;
+    setDesignerPacket(nextPacket ?? null);
+
+    if (nextPacket) {
+      setDesignerEmail(nextPacket.designer_email || '');
+      setDesignerName(nextPacket.designer_name || '');
+      setDesignerInstructions(nextPacket.instructions || '');
+      setDesignerCloudFolderUrl(nextPacket.cloud_folder_url || '');
+      return;
+    }
+
+    const quoteForDefaults = activeQuote || selectedQuoteDetail || selectedQuote;
+    if (quoteForDefaults) {
+      setDesignerInstructions(getDesignerPacketDefaultInstructions(quoteForDefaults));
+    }
+  };
+
   const loadQuoteDetail = async (quoteRequestId: string) => {
     setLoadingDetail(true);
 
@@ -1069,6 +1185,9 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setProofPaymentUrl(quoteDetail?.customer_proof_payment_url || '');
     setProofMode(quoteDetail?.customer_proof_mode || 'single');
     setProofOptions(getCustomerProofOptions(quoteDetail));
+    if (quoteDetail) {
+      setDesignerInstructions((currentInstructions) => currentInstructions || getDesignerPacketDefaultInstructions(quoteDetail));
+    }
   };
 
   const openQuoteDetail = (quote: QuoteRequestRow) => {
@@ -1083,6 +1202,13 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setNewFollowUpDueDate('');
     setCustomerActionRequestTypes([]);
     setCustomerActionMessage(getDefaultCustomerActionMessage());
+    setDesignerPacket(null);
+    setDesignerEmail('');
+    setDesignerName('');
+    setDesignerInstructions(getDesignerPacketDefaultInstructions(quote));
+    setDesignerCloudFolderUrl('');
+    setDesignerPacketMessage('');
+    setDesignerPacketError('');
     setNotifySalesRep(false);
     setNoteMessage('');
     setNoteWarning('');
@@ -1108,6 +1234,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     void loadInternalNotes(quote.id);
     void loadFollowUpTasks(quote.id);
     void loadCustomerActionRequests(quote.id);
+    void loadDesignerPacket(quote.id, quote);
   };
 
   const saveProofPortalSettings = async () => {
@@ -1449,6 +1576,113 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     await navigator.clipboard.writeText(proofLink);
     setProofPortalMessage('Private proof link copied.');
     setProofPortalError('');
+  };
+
+  const copyDesignerPacketLink = async () => {
+    const packetLink = getDesignerPacketLink(designerPacket?.token);
+    if (!packetLink) {
+      setDesignerPacketError('Send or save the designer packet first to create a private link.');
+      setDesignerPacketMessage('');
+      return;
+    }
+
+    await navigator.clipboard.writeText(packetLink);
+    setDesignerPacketMessage('Designer packet link copied.');
+    setDesignerPacketError('');
+  };
+
+  const sendDesignerPacket = async () => {
+    if (!selectedQuote || sendingDesignerPacket) return;
+
+    const activeQuote = selectedQuoteDetail || selectedQuote;
+    const trimmedDesignerEmail = designerEmail.trim();
+    const trimmedInstructions = designerInstructions.trim();
+
+    if (!trimmedDesignerEmail) {
+      setDesignerPacketError('Add the designer email before sending.');
+      setDesignerPacketMessage('');
+      return;
+    }
+
+    if (!trimmedInstructions) {
+      setDesignerPacketError('Add designer instructions before sending.');
+      setDesignerPacketMessage('');
+      return;
+    }
+
+    setSendingDesignerPacket(true);
+    setDesignerPacketError('');
+    setDesignerPacketMessage('Creating designer packet...');
+
+    const { data, error: packetSaveError } = await supabase
+      .rpc('upsert_designer_packet_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_designer_email: trimmedDesignerEmail,
+        p_designer_name: designerName.trim() || null,
+        p_instructions: trimmedInstructions,
+        p_cloud_folder_url: designerCloudFolderUrl.trim() || null
+      });
+
+    if (packetSaveError) {
+      console.error('Designer packet save failed:', packetSaveError);
+      setSendingDesignerPacket(false);
+      setDesignerPacketError('Designer packet could not be created. Run supabase-designer-packets.sql in Supabase if this is the first time using it.');
+      setDesignerPacketMessage('');
+      return;
+    }
+
+    const nextPacket = data?.[0] as DesignerPacket | undefined;
+    const packetLink = getDesignerPacketLink(nextPacket?.token);
+
+    if (!nextPacket || !packetLink) {
+      setSendingDesignerPacket(false);
+      setDesignerPacketError('Designer packet was saved but no private link came back.');
+      setDesignerPacketMessage('');
+      return;
+    }
+
+    setDesignerPacket(nextPacket);
+    setDesignerPacketMessage('Designer packet created. Sending email...');
+
+    const emailResponse = await fetch('/api/send-designer-packet-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        designerEmail: trimmedDesignerEmail,
+        designerName,
+        customerName: activeQuote.customer_name,
+        quoteId: activeQuote.quote_id,
+        productLabel: getProductLabel(activeQuote),
+        packetUrl: packetLink,
+        instructions: trimmedInstructions,
+        cloudFolderUrl: designerCloudFolderUrl.trim() || null
+      })
+    });
+
+    setSendingDesignerPacket(false);
+
+    if (!emailResponse.ok) {
+      const responseBody = await emailResponse.text();
+      console.error('Designer packet email failed:', {
+        status: emailResponse.status,
+        responseBody
+      });
+      setDesignerPacketError('Packet link was created, but email did not send. Copy the private designer link and send it manually.');
+      setDesignerPacketMessage('');
+      await Promise.all([
+        loadDesignerPacket(selectedQuote.id, activeQuote),
+        loadStatusEvents(selectedQuote.id)
+      ]);
+      return;
+    }
+
+    setDesignerPacketMessage('Designer packet sent and connected to this quote.');
+    await Promise.all([
+      loadDesignerPacket(selectedQuote.id, activeQuote),
+      loadStatusEvents(selectedQuote.id)
+    ]);
   };
 
   const saveAssignedRep = async () => {
@@ -2836,6 +3070,180 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     {proofPortalError && (
                       <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                         {proofPortalError}
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="order-3">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Designer Packet</h3>
+                  <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-950">Send this quote to a designer from here.</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          The designer gets a private link with quote details, customer uploads, notes, and a place to send proof files back.
+                        </p>
+                      </div>
+                      <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                        {loadingDesignerPacket ? 'Loading...' : designerPacket ? formatStatusLabel(designerPacket.status) : 'Not sent'}
+                      </span>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="designer-email">
+                          Designer Email
+                        </label>
+                        <Input
+                          id="designer-email"
+                          type="email"
+                          value={designerEmail}
+                          onChange={(event) => {
+                            setDesignerEmail(event.target.value);
+                            setDesignerPacketMessage('');
+                            setDesignerPacketError('');
+                          }}
+                          placeholder="designer@example.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="designer-name">
+                          Designer Name
+                        </label>
+                        <Input
+                          id="designer-name"
+                          value={designerName}
+                          onChange={(event) => {
+                            setDesignerName(event.target.value);
+                            setDesignerPacketMessage('');
+                            setDesignerPacketError('');
+                          }}
+                          placeholder="Optional"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium uppercase text-slate-500" htmlFor="designer-cloud-folder">
+                          Cloud Folder Link
+                        </label>
+                        <Input
+                          id="designer-cloud-folder"
+                          value={designerCloudFolderUrl}
+                          onChange={(event) => {
+                            setDesignerCloudFolderUrl(event.target.value);
+                            setDesignerPacketMessage('');
+                            setDesignerPacketError('');
+                          }}
+                          placeholder="Google Drive / Dropbox / folder link"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      <label className="text-xs font-medium uppercase text-slate-500" htmlFor="designer-instructions">
+                        Designer Instructions
+                      </label>
+                      <Textarea
+                        id="designer-instructions"
+                        value={designerInstructions}
+                        onChange={(event) => {
+                          setDesignerInstructions(event.target.value);
+                          setDesignerPacketMessage('');
+                          setDesignerPacketError('');
+                        }}
+                        rows={7}
+                      />
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0 text-xs text-slate-500">
+                        {designerPacket?.token ? (
+                          <span className="block truncate">{getDesignerPacketLink(designerPacket.token)}</span>
+                        ) : (
+                          <span>Send once to create a private designer packet link.</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          onClick={sendDesignerPacket}
+                          disabled={sendingDesignerPacket || !designerEmail.trim() || !designerInstructions.trim()}
+                        >
+                          <Send className="mr-2 h-3.5 w-3.5" />
+                          {sendingDesignerPacket ? 'Sending...' : designerPacket ? 'Resend Packet' : 'Send Designer Packet'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!designerPacket?.token}
+                          onClick={copyDesignerPacketLink}
+                        >
+                          <Copy className="mr-2 h-3.5 w-3.5" />
+                          Copy Link
+                        </Button>
+                        {designerPacket?.token && (
+                          <Button asChild type="button" variant="outline">
+                            <a href={getDesignerPacketLink(designerPacket.token)} target="_blank" rel="noreferrer">
+                              <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                              Open
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {designerPacketMessage && (
+                      <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                        {designerPacketMessage}
+                      </div>
+                    )}
+                    {designerPacketError && (
+                      <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {designerPacketError}
+                      </div>
+                    )}
+
+                    {designerPacket && (
+                      <div className="mt-4 grid gap-4 md:grid-cols-2">
+                        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                          <p className="mb-2 text-xs font-medium uppercase text-slate-500">Designer Proof Files</p>
+                          {Array.isArray(designerPacket.files) && designerPacket.files.length > 0 ? (
+                            <div className="space-y-2">
+                              {designerPacket.files.map((file) => (
+                                <a
+                                  key={file.id}
+                                  href={file.file_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-2 text-sm hover:border-blue-300"
+                                >
+                                  <span className="min-w-0 truncate">{file.file_name}</span>
+                                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-slate-500">No designer proof files yet.</p>
+                          )}
+                        </div>
+                        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                          <p className="mb-2 text-xs font-medium uppercase text-slate-500">Designer Notes</p>
+                          {Array.isArray(designerPacket.notes) && designerPacket.notes.length > 0 ? (
+                            <div className="space-y-2">
+                              {designerPacket.notes.slice(0, 3).map((note) => (
+                                <div key={note.id} className="rounded-md border border-slate-200 bg-white p-2">
+                                  <div className="mb-1 flex items-center justify-between gap-2">
+                                    <span className="text-xs font-medium uppercase text-slate-500">{formatStatusLabel(note.author_type)}</span>
+                                    <span className="text-xs text-slate-500">{formatDate(note.created_at)}</span>
+                                  </div>
+                                  <p className="whitespace-pre-wrap text-sm text-slate-900">{note.note_text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-slate-500">No designer notes yet.</p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
