@@ -23,6 +23,7 @@ import BannerQuoteFlow from "./components/BannerQuoteFlow";
 import SignageQuoteFlow from "./components/SignageQuoteFlow";
 import BrandChannelLanding from "./components/BrandChannelLanding";
 import FullWrapQuoteFlow from "./components/FullWrapQuoteFlow";
+import WheelersTowingLanding from "./pages/WheelersTowingLanding";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 import { getBrandChannel } from "@/lib/brandChannels";
@@ -33,6 +34,7 @@ const trapstarChannel = getBrandChannel('trapstar');
 const jazzyChannel = getBrandChannel('jazzy');
 const jarrelChannel = getBrandChannel('jarrel');
 const anthonyChannel = getBrandChannel('anthony');
+const adamChannel = getBrandChannel('adam');
 
 const RootRoute = ({ isPreviewMode }: { isPreviewMode: boolean }) => {
   return <Index isPreviewMode={isPreviewMode} />;
@@ -90,9 +92,11 @@ const App = () => {
             <Routes>
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
               <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
+              <Route path="/trapstar/local/wheelers-towing" element={<WheelersTowingLanding />} />
               <Route path="/jazzy" element={<BrandChannelLanding channel={jazzyChannel} />} />
               <Route path="/jarrel" element={<BrandChannelLanding channel={jarrelChannel} />} />
               <Route path="/anthony" element={<BrandChannelLanding channel={anthonyChannel} />} />
+              <Route path="/adam" element={<BrandChannelLanding channel={adamChannel} />} />
               <Route path="/wraps" element={<ShortIntakeFlow />} />
               <Route path="/wraps/full" element={<FullWrapQuoteFlow />} />
               <Route path="/quick-quote" element={<ShortIntakeFlow />} />
@@ -160,6 +164,22 @@ const App = () => {
                     heading="Anthony Portal Login"
                     backLinkLabel="Back to Anthony"
                     backLinkTarget="/anthony"
+                    allowAccountSwitch
+                  />
+                )}
+              />
+              <Route
+                path="/adam/login"
+                element={(
+                  <LoginPlaceholder
+                    defaultRedirect="/rep"
+                    brandName="SlapWrapz"
+                    brandSubtitle="Powered by Blue Woods Brands"
+                    uppercaseBrandSubtitle={false}
+                    eyebrow="Adam Portal"
+                    heading="Adam Portal Login"
+                    backLinkLabel="Back to Adam"
+                    backLinkTarget="/adam"
                     allowAccountSwitch
                   />
                 )}

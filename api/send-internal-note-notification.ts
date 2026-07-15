@@ -2,6 +2,7 @@ import { request } from 'node:https';
 
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
+const OFFICE_EMAIL = 'slapwrapzquotes@gmail.com';
 
 const SALES_REPS: Record<string, { name: string; email: string }> = {
   ashley: {
@@ -24,6 +25,10 @@ const SALES_REPS: Record<string, { name: string; email: string }> = {
     name: 'Jarrel',
     email: 'flukerjarrel@gmail.com'
   },
+  adam: {
+    name: 'Adam Callaway',
+    email: 'acallaway@mail.com'
+  },
   test: {
     name: 'Test Sales Rep',
     email: 'pressplayadvertising@gmail.com'
@@ -43,6 +48,8 @@ interface ApiResponse {
 }
 
 interface InternalNoteNotificationBody {
+  recipientType?: 'rep' | 'office';
+  authorName?: string | null;
   repEmail?: string | null;
   repSlug?: string | null;
   repName?: string | null;
@@ -125,11 +132,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
   }
 
-  const { repEmail, repSlug, repName, quoteId, customerName, noteText } = parseBody(req.body);
+  const { recipientType, authorName, repEmail, repSlug, repName, quoteId, customerName, noteText } = parseBody(req.body);
   const trimmedRepSlug = repSlug?.trim().toLowerCase() || '';
   const fallbackRep = trimmedRepSlug ? SALES_REPS[trimmedRepSlug] : undefined;
-  const recipientEmail = repEmail?.trim() || fallbackRep?.email || '';
-  const recipientName = repName?.trim() || fallbackRep?.name || 'there';
+  const isOfficeMessage = recipientType === 'office';
+  const recipientEmail = isOfficeMessage ? OFFICE_EMAIL : repEmail?.trim() || fallbackRep?.email || '';
+  const recipientName = isOfficeMessage ? 'SlapWrapz Quotes' : repName?.trim() || fallbackRep?.name || 'there';
+  const senderName = authorName?.trim() || (isOfficeMessage ? 'Sales rep' : 'SlapWrapz staff');
   const trimmedNote = noteText?.trim() || '';
 
   if (!recipientEmail) {
@@ -142,13 +151,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const quoteLabel = quoteId || 'quote request';
   const customerLabel = customerName || 'Customer';
-  const subject = `Internal note added for ${quoteLabel}`;
+  const subject = isOfficeMessage
+    ? `Rep message for ${quoteLabel} - ${customerLabel}`
+    : `Internal note added for ${quoteLabel}`;
   const html = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:680px;margin:0 auto;">
         <div style="padding:24px;border-radius:16px;background:#111827;color:#ffffff;">
-          <h1 style="margin:0;font-size:24px;">New internal note</h1>
-          <p style="margin:8px 0 0;color:#d1d5db;">A staff note was added in the SlapWrapz admin CRM.</p>
+          <h1 style="margin:0;font-size:24px;">${isOfficeMessage ? 'New rep message' : 'New internal note'}</h1>
+          <p style="margin:8px 0 0;color:#d1d5db;">${escapeHtml(senderName)} added a message to this customer&apos;s office dialogue.</p>
         </div>
 
         <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
@@ -174,7 +185,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       to: recipientEmail,
       subject,
       html,
-      text: `Hi ${recipientName}, a staff note was added in the SlapWrapz admin CRM.\n\nQuote: ${quoteLabel}\nCustomer: ${customerLabel}\n\n${trimmedNote}`
+      text: `Hi ${recipientName}, ${senderName} added a message to this customer's office dialogue.\n\nQuote: ${quoteLabel}\nCustomer: ${customerLabel}\n\n${trimmedNote}`
     });
     console.log('internal note notification email result: sent');
 

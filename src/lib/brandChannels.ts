@@ -126,6 +126,32 @@ export const brandChannels: Record<string, BrandChannel> = {
       'Temporary renovation, rebrand, and wayfinding signage',
       'Vehicle graphics follow-up connected to Anthony'
     ]
+  },
+  adam: {
+    slug: 'adam',
+    name: 'SlapWrapz',
+    eyebrow: 'Sunset Atlanta D21 Wraps',
+    headerSubtitle: 'Powered by Blue Woods Brands',
+    parentBrand: 'Powered by SlapWrapz',
+    poweredBy: '',
+    repSlug: 'adam',
+    wrapQuotePath: '/wraps?rep=adam',
+    bannerQuotePath: '/banners?rep=adam',
+    fullProjectPath: '/wraps/full?rep=adam',
+    heroImagePath:
+      'https://xggbfpfaxyfqvskmsszi.supabase.co/storage/v1/object/public/customer-uploads/1783733623819-t4nr9xufn1p.jpg',
+    headline: 'Classic mini-truck wraps, show graphics, and club visibility built around the actual D21.',
+    description:
+      'Adam connects the Sunset Atlanta truck scene with SlapWrapz full-wrap planning, photo-based layout direction, banners, and follow-up through Blue Woods Brands production.',
+    cardEyebrow: 'D21 Quote Path',
+    cardHeadline: 'Build the look around the truck',
+    cardDescription:
+      'Start with the real 1993 Nissan Hardbody photos, then shape the wrap, show presence, club graphics, and production path from one connected quote.',
+    featureBullets: [
+      '1993 Nissan Hardbody D21 full-wrap planning',
+      'Truck show, club, and lifestyle graphics',
+      'Photos, logo direction, and follow-up connected to Adam'
+    ]
   }
 };
 

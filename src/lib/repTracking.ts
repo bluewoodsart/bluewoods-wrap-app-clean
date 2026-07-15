@@ -49,7 +49,8 @@ const SAFE_REDIRECT_PATHS = [
   '/trapstar',
   '/jazzy',
   '/jarrel',
-  '/anthony'
+  '/anthony',
+  '/adam'
 ];
 
 export const getSafeInternalRedirect = (

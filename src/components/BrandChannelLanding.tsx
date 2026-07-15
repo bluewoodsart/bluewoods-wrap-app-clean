@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BadgeCheck, Building2, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Building2, Sparkles, Truck, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { BrandChannel } from '@/lib/brandChannels';
 
@@ -11,6 +11,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
   const isJazzyChannel = channel.slug === 'jazzy';
   const isTrapstarChannel = channel.slug === 'trapstar';
   const isAnthonyChannel = channel.slug === 'anthony';
+  const isAdamChannel = channel.slug === 'adam';
   const isRepHeroChannel = channel.slug === 'jarrel';
 
   if (isTrapstarChannel) {
@@ -28,8 +29,8 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
               <p className="mt-1 text-[0.65rem] font-medium uppercase tracking-wide text-yellow-200 md:text-xs">{channel.headerSubtitle}</p>
             </div>
           </Link>
-          <Button asChild size="sm" className="hidden h-9 shrink-0 border border-yellow-300/40 bg-yellow-300 px-3 text-xs text-neutral-950 hover:bg-yellow-200 sm:inline-flex md:text-sm">
-            <Link to="/rep">Rep Portal</Link>
+          <Button asChild size="sm" className="h-9 shrink-0 border border-yellow-300/40 bg-yellow-300 px-3 text-xs font-black text-neutral-950 hover:bg-yellow-200 md:text-sm">
+            <Link to="/trapstar/login">Log In</Link>
           </Button>
         </header>
 
@@ -101,6 +102,17 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                     </div>
                   ))}
                 </div>
+
+                <Link
+                  to="/trapstar/local/wheelers-towing"
+                  className="mt-5 flex items-center justify-between gap-4 border border-white/15 bg-black/55 px-4 py-3 text-sm font-bold text-white transition hover:border-yellow-300/50 hover:bg-black/70 md:mt-7 md:max-w-xl"
+                >
+                  <span className="flex items-center gap-3">
+                    <Truck className="h-5 w-5 text-yellow-300" />
+                    Preview: Wheeler's Towing local lead page
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0" />
+                </Link>
               </div>
             </div>
           </section>
@@ -221,6 +233,112 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (isAdamChannel) {
+    return (
+      <div className="min-h-[100svh] overflow-x-hidden bg-[#060607] text-white">
+        <header className="absolute left-0 right-0 top-0 z-20 mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-5">
+          <Link to="/" className="flex min-w-0 items-center gap-3">
+            <img
+              src="/favicon/favicon1.png"
+              alt="Blue Woods Brands logo"
+              className="h-10 w-10 rounded-lg bg-white object-contain p-1 md:h-11 md:w-11"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-base font-black leading-none md:text-lg">SlapWrapz</p>
+              <p className="mt-1 text-[0.7rem] font-bold uppercase tracking-wide text-orange-200 md:text-xs">
+                Adam Callaway / Sunset Atlanta
+              </p>
+            </div>
+          </Link>
+          <Button asChild size="sm" className="h-9 shrink-0 border border-orange-300/45 bg-orange-500 px-3 text-xs font-black text-white hover:bg-orange-400 md:text-sm">
+            <Link to="/adam/login">Rep Login</Link>
+          </Button>
+        </header>
+
+        <main>
+          <section
+            className="relative flex min-h-[100svh] items-end overflow-hidden bg-cover bg-[position:72%_center] px-4 pb-6 pt-24 md:bg-[position:70%_center] md:px-8 md:pb-12 md:pt-28"
+            style={{
+              backgroundImage: `linear-gradient(90deg, rgba(6,6,7,0.98) 0%, rgba(6,6,7,0.9) 36%, rgba(6,6,7,0.52) 70%, rgba(6,6,7,0.86) 100%), url('${channel.heroImagePath}')`
+            }}
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_42%,rgba(251,146,60,0.26),transparent_34%),linear-gradient(180deg,rgba(6,6,7,0.92),rgba(6,6,7,0.25)_44%,rgba(6,6,7,0.96))]" />
+            <div className="relative z-10 mx-auto grid w-full max-w-7xl items-end gap-6 lg:grid-cols-[1.02fr_0.72fr]">
+              <div className="max-w-3xl pb-2 md:pb-8">
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-orange-200 md:text-sm">
+                  {channel.eyebrow}
+                </p>
+                <h1 className="mt-4 max-w-4xl break-words text-5xl font-black leading-[0.95] text-white drop-shadow-2xl md:mt-5 md:text-7xl">
+                  SlapWrapz
+                </h1>
+                <p className="mt-5 max-w-3xl break-words text-xl font-black leading-tight text-orange-100 drop-shadow md:text-4xl">
+                  {channel.headline}
+                </p>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-100 drop-shadow md:text-xl md:leading-8">
+                  {channel.description}
+                </p>
+
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                  <Button asChild className="h-12 bg-orange-500 px-6 text-base font-black text-white hover:bg-orange-400">
+                    <Link to={channel.fullProjectPath || channel.wrapQuotePath}>
+                      Start Full Wrap Quote
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    className="h-12 border border-white/25 bg-white/10 px-6 text-base font-black text-white hover:bg-white/20"
+                  >
+                    <Link to={channel.wrapQuotePath}>
+                      Quick Wrap Quote
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  {channel.bannerQuotePath && (
+                    <Button
+                      asChild
+                      className="h-12 border border-orange-200/35 bg-orange-200/12 px-6 text-base font-black text-orange-100 hover:bg-orange-200/20"
+                    >
+                      <Link to={channel.bannerQuotePath}>
+                        Banner Quote
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-2 border border-orange-300/35 bg-black/60 p-4 shadow-2xl backdrop-blur-sm md:mb-8 md:p-5">
+                <div className="border border-orange-200/25 bg-neutral-950/82 p-5 md:p-6">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-500 text-white">
+                    <Truck className="h-5 w-5" />
+                  </div>
+                  <p className="mt-6 text-xs font-black uppercase tracking-[0.24em] text-orange-200 md:text-sm">
+                    {channel.cardEyebrow}
+                  </p>
+                  <h2 className="mt-3 break-words text-3xl font-black leading-tight text-white md:text-4xl">
+                    {channel.cardHeadline}
+                  </h2>
+                  <p className="mt-4 text-sm leading-6 text-neutral-200 md:text-base md:leading-7">
+                    {channel.cardDescription}
+                  </p>
+                  <div className="mt-6 grid gap-3 text-sm text-neutral-100">
+                    {channel.featureBullets.map((bullet) => (
+                      <div key={bullet} className="flex items-start gap-3">
+                        <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-orange-300" />
+                        <p>{bullet}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
