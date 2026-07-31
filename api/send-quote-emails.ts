@@ -29,6 +29,10 @@ const SALES_REPS: Record<string, { name: string; email: string }> = {
     name: 'Adam Callaway',
     email: 'acallaway@mail.com'
   },
+  wesley: {
+    name: 'Wesley Forbes',
+    email: 'WForbesEvents@gmail.com'
+  },
   test: {
     name: 'Test Sales Rep',
     email: 'pressplayadvertising@gmail.com'

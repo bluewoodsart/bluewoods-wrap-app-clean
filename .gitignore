@@ -25,3 +25,6 @@ dist-ssr
 
 .vercel
 .env*
+
+# Local deployment environment exports can contain plaintext credentials.
+work/vercel-env-*.txt

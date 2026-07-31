@@ -1,4 +1,19 @@
 const REP_SLUG_STORAGE_KEY = 'slapwrapz_rep_slug';
+const REP_PORTAL_SESSION_KEY = 'slapwrapz_rep_portal_session';
+
+export const setRepPortalSessionActive = (active: boolean) => {
+  if (typeof window === 'undefined') return;
+
+  if (active) {
+    window.sessionStorage.setItem(REP_PORTAL_SESSION_KEY, 'true');
+  } else {
+    window.sessionStorage.removeItem(REP_PORTAL_SESSION_KEY);
+  }
+};
+
+export const isRepPortalSessionActive = () =>
+  typeof window !== 'undefined' &&
+  window.sessionStorage.getItem(REP_PORTAL_SESSION_KEY) === 'true';
 
 export const sanitizeRepSlug = (value: string | null | undefined) => {
   const normalized = (value || '').trim().toLowerCase();
@@ -50,7 +65,8 @@ const SAFE_REDIRECT_PATHS = [
   '/jazzy',
   '/jarrel',
   '/anthony',
-  '/adam'
+  '/adam',
+  '/wesley'
 ];
 
 export const getSafeInternalRedirect = (

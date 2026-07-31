@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, Mail, UploadCloud } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { CustomerData, UploadedFile } from '@/types';
 import { vehicleMakes, vehicleModels, generateYears } from '@/data/vehicleData';
 import { getRepAwareBackTarget, getStoredRepSlug } from '@/lib/repTracking';
 import { getRepAttributionForSlug } from '@/lib/salesReps';
+import { clearRepQuoteHandoff, readRepQuoteHandoff, type RepQuoteHandoff } from '@/lib/repQuoteHandoff';
 
 interface ContactInfo {
   name: string;
@@ -23,35 +24,101 @@ interface ContactInfo {
   preferredContact: 'email' | 'text' | 'call';
 }
 
-const TEST_FLOW_SOURCE = 'bluewoods-wrap-app';
+const QUOTE_FLOW_SOURCE = 'bluewoods-wrap-app';
 
-const createInitialData = (): Partial<CustomerData> => ({
-  quoteId: `short_test_${Date.now()}_${Math.random().toString(36).substring(2)}`,
+const createOrderNumber = () => {
+  const now = new Date();
+  const date = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('');
+  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase().padEnd(6, '0');
+  return `SW-${date}-${suffix}`;
+};
+
+const getSummaryString = (summary: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = summary[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+};
+
+const normalizeArtworkStatus = (value: unknown) => {
+  if (value === true) return 'yes';
+  if (value === false) return 'no';
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
+  if (['yes', 'artwork_ready', 'ready', 'have_artwork'].includes(normalized)) return 'yes';
+  if (['no', 'need_design', 'needs_design', 'full_design'].includes(normalized)) return 'no';
+  if (['not_sure', 'unsure'].includes(normalized)) return 'not_sure';
+  return '';
+};
+
+const getVehicleFromSummary = (summary: Record<string, unknown>) => {
+  const savedVehicle = summary.vehicle;
+  const vehicle = savedVehicle && typeof savedVehicle === 'object' && !Array.isArray(savedVehicle)
+    ? savedVehicle as Record<string, unknown>
+    : {};
+
+  return {
+    year: getSummaryString(vehicle, ['year']) || getSummaryString(summary, ['vehicleYear', 'year']),
+    make: getSummaryString(vehicle, ['make']) || getSummaryString(summary, ['vehicleMake', 'make']),
+    model: getSummaryString(vehicle, ['model']) || getSummaryString(summary, ['vehicleModel', 'model'])
+  };
+};
+
+const createInitialData = (handoff: RepQuoteHandoff | null): Partial<CustomerData> => ({
+  quoteId: handoff?.quoteId || createOrderNumber(),
   services: [],
-  vehicle: { year: '', make: '', model: '' },
-  quoteType: 'short-intake-test',
+  vehicle: handoff ? getVehicleFromSummary(handoff.quoteSummary) : { year: '', make: '', model: '' },
+  quoteType: 'quick-quote',
   intakeType: 'quick_quote',
-  repSlug: getStoredRepSlug(),
-  goal: ''
+  repSlug: handoff?.repSlug || getStoredRepSlug(),
+  vehicleType: handoff ? getSummaryString(handoff.quoteSummary, ['vehicleType']) : '',
+  manualVehicleDescription: handoff
+    ? getSummaryString(handoff.quoteSummary, ['manualVehicleDescription', 'customVehicleDescription', 'otherVehicleDescription'])
+    : '',
+  selectedService: handoff
+    ? getSummaryString(handoff.quoteSummary, ['selectedService', 'service', 'wrapType'])
+    : '',
+  hasArtwork: handoff
+    ? normalizeArtworkStatus(handoff.quoteSummary.hasArtwork ?? handoff.quoteSummary.artworkStatus)
+    : '',
+  budget: handoff ? getSummaryString(handoff.quoteSummary, ['budget']) : '',
+  goal: handoff ? getSummaryString(handoff.quoteSummary, ['goal', 'notes', 'projectNotes']) : '',
+  uploadedFiles: handoff?.files || []
 });
 
 const ShortIntakeFlow: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [data, setData] = useState<Partial<CustomerData>>(createInitialData);
-  const [contactInfo, setContactInfo] = useState<ContactInfo>({
-    name: '',
-    companyName: '',
-    email: '',
-    phone: '',
-    preferredContact: 'email'
-  });
-  const [partialLeadSaved, setPartialLeadSaved] = useState(false);
+  const [repHandoff] = useState<RepQuoteHandoff | null>(() => readRepQuoteHandoff());
+  const [data, setData] = useState<Partial<CustomerData>>(() => createInitialData(repHandoff));
+  const [contactInfo, setContactInfo] = useState<ContactInfo>(() => ({
+    name: repHandoff?.customerName || '',
+    companyName: repHandoff ? getSummaryString(repHandoff.quoteSummary, ['companyName']) : '',
+    email: repHandoff?.customerEmail || '',
+    phone: repHandoff?.customerPhone || '',
+    preferredContact: ['email', 'text', 'call'].includes(repHandoff?.preferredContact || '')
+      ? repHandoff?.preferredContact as ContactInfo['preferredContact']
+      : 'email'
+  }));
+  const [initiallyCompletedSteps] = useState(() => new Set<number>([
+    ...(repHandoff?.customerName && repHandoff.customerEmail && repHandoff.customerPhone ? [1] : []),
+    ...(repHandoff && (getSummaryString(repHandoff.quoteSummary, ['vehicleType']) || getVehicleFromSummary(repHandoff.quoteSummary).year || getSummaryString(repHandoff.quoteSummary, ['manualVehicleDescription'])) ? [2] : []),
+    ...(repHandoff && getSummaryString(repHandoff.quoteSummary, ['selectedService', 'service', 'wrapType']) ? [3] : []),
+    ...(repHandoff && normalizeArtworkStatus(repHandoff.quoteSummary.hasArtwork ?? repHandoff.quoteSummary.artworkStatus) ? [4] : []),
+    ...(repHandoff && getSummaryString(repHandoff.quoteSummary, ['budget']) ? [5] : [])
+  ]));
+  const activeStepNumbers = useMemo(
+    () => [1, 2, 3, 4, 5].filter((stepNumber) => !initiallyCompletedSteps.has(stepNumber)).concat(6),
+    [initiallyCompletedSteps]
+  );
+  const [step, setStep] = useState(() => activeStepNumbers[0]);
+  const [partialLeadSaved, setPartialLeadSaved] = useState(Boolean(repHandoff));
   const [isSavingPartial, setIsSavingPartial] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const totalSteps = 6;
+  const totalSteps = activeStepNumbers.length;
+  const activeStepPosition = activeStepNumbers.indexOf(step) + 1;
 
   const collectUploadedFiles = (): UploadedFile[] => [
     ...(data.uploadedFiles ?? []),
@@ -112,7 +179,7 @@ const ShortIntakeFlow: React.FC = () => {
         },
         uploaded_files: [],
         status: 'partial_lead',
-        source: TEST_FLOW_SOURCE
+        source: QUOTE_FLOW_SOURCE
       });
 
     setIsSavingPartial(false);
@@ -164,16 +231,18 @@ const ShortIntakeFlow: React.FC = () => {
       await savePartialLead();
     }
 
-    setStep((current) => Math.min(current + 1, totalSteps));
+    const currentIndex = activeStepNumbers.indexOf(step);
+    setStep(activeStepNumbers[Math.min(currentIndex + 1, activeStepNumbers.length - 1)]);
   };
 
   const handleBack = () => {
-    if (step === 1) {
+    const currentIndex = activeStepNumbers.indexOf(step);
+    if (currentIndex <= 0) {
       navigate(getRepAwareBackTarget());
       return;
     }
 
-    setStep((current) => current - 1);
+    setStep(activeStepNumbers[currentIndex - 1]);
   };
 
   const sendQuoteEmails = async (
@@ -222,8 +291,17 @@ const ShortIntakeFlow: React.FC = () => {
       tags: file.tags
     }));
 
-    const { error: finalizeError } = await supabase
-      .rpc('finalize_quote_request_public', {
+    const finalizeRequest = repHandoff
+      ? supabase.rpc('continue_rep_quote_request_v1', {
+        p_quote_request_id: repHandoff.quoteRequestId,
+        p_customer_name: contactInfo.name,
+        p_customer_email: contactInfo.email,
+        p_customer_phone: contactInfo.phone,
+        p_preferred_contact: contactInfo.preferredContact,
+        p_quote_data: quoteDetails,
+        p_uploaded_files: uploadedFilePayload
+      })
+      : supabase.rpc('finalize_quote_request_public', {
         p_quote_id: data.quoteId ?? '',
         p_customer_name: contactInfo.name,
         p_customer_email: contactInfo.email,
@@ -235,6 +313,7 @@ const ShortIntakeFlow: React.FC = () => {
         p_quote_data: quoteDetails,
         p_uploaded_files: uploadedFilePayload
       });
+    const { error: finalizeError } = await finalizeRequest;
 
     if (finalizeError) {
       console.error('Short intake quote finalize failed:', finalizeError);
@@ -273,6 +352,7 @@ const ShortIntakeFlow: React.FC = () => {
       return;
     }
 
+    if (repHandoff) clearRepQuoteHandoff();
     setIsSubmitting(false);
     navigate('/thank-you', {
       state: {
@@ -536,7 +616,10 @@ const ShortIntakeFlow: React.FC = () => {
         </div>
         <div className="mt-5">
           <FileUpload
-            onFilesUploaded={(files) => setData({ ...data, uploadedFiles: files })}
+            onFilesUploaded={(files) => setData({
+              ...data,
+              uploadedFiles: dedupeUploadedFiles([...(data.uploadedFiles || []), ...files])
+            })}
             quoteId={data.quoteId}
             acceptedTypes="image/*,.pdf,.ai,.eps,.svg,.psd"
             maxFiles={10}
@@ -558,7 +641,8 @@ const ShortIntakeFlow: React.FC = () => {
             }
 
             setError('');
-            setStep(5);
+            const currentIndex = activeStepNumbers.indexOf(4);
+            setStep(activeStepNumbers[Math.min(currentIndex + 1, activeStepNumbers.length - 1)]);
           }}
         >
           Skip Uploads and Continue
@@ -615,6 +699,11 @@ const ShortIntakeFlow: React.FC = () => {
 
     return (
       <div className="space-y-5">
+        {repHandoff && (
+          <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
+            Customer and vehicle information was carried over from the original Trapstar lead. Completed questions were skipped.
+          </div>
+        )}
         <div className="rounded-xl border bg-slate-50 p-4">
           <h3 className="mb-3 font-semibold text-slate-900">Review</h3>
           <div className="grid gap-3 text-sm md:grid-cols-2">
@@ -637,7 +726,7 @@ const ShortIntakeFlow: React.FC = () => {
           className="w-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white"
           size="lg"
         >
-          {isSubmitting ? 'Submitting...' : 'Submit Quick Quote Request'}
+          {isSubmitting ? 'Saving...' : repHandoff ? 'Save Customer Quote' : 'Submit Quick Quote Request'}
         </Button>
       </div>
     );
@@ -670,13 +759,13 @@ const ShortIntakeFlow: React.FC = () => {
                 </CardTitle>
               </div>
               <div className="text-right text-sm text-slate-500">
-                Step {step} of {totalSteps}
+                Step {activeStepPosition} of {totalSteps}
               </div>
             </div>
             <div className="h-2 w-full rounded-full bg-slate-200">
               <div
                 className="h-2 rounded-full bg-blue-600 transition-all"
-                style={{ width: `${(step / totalSteps) * 100}%` }}
+                style={{ width: `${(activeStepPosition / totalSteps) * 100}%` }}
               />
             </div>
           </CardHeader>
@@ -689,7 +778,7 @@ const ShortIntakeFlow: React.FC = () => {
               </div>
             )}
 
-            {step < totalSteps && (
+            {step !== 6 && (
               <div className="flex justify-between gap-3 pt-2">
                 <Button variant="outline" onClick={handleBack}>
                   <ArrowLeft className="mr-2 h-4 w-4" />

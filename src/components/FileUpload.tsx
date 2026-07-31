@@ -263,24 +263,27 @@ const FileUpload: React.FC<FileUploadProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
-        <CardContent className="p-8 text-center">
+        <CardContent className="p-4 text-center sm:p-8">
           <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <p className="text-lg mb-4">Drag & drop files here, or click to select</p>
           
-          <div className="space-y-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:justify-center">
             <Button 
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || uploadedFiles.length >= maxFiles}
-              className="mr-2"
+              className="min-h-12 w-full touch-manipulation sm:w-auto"
             >
               {uploading ? 'Uploading...' : 'Choose Files'}
             </Button>
             
             {showCameraButton && acceptedTypes.includes('image') && (
               <Button 
+                type="button"
                 variant="outline"
                 onClick={() => cameraInputRef.current?.click()}
                 disabled={uploading || uploadedFiles.length >= maxFiles}
+                className="min-h-12 w-full touch-manipulation sm:w-auto"
               >
                 <Camera className="w-4 h-4 mr-2" />
                 📸 Take Photo
@@ -327,16 +330,18 @@ const FileUpload: React.FC<FileUploadProps> = ({
                     <img 
                       src={file.preview} 
                       alt={file.name}
-                      className="w-16 h-16 object-cover rounded border"
+                      className="h-20 w-20 rounded border bg-white object-contain p-1"
                     />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium truncate">{file.name}</span>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => removeFile(file.id)}
+                        className="touch-manipulation"
                       >
                         <X className="w-4 h-4" />
                       </Button>

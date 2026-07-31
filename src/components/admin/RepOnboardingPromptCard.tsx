@@ -82,7 +82,7 @@ const getIdeaStatusClassName = (status: string) => {
 
 const getIdeaBuildHint = (idea: RepPageIdeaReviewRow) => {
   if (idea.status === 'built') return 'Built look is ready to inspect.';
-  if (idea.status === 'approved') return 'Approved for Codex test build and correction.';
+  if (idea.status === 'approved') return 'In the build lane for a Codex first look.';
   if (idea.status === 'pending_review') return 'Waiting for admin review.';
   if (idea.status === 'rejected') return 'Rejected idea. Do not build.';
   return formatStatus(idea.status);
@@ -95,7 +95,7 @@ const RepOnboardingPromptCard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [reps, setReps] = useState<RepOnboardingRow[]>([]);
   const [selectedRepId, setSelectedRepId] = useState('');
-  const [detailRepSlug, setDetailRepSlug] = useState(searchParams.get('rep') || '');
+  const detailRepSlug = searchParams.get('rep') || '';
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -163,6 +163,19 @@ const RepOnboardingPromptCard = () => {
     void loadReps();
   }, []);
 
+  useEffect(() => {
+    if (!detailRepSlug || reps.length === 0) return;
+    const requestedRep = reps.find((rep) => getRepSlug(rep) === detailRepSlug);
+    if (requestedRep && requestedRep.id !== selectedRepId) setSelectedRepId(requestedRep.id);
+  }, [detailRepSlug, reps, selectedRepId]);
+
+  useEffect(() => {
+    if (loading || !searchParams.has('approvals')) return;
+    window.requestAnimationFrame(() => {
+      document.getElementById('rep-page-approval-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [loading, searchParams]);
+
   const filteredReps = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     if (!normalizedSearch) return reps;
@@ -182,20 +195,28 @@ const RepOnboardingPromptCard = () => {
   const totalLeads = reps.reduce((total, rep) => total + (rep.assigned_quote_count || 0), 0);
   const selectedRepSlug = selectedRep ? getRepSlug(selectedRep) : '';
   const selectedRepIdeas = pageIdeas.filter((idea) => idea.rep_slug === selectedRepSlug);
-  const selectedPendingIdeas = selectedRepIdeas.filter((idea) => idea.status === 'pending_review');
-  const allPendingIdeas = pageIdeas.filter((idea) => idea.status === 'pending_review');
-  const visibleIdeas = selectedPendingIdeas.length > 0 ? selectedPendingIdeas : allPendingIdeas.slice(0, 5);
+  const selectedOpenIdeas = selectedRepIdeas.filter((idea) => idea.status === 'pending_review' || idea.status === 'approved');
+  const allOpenIdeas = pageIdeas.filter((idea) => idea.status === 'pending_review' || idea.status === 'approved');
+  const visibleIdeas = selectedOpenIdeas.length > 0 ? selectedOpenIdeas : allOpenIdeas.slice(0, 5);
 
   const openRepDetail = (rep: RepOnboardingRow) => {
     const repSlug = getRepSlug(rep);
     setSelectedRepId(rep.id);
-    setDetailRepSlug(repSlug);
-    setSearchParams({ rep: repSlug });
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('tab', 'reps');
+      next.set('rep', repSlug);
+      return next;
+    });
   };
 
   const closeRepDetail = () => {
-    setDetailRepSlug('');
-    setSearchParams({});
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('tab', 'reps');
+      next.delete('rep');
+      return next;
+    }, { replace: true });
   };
 
   const updateIdeaStatus = async (idea: RepPageIdeaReviewRow, status: 'approved' | 'rejected') => {
@@ -223,9 +244,10 @@ const RepOnboardingPromptCard = () => {
           : pageIdea
       )
     );
+    window.dispatchEvent(new Event('bwb-approvals-updated'));
     setPageIdeaMessage(
       status === 'approved'
-        ? `${idea.rep_name || idea.rep_slug}'s page idea is approved. Codex can now build it when you ask.`
+        ? `${idea.rep_name || idea.rep_slug}'s page idea moved to the build lane. Codex can build a first look from it.`
         : `${idea.rep_name || idea.rep_slug}'s page idea was rejected.`
     );
   };
@@ -408,7 +430,7 @@ const RepOnboardingPromptCard = () => {
               <div>
                 <CardTitle>{getRepName(selectedRep)} Page Ideas</CardTitle>
                 <p className="mt-1 text-sm text-slate-600">
-                  Approve or reject this rep's submitted page ideas before asking Codex to build anything live.
+                  Approve a page idea to move it into the build lane, or reject ideas that should not be built.
                 </p>
               </div>
               <Button variant="outline" size="sm" onClick={() => void loadPageIdeas()}>
@@ -465,7 +487,7 @@ const RepOnboardingPromptCard = () => {
                           />
                         ) : (
                           <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-medium text-slate-500">
-                            {idea.status === 'approved' ? 'First look next' : 'No preview yet'}
+                            {idea.status === 'approved' ? 'Build lane' : 'No preview yet'}
                           </div>
                         )}
                       </div>
@@ -482,7 +504,7 @@ const RepOnboardingPromptCard = () => {
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                         <Button size="sm" onClick={() => void updateIdeaStatus(idea, 'approved')} disabled={updatingIdeaId === idea.id}>
                           <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Approve
+                          Approve for Build
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => void updateIdeaStatus(idea, 'rejected')} disabled={updatingIdeaId === idea.id}>
                           <XCircle className="mr-2 h-4 w-4" />
@@ -523,13 +545,42 @@ const RepOnboardingPromptCard = () => {
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-purple-200 bg-gradient-to-br from-white to-purple-50/50">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-xl"><Users className="h-5 w-5 text-purple-600" /> All Reps</CardTitle>
+              <p className="mt-1 text-sm text-slate-600">Every rep and manager is visible here first. Select anyone to open their full admin view.</p>
+            </div>
+            <Button variant="outline" size="sm" className="min-h-11" onClick={() => void loadReps()}><RefreshCw className="mr-2 h-4 w-4" /> Refresh Reps</Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {reps.length === 0 ? <p className="rounded-md border bg-white p-4 text-sm text-slate-600">No reps are available yet.</p> : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {reps.map((rep) => (
+                <button key={rep.id} type="button" onClick={() => openRepDetail(rep)} className="min-h-28 touch-manipulation rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-purple-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-base font-black text-white">{getRepName(rep).charAt(0).toUpperCase()}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getRepStatusClassName(rep)}`}>{rep.is_active ? 'Active' : 'Paused'}</span>
+                  </div>
+                  <p className="mt-3 truncate font-black text-slate-950">{getRepName(rep)}</p>
+                  <p className="truncate text-xs text-slate-500">{formatRole(rep.role)} · /{getRepSlug(rep)}</p>
+                  <p className="mt-2 text-xs font-semibold text-purple-700">{rep.assigned_quote_count || 0} assigned lead{rep.assigned_quote_count === 1 ? '' : 's'} · Open rep</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card id="rep-page-approval-queue" className="scroll-mt-4">
         <CardHeader>
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <CardTitle>Rep Page Idea Approval Queue</CardTitle>
               <p className="mt-1 text-sm text-slate-600">
-                This is the handoff: reps submit page ideas, Ashley reviews them here, then Codex builds only after approval.
+                This is the handoff: reps can say build to enter the build lane, or Ashley can approve ideas into it here.
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => void loadPageIdeas()}>
@@ -551,7 +602,7 @@ const RepOnboardingPromptCard = () => {
           )}
           {visibleIdeas.length === 0 ? (
             <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              No pending rep page ideas are waiting for approval.
+              No pending or build-lane rep page ideas are waiting here.
             </div>
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
@@ -587,29 +638,38 @@ const RepOnboardingPromptCard = () => {
                         />
                       ) : (
                         <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-medium text-slate-500">
-                          {idea.status === 'approved' ? 'Ready to build' : 'No preview'}
+                          {idea.status === 'approved' ? 'Build lane' : 'No preview'}
                         </div>
                       )}
                     </div>
                   </div>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      size="sm"
-                      onClick={() => void updateIdeaStatus(idea, 'approved')}
-                      disabled={updatingIdeaId === idea.id}
-                    >
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void updateIdeaStatus(idea, 'rejected')}
-                      disabled={updatingIdeaId === idea.id}
-                    >
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Reject
-                    </Button>
+                    {idea.status === 'pending_review' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => void updateIdeaStatus(idea, 'approved')}
+                          disabled={updatingIdeaId === idea.id}
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Approve for Build
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void updateIdeaStatus(idea, 'rejected')}
+                          disabled={updatingIdeaId === idea.id}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Ready for Build
+                      </Button>
+                    )}
                     {idea.page_url && (
                       <Button size="sm" variant="outline" asChild>
                         <a href={idea.page_url} target="_blank" rel="noreferrer">

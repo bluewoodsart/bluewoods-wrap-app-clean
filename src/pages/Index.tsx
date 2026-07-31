@@ -40,6 +40,10 @@ const Index: React.FC<IndexProps> = () => {
           </div>
         </Link>
 
+        <Button asChild size="sm" className="h-9 shrink-0 touch-manipulation bg-cyan-400 px-3 text-xs font-bold text-slate-950 hover:bg-cyan-300 sm:hidden">
+          <Link to="/login?redirect=/rep">Rep Portal</Link>
+        </Button>
+
         <nav className="hidden shrink-0 items-center gap-2 sm:flex">
           <Button asChild size="sm" variant="outline" className="h-9 border-white/30 bg-white/10 px-3 text-xs text-white hover:bg-white/20 hover:text-white md:text-sm">
             <Link to="/admin">Login</Link>
@@ -119,7 +123,15 @@ const Index: React.FC<IndexProps> = () => {
               {serviceTiles.map((tile) => (
                 <Link
                   key={tile.label}
-                  to={tile.label === 'Banners' ? '/banners' : tile.label === 'Signs' ? '/signs' : '/wraps'}
+                  to={
+                    tile.label === 'Banners'
+                      ? '/banners'
+                      : tile.label === 'Signs'
+                        ? '/signs'
+                        : tile.label === 'Stickers & Decals'
+                          ? '/stickers-decals'
+                          : '/wraps'
+                  }
                   className={`min-h-16 border border-white/15 bg-gradient-to-br ${tile.accent} p-3 shadow-xl backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-white/15 md:min-h-24 md:p-4`}
                 >
                   <p className="text-xs font-black uppercase leading-tight text-white md:text-sm">{tile.label}</p>

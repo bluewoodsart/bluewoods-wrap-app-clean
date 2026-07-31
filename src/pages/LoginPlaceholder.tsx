@@ -39,8 +39,8 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectPath = getSafeInternalRedirect(searchParams.get('redirect'), defaultRedirect);
-  const isRepLoginRedirect = redirectPath === '/rep' || redirectPath.startsWith('/rep?');
-  const shouldAllowAccountSwitch = allowAccountSwitch || isRepLoginRedirect;
+  const explicitAccountSwitch = searchParams.get('switchAccount') === '1';
+  const shouldAllowAccountSwitch = allowAccountSwitch && explicitAccountSwitch;
 
   const getPostLoginRedirect = async () => {
     const { data } = await supabase.rpc('get_current_admin_user');

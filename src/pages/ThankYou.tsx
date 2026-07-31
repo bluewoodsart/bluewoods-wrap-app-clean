@@ -1,18 +1,17 @@
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Home, Mail, Timer } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { getSafeStartOverPath } from '@/lib/repTracking';
-
-interface ThankYouLocationState {
-  customerEmail?: string;
-}
+import { BadgeCheck, CheckCircle, HandHeart, Home, MailCheck, MessagesSquare } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { getBrandChannel } from '@/lib/brandChannels';
+import { getSafeStartOverPath, getStoredRepSlug } from '@/lib/repTracking';
 
 const ThankYou = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const state = location.state as ThankYouLocationState | null;
-  const customerEmail = state?.customerEmail;
-  const thankYouImage = '/thankyou-your-information-has-been-saved-1.png';
+  const repSlug = getStoredRepSlug();
+  const repChannel = repSlug ? getBrandChannel(repSlug) : undefined;
+  const thankYouImage = repChannel?.heroImagePath || '/thankyou-your-information-has-been-saved-1.png';
+  const thankYouImageAlt = repChannel
+    ? `${repChannel.name} vehicle wrap confirmation`
+    : 'Blue Woods vehicle wrap thank-you confirmation';
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">
@@ -32,31 +31,39 @@ const ThankYou = () => {
         <div className="w-full overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xl">
           <img
             src={thankYouImage}
-            alt="Blue Woods vehicle wrap thank-you confirmation"
+            alt={thankYouImageAlt}
             className="h-auto w-full object-cover"
           />
         </div>
 
-        <div className="grid w-full gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-blue-100 bg-white p-5 text-left shadow-sm">
-            <div className="mb-3 flex items-center gap-3 text-blue-700">
-              <Mail className="h-5 w-5" />
-              <h2 className="font-semibold">Confirm your details</h2>
+        <div className="w-full rounded-2xl border border-blue-100 bg-white p-6 text-left shadow-sm md:p-8">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+              <MailCheck className="h-6 w-6" />
             </div>
-            <p className="text-gray-700">
-              Check your email to confirm your details
-              {customerEmail ? ` at ${customerEmail}` : ''}.
-            </p>
+            <div>
+              <h2 className="text-xl font-bold text-gray-950 md:text-2xl">Here's what to do next:</h2>
+              <p className="mt-2 text-lg font-semibold text-gray-700">Check your email.</p>
+            </div>
           </div>
 
-          <div className="rounded-xl border border-emerald-100 bg-white p-5 text-left shadow-sm">
-            <div className="mb-3 flex items-center gap-3 text-emerald-700">
-              <Timer className="h-5 w-5" />
-              <h2 className="font-semibold">Proof timing</h2>
+          <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium leading-6 text-emerald-900">
+            This process helps us collect the right details, communicate clearly, and give you more accurate help throughout your project.
+          </p>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-semibold text-gray-700">
+              <BadgeCheck className="h-5 w-5 shrink-0 text-blue-700" />
+              Accurate quote preparation
             </div>
-            <p className="text-gray-700">
-              You will see a proof within the next 30 minutes.
-            </p>
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-semibold text-gray-700">
+              <MessagesSquare className="h-5 w-5 shrink-0 text-blue-700" />
+              Clear next steps by email
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-semibold text-gray-700">
+              <HandHeart className="h-5 w-5 shrink-0 text-blue-700" />
+              Personal help from your rep
+            </div>
           </div>
         </div>
 

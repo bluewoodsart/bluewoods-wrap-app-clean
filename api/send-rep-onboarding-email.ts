@@ -159,12 +159,28 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const chatGptPrompt = buildChatGptPrompt(repName, repSlug);
-  const plainText = buildPlainText(repName, repSlug, chatGptPrompt);
+  const isZoeLaunch = repSlug === 'zoe';
+  const launchUrl = isZoeLaunch ? 'https://www.slapwrapz.com/zoe' : 'https://www.slapwrapz.com/rep';
+  const plainText = isZoeLaunch
+    ? `Zoe, your private BWB Launch Lab is ready. Open ${launchUrl} to sign in and begin your first mission. Production changes still require Ashley's approval.`
+    : buildPlainText(repName, repSlug, chatGptPrompt);
   const htmlPrompt = escapeHtml(chatGptPrompt).replace(/\n/g, '<br />');
   const safeRepName = escapeHtml(repName);
   const safeRepSlug = escapeHtml(repSlug);
-  const subject = `${repName} cover page direction for BWB Brands onboarding`;
-  const html = `
+  const subject = isZoeLaunch ? 'Zoe, your BWB Launch Lab is ready' : `${repName} cover page direction for BWB Brands onboarding`;
+  const html = isZoeLaunch ? `
+    <div style="margin:0;background:#070a26;padding:28px 18px;font-family:Arial,sans-serif;line-height:1.5;color:#ffffff;">
+      <div style="max-width:680px;margin:0 auto;border:1px solid #22d3ee;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#10165d,#4c1d95);">
+        <div style="padding:34px 26px;text-align:center;">
+          <p style="margin:0;color:#67e8f9;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;">Private BWB Rep Access</p>
+          <h1 style="margin:12px 0 0;font-size:36px;line-height:1;text-transform:uppercase;">Zoe Launch Lab</h1>
+          <p style="margin:16px auto 0;max-width:500px;color:#e0e7ff;">Your rep portal, training missions, social home, and customer tools are ready for launch.</p>
+          <a href="${launchUrl}" style="display:inline-block;margin-top:24px;background:#fff600;color:#11152d;text-decoration:none;font-weight:900;text-transform:uppercase;padding:16px 28px;border-radius:4px;">Enter the Launch Lab</a>
+          <p style="margin:20px 0 0;color:#c7d2fe;font-size:12px;">Training access only. Production changes still require Ashley's approval.</p>
+        </div>
+      </div>
+    </div>
+  ` : `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:680px;margin:0 auto;">
         <div style="padding:24px;border-radius:16px;background:#111827;color:#ffffff;">

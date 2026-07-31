@@ -1,5 +1,5 @@
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Download, ExternalLink, Eye, MessageSquare, Phone, RefreshCw, Search, Send, Trash2, Upload } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Calculator, CheckCircle2, Copy, Download, ExternalLink, Eye, ImagePlus, MessageSquare, Phone, RefreshCw, Search, Send, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,6 +22,10 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import FileUpload from '@/components/FileUpload';
+import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
+import { runMobileTouchAction } from '@/lib/mobileTouch';
+import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
 import {
   Table,
   TableBody,
@@ -414,6 +418,7 @@ const getProductLabel = (quote: QuoteRequestRow) => {
   const productType = getProductType(quote);
   if (productType === 'banner') return 'Banner';
   if (productType === 'sign' || productType === 'signage') return 'Generic Signage';
+  if (productType === 'decal' || productType === 'sticker') return 'Stickers & Decals';
   return 'Wrap';
 };
 
@@ -452,6 +457,7 @@ const getProductBadgeClassName = (quote: QuoteRequestRow) => {
   const productType = getProductType(quote);
   if (productType === 'banner') return 'bg-emerald-100 text-emerald-700';
   if (productType === 'sign' || productType === 'signage') return 'bg-amber-100 text-amber-800';
+  if (productType === 'decal' || productType === 'sticker') return 'bg-pink-100 text-pink-800';
   return 'bg-blue-100 text-blue-700';
 };
 
@@ -525,6 +531,21 @@ const getDesignerPacketDefaultInstructions = (quote: QuoteRequestRow) => {
     );
   }
 
+  if (productType === 'decal' || productType === 'sticker') {
+    lines.push(
+      '',
+      'Sticker and decal details:',
+      `- Type: ${formatValue(getStickerValue(quote, 'decalType'))}`,
+      `- Size: ${formatValue(getStickerValue(quote, 'width'))} x ${formatValue(getStickerValue(quote, 'height'))} ${formatValue(getStickerValue(quote, 'unit'))}`,
+      `- Quantity: ${formatValue(getStickerValue(quote, 'quantity'))}`,
+      `- Material: ${formatValue(getStickerValue(quote, 'material'))}`,
+      `- Surface: ${formatValue(getStickerValue(quote, 'surface'))}`,
+      `- Finish: ${formatValue(getStickerValue(quote, 'finish'))}`,
+      `- Text: ${formatValue(getStickerValue(quote, 'decalText'))}`,
+      `- Notes: ${formatValue(getStickerValue(quote, 'notes'))}`
+    );
+  }
+
   return lines.filter(Boolean).join('\n');
 };
 
@@ -540,6 +561,13 @@ const getSignageValue = (quote: QuoteRequestRow, key: string) => {
   if (!signage || typeof signage !== 'object') return undefined;
 
   return (signage as Record<string, unknown>)[key];
+};
+
+const getStickerValue = (quote: QuoteRequestRow, key: string) => {
+  const sticker = getQuoteValue(quote, ['sticker', 'decal']);
+  if (!sticker || typeof sticker !== 'object') return undefined;
+
+  return (sticker as Record<string, unknown>)[key];
 };
 
 const getVehicleText = (quote: QuoteRequestRow) => {
@@ -558,6 +586,20 @@ const getVehicleText = (quote: QuoteRequestRow) => {
     make: formatValue(vehicleRecord.make),
     model: formatValue(vehicleRecord.model)
   };
+};
+
+const getVehicleSummaryText = (quote: QuoteRequestRow) => {
+  const vehicle = getVehicleText(quote);
+  const vehicleText = [vehicle.year, vehicle.make, vehicle.model]
+    .filter((part) => part && part !== '-')
+    .join(' ')
+    .trim();
+
+  return vehicleText || formatValue(getQuoteValue(quote, [
+    'manualVehicleDescription',
+    'customVehicleDescription',
+    'otherVehicleDescription'
+  ]));
 };
 
 const getUploadedFiles = (quote: QuoteRequestRow) => {
@@ -859,9 +901,9 @@ const FileReadinessSection = ({
 );
 
 const DetailField = ({ label, value }: { label: string; value: unknown }) => (
-  <div>
+  <div className="min-w-0">
     <dt className="text-xs font-medium uppercase text-slate-500">{label}</dt>
-    <dd className="mt-1 text-sm text-slate-900">{formatValue(value)}</dd>
+    <dd className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-900">{formatValue(value)}</dd>
   </div>
 );
 
@@ -884,10 +926,24 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [newInternalNote, setNewInternalNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [notifySalesRep, setNotifySalesRep] = useState(false);
+  const [notifySalesRep, setNotifySalesRep] = useState(true);
   const [noteMessage, setNoteMessage] = useState('');
   const [noteWarning, setNoteWarning] = useState('');
   const [noteError, setNoteError] = useState('');
+  const [showUpsellComposer, setShowUpsellComposer] = useState(false);
+  const [upsellIdeaTitle, setUpsellIdeaTitle] = useState('');
+  const [upsellIdeaMessage, setUpsellIdeaMessage] = useState('');
+  const [upsellIdeaFiles, setUpsellIdeaFiles] = useState<UploadedFileSummary[]>([]);
+  const [savingUpsellIdea, setSavingUpsellIdea] = useState(false);
+  const [upsellIdeaStatus, setUpsellIdeaStatus] = useState('');
+  const [upsellIdeaError, setUpsellIdeaError] = useState('');
+  const [adminQuoteContinuationOpen, setAdminQuoteContinuationOpen] = useState(false);
+  const [adminQuoteBuildUpsellIdea, setAdminQuoteBuildUpsellIdea] = useState<UpsellImageIdea | null>(null);
+  const [adminQuotePreparationNotes, setAdminQuotePreparationNotes] = useState('');
+  const [adminWebsiteHeroReferenceFiles, setAdminWebsiteHeroReferenceFiles] = useState<UploadedFileSummary[]>([]);
+  const [savingAdminQuoteContinuation, setSavingAdminQuoteContinuation] = useState(false);
+  const [adminQuoteContinuationStatus, setAdminQuoteContinuationStatus] = useState('');
+  const [adminQuoteContinuationError, setAdminQuoteContinuationError] = useState('');
   const [followUpTasks, setFollowUpTasks] = useState<QuoteFollowUpTask[]>([]);
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
   const [newFollowUpTaskText, setNewFollowUpTaskText] = useState('');
@@ -948,6 +1004,9 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [proofPortalError, setProofPortalError] = useState('');
   const proofUploadInputRef = useRef<HTMLInputElement | null>(null);
   const proofOptionsUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const adminQuoteDetailsSectionRef = useRef<HTMLElement | null>(null);
+  const adminQuoteContinuationSectionRef = useRef<HTMLElement | null>(null);
+  const adminOfficeDialogueSectionRef = useRef<HTMLElement | null>(null);
   const canAssignReps = currentAdminRole === 'owner_admin';
   const canArchiveQuotes = currentAdminRole === 'owner_admin';
 
@@ -1209,10 +1268,21 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setDesignerCloudFolderUrl('');
     setDesignerPacketMessage('');
     setDesignerPacketError('');
-    setNotifySalesRep(false);
+    setNotifySalesRep(Boolean(quote.rep_slug));
     setNoteMessage('');
     setNoteWarning('');
     setNoteError('');
+    setShowUpsellComposer(false);
+    setUpsellIdeaTitle('');
+    setUpsellIdeaMessage('');
+    setUpsellIdeaFiles([]);
+    setUpsellIdeaStatus('');
+    setUpsellIdeaError('');
+    setAdminQuoteContinuationOpen(false);
+    setAdminQuoteBuildUpsellIdea(null);
+    setAdminQuotePreparationNotes('');
+    setAdminQuoteContinuationStatus('');
+    setAdminQuoteContinuationError('');
     setSelectedAssignRepSlug(quote.rep_slug || UNASSIGNED_REP_VALUE);
     setAssignRepMessage('');
     setAssignRepError('');
@@ -1709,7 +1779,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       return;
     }
 
-    setNotifySalesRep(false);
+    setNotifySalesRep(Boolean(nextRepSlug));
     setSelectedAssignRepSlug(nextRepSlug || UNASSIGNED_REP_VALUE);
     setAssignRepMessage(nextRepSlug ? 'Assigned rep saved.' : 'Quote unassigned.');
     await loadStatusEvents(selectedQuote.id);
@@ -1787,6 +1857,173 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     }
 
     setNoteMessage('Note saved and sales rep notified.');
+  };
+
+  const openAdminQuoteBuild = (idea: UpsellImageIdea | null = null) => {
+    setAdminQuoteBuildUpsellIdea(idea);
+    setAdminWebsiteHeroReferenceFiles([]);
+    setAdminQuotePreparationNotes(idea ? [
+      `Upsell opportunity: ${idea.title}`,
+      idea.message,
+      idea.imageUrl ? `Reference image: ${idea.imageUrl}` : ''
+    ].filter(Boolean).join('\n\n') : '');
+    setAdminQuoteContinuationStatus('');
+    setAdminQuoteContinuationError('');
+    setAdminQuoteContinuationOpen(true);
+    window.requestAnimationFrame(() => {
+      adminQuoteContinuationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const closeAdminQuoteBuild = () => {
+    setAdminQuoteContinuationOpen(false);
+    setAdminQuoteBuildUpsellIdea(null);
+    setAdminQuoteContinuationStatus('');
+    setAdminQuoteContinuationError('');
+    window.requestAnimationFrame(() => {
+      adminQuoteDetailsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const openAdminOfficeDialogue = () => {
+    window.requestAnimationFrame(() => {
+      adminOfficeDialogueSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const saveAdminQuoteContinuation = async () => {
+    if (!selectedQuote || savingAdminQuoteContinuation) return;
+
+    const activeQuote = selectedQuoteDetail || selectedQuote;
+    const heroReferenceList = formatWebsiteHeroReferences(adminWebsiteHeroReferenceFiles);
+    const noteText = [
+      'Admin quote build preparation',
+      `Customer: ${activeQuote.customer_name}`,
+      `Order: ${activeQuote.quote_id || activeQuote.id}`,
+      adminQuoteBuildUpsellIdea ? `Upsell source: ${adminQuoteBuildUpsellIdea.title}` : 'Source: customer quote request',
+      adminQuotePreparationNotes.trim() ? `Preparation notes:\n${adminQuotePreparationNotes.trim()}` : '',
+      heroReferenceList ? `WEBSITE HERO REFERENCES:\n${heroReferenceList}\n\n${WEBSITE_HERO_REFERENCE_RULE}` : ''
+    ].filter(Boolean).join('\n\n');
+
+    setSavingAdminQuoteContinuation(true);
+    setAdminQuoteContinuationError('');
+    setAdminQuoteContinuationStatus('Saving to this customer...');
+
+    const { error: saveError } = await supabase.rpc('add_quote_internal_note_admin', {
+      p_quote_request_id: selectedQuote.id,
+      p_note_text: noteText
+    });
+
+    if (saveError) {
+      setSavingAdminQuoteContinuation(false);
+      setAdminQuoteContinuationStatus('');
+      setAdminQuoteContinuationError(saveError.message);
+      return;
+    }
+
+    await loadInternalNotes(selectedQuote.id);
+    const hasRep = Boolean(activeQuote.rep_email || activeQuote.rep_slug);
+
+    if (hasRep) {
+      const response = await fetch('/api/send-internal-note-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repEmail: activeQuote.rep_email,
+          repSlug: activeQuote.rep_slug,
+          repName: activeQuote.assigned_rep_name,
+          quoteId: activeQuote.quote_id || activeQuote.id,
+          customerName: activeQuote.customer_name,
+          noteText
+        })
+      });
+
+      if (!response.ok) {
+        setSavingAdminQuoteContinuation(false);
+        setAdminQuoteContinuationStatus('Quote build preparation saved.');
+        setAdminQuoteContinuationError('The rep email did not send, but the quote preparation is safely saved in Office Dialogue.');
+        return;
+      }
+    }
+
+    setSavingAdminQuoteContinuation(false);
+    setAdminQuoteContinuationStatus(hasRep
+      ? 'Saved to this customer and sent to the assigned rep.'
+      : 'Saved to this customer. Assign a rep when it is ready to hand off.');
+  };
+
+  const saveUpsellImageIdea = async () => {
+    if (!selectedQuote || savingUpsellIdea) return;
+
+    const title = upsellIdeaTitle.trim();
+    const message = upsellIdeaMessage.trim();
+    const imageFile = upsellIdeaFiles[0];
+
+    if (!title) {
+      setUpsellIdeaError('Add a short title for the upsell idea.');
+      return;
+    }
+
+    if (!imageFile?.url) {
+      setUpsellIdeaError('Upload the image you want the rep to see.');
+      return;
+    }
+
+    const idea = {
+      title,
+      message,
+      imageUrl: imageFile.url,
+      imageName: imageFile.name
+    };
+
+    setSavingUpsellIdea(true);
+    setUpsellIdeaError('');
+    setUpsellIdeaStatus('Saving image idea...');
+
+    const { error: saveIdeaError } = await supabase.rpc('add_quote_internal_note_admin', {
+      p_quote_request_id: selectedQuote.id,
+      p_note_text: encodeUpsellImageIdea(idea)
+    });
+
+    if (saveIdeaError) {
+      setSavingUpsellIdea(false);
+      setUpsellIdeaStatus('');
+      setUpsellIdeaError(saveIdeaError.message);
+      return;
+    }
+
+    await loadInternalNotes(selectedQuote.id);
+    const activeQuote = selectedQuoteDetail || selectedQuote;
+    const hasRep = Boolean(activeQuote.rep_email || activeQuote.rep_slug);
+
+    if (hasRep) {
+      const response = await fetch('/api/send-internal-note-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repEmail: activeQuote.rep_email,
+          repSlug: activeQuote.rep_slug,
+          repName: activeQuote.assigned_rep_name,
+          quoteId: activeQuote.quote_id,
+          customerName: activeQuote.customer_name,
+          noteText: formatUpsellIdeaForEmail(idea)
+        })
+      });
+
+      if (!response.ok) {
+        setSavingUpsellIdea(false);
+        setUpsellIdeaStatus('Image idea saved.');
+        setUpsellIdeaError('The rep email did not send, but the image idea is safely saved in this customer dialogue.');
+        return;
+      }
+    }
+
+    setSavingUpsellIdea(false);
+    setUpsellIdeaTitle('');
+    setUpsellIdeaMessage('');
+    setUpsellIdeaFiles([]);
+    setShowUpsellComposer(false);
+    setUpsellIdeaStatus(hasRep ? 'Image idea saved and the assigned rep was notified.' : 'Image idea saved. Assign a rep to notify them.');
   };
 
   const saveFollowUpTask = async () => {
@@ -2227,7 +2464,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-slate-50 p-0 sm:p-2 md:p-4">
       <div className="mx-auto max-w-7xl space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -2252,7 +2489,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
           </div>
         )}
 
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
           {[
             { filter: 'overdue' as FollowUpFilter, label: 'Critical / Late', count: followUpCounts.overdue, className: 'border-red-200 bg-red-50 text-red-800' },
             { filter: 'due_today' as FollowUpFilter, label: 'Due Today', count: followUpCounts.dueToday, className: 'border-amber-200 bg-amber-50 text-amber-900' },
@@ -2267,8 +2504,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                 followUpFilter === item.filter ? 'ring-2 ring-blue-500' : ''
               } ${item.className}`}
             >
-              <p className="text-sm font-medium">{item.label}</p>
-              <p className="mt-1 text-3xl font-semibold">{item.count}</p>
+              <p className="text-xs font-medium sm:text-sm">{item.label}</p>
+              <p className="mt-1 text-2xl font-semibold sm:text-3xl">{item.count}</p>
             </button>
           ))}
         </div>
@@ -2313,7 +2550,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0 p-3 sm:p-6">
             <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-center">
               <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_minmax(12rem,16rem)_auto_auto] md:items-center">
                 <div className="relative">
@@ -2413,7 +2650,70 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             ) : filteredQuotes.length === 0 ? (
               <div className="py-10 text-center text-sm text-slate-600">No quote requests match the current filters.</div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              <div className="space-y-3 md:hidden">
+                {filteredQuotes.map((quote) => {
+                  const selectedStatus = getSelectedStatus(quote);
+                  const followUpSummary = getFollowUpSummaryForQuote(quote.id);
+                  const rowCallHref = getPhoneHref(quote.customer_phone, 'tel');
+                  const rowTextHref = getPhoneHref(quote.customer_phone, 'sms');
+                  return (
+                    <div key={`mobile-admin-${quote.id}`} className={`min-w-0 rounded-lg border p-4 shadow-sm ${getStatusRowClassName(selectedStatus)} ${getFollowUpSurfaceClassName(followUpSummary.follow_up_bucket)}`}>
+                      <button
+                        type="button"
+                        className="-m-2 block w-[calc(100%+1rem)] touch-manipulation rounded-lg p-2 text-left transition hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 active:bg-white/80"
+                        onClick={() => openQuoteDetail(quote)}
+                        aria-label={`Open job ${quote.quote_id || quote.customer_name}`}
+                      >
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="break-words font-bold text-slate-950">{quote.customer_name}</p>
+                            <p className="break-all text-xs text-slate-600">{quote.customer_email}</p>
+                            <p className="mt-1 break-all font-mono text-xs text-blue-700">{quote.quote_id || quote.id}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${getStatusBadgeClassName(selectedStatus)}`}>
+                            {formatStatusLabel(selectedStatus)}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700">
+                          <p><span className="block font-semibold uppercase text-slate-500">Product</span>{getProductLabel(quote)}</p>
+                          <p><span className="block font-semibold uppercase text-slate-500">Assigned</span>{quote.assigned_rep_name || 'Unassigned'}</p>
+                        </div>
+                        {followUpSummary.next_follow_up_task_text && (
+                          <p className="mt-3 rounded-md bg-white/80 p-2 text-xs text-slate-700">
+                            <span className="font-semibold">Next:</span> {followUpSummary.next_follow_up_task_text}
+                          </p>
+                        )}
+                        <p className="mt-3 text-xs font-semibold text-violet-700">Tap this job to open full details</p>
+                      </button>
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <Button asChild={Boolean(rowCallHref)} type="button" size="sm" variant="outline" disabled={!rowCallHref} className="min-h-11 touch-manipulation px-2">
+                          {rowCallHref ? <a href={rowCallHref}><Phone className="mr-1 h-4 w-4" />Call</a> : <span><Phone className="mr-1 h-4 w-4" />Call</span>}
+                        </Button>
+                        <Button asChild={Boolean(rowTextHref)} type="button" size="sm" variant="outline" disabled={!rowTextHref} className="min-h-11 touch-manipulation px-2">
+                          {rowTextHref ? <a href={rowTextHref}><MessageSquare className="mr-1 h-4 w-4" />Text</a> : <span><MessageSquare className="mr-1 h-4 w-4" />Text</span>}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => openQuoteDetail(quote)}
+                          onTouchEnd={(event) => runMobileTouchAction(event, () => openQuoteDetail(quote))}
+                          className="min-h-11 touch-manipulation px-2"
+                        >
+                          <Eye className="mr-1 h-4 w-4" />Open
+                        </Button>
+                      </div>
+                      {enableBulkActions && (
+                        <label className="mt-3 flex min-h-11 touch-manipulation items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700">
+                          <Checkbox checked={selectedQuoteIdSet.has(quote.id)} onCheckedChange={(checked) => toggleQuoteSelection(quote.id, checked === true, false)} />
+                          Select this quote
+                        </label>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <Table className="min-w-[72rem]">
                   <TableHeader>
                     <TableRow>
@@ -2452,6 +2752,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         key={quote.id}
                         className={`cursor-pointer ${getStatusRowClassName(selectedStatus)} ${getFollowUpSurfaceClassName(followUpBucket)}`}
                         onClick={() => openQuoteDetail(quote)}
+                        onTouchEnd={(event) => runMobileTouchAction(event, () => openQuoteDetail(quote))}
                       >
                         {enableBulkActions && (
                           <TableCell onClick={(event) => event.stopPropagation()}>
@@ -2565,7 +2866,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         >
                           <button
                             type="button"
-                            className="max-w-[11rem] break-all text-left font-mono text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
+                            onTouchEnd={(event) => runMobileTouchAction(event, () => openQuoteDetail(quote))}
+                            className="min-h-11 max-w-[11rem] touch-manipulation break-all text-left font-mono text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
                             aria-label={`Open quote details for ${quote.quote_id || quote.customer_name}`}
                           >
                             {quote.quote_id || '-'}
@@ -2603,6 +2905,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             size="sm"
                             variant="outline"
                             onClick={() => openQuoteDetail(quote)}
+                            onTouchEnd={(event) => runMobileTouchAction(event, () => openQuoteDetail(quote))}
+                            className="min-h-11 touch-manipulation"
                           >
                             <Eye className="mr-2 h-3.5 w-3.5" />
                             View
@@ -2614,6 +2918,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                   </TableBody>
                 </Table>
               </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -2637,6 +2942,18 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
               setNoteMessage('');
               setNoteWarning('');
               setNoteError('');
+              setShowUpsellComposer(false);
+              setUpsellIdeaTitle('');
+              setUpsellIdeaMessage('');
+              setUpsellIdeaFiles([]);
+              setUpsellIdeaStatus('');
+              setUpsellIdeaError('');
+              setAdminQuoteContinuationOpen(false);
+              setAdminQuoteBuildUpsellIdea(null);
+              setAdminQuotePreparationNotes('');
+              setAdminWebsiteHeroReferenceFiles([]);
+              setAdminQuoteContinuationStatus('');
+              setAdminQuoteContinuationError('');
               setSelectedAssignRepSlug(UNASSIGNED_REP_VALUE);
               setAssignRepMessage('');
               setAssignRepError('');
@@ -2663,6 +2980,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             const productType = getProductType(activeQuote);
             const isBannerQuote = productType === 'banner';
             const isSignageQuote = productType === 'sign' || productType === 'signage';
+            const isStickerQuote = productType === 'decal' || productType === 'sticker';
             const fileReadinessSections = getFileReadinessSections(productType, groupedFiles);
             const nextFollowUpTask = followUpTasks.find((task) => task.status === 'open') || null;
             const nextFollowUpBucket = nextFollowUpTask ? getFollowUpTaskBucket(nextFollowUpTask) : 'none';
@@ -2673,7 +2991,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             const selectedTextHref = getPhoneHref(activeQuote.customer_phone, 'sms');
 
             return (
-            <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+            <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6">
               <DialogHeader>
                 <DialogTitle>{activeQuote.quote_id || activeQuote.customer_name}</DialogTitle>
                 <DialogDescription>Read-only quote request details</DialogDescription>
@@ -2686,7 +3004,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                   </div>
                 )}
 
-                <section className="order-1">
+                <section ref={adminQuoteDetailsSectionRef} className="order-1">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
                   <dl className="grid gap-4 md:grid-cols-3">
                     <DetailField label="Customer Name" value={activeQuote.customer_name} />
@@ -2696,6 +3014,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     <DetailField label="Rep Slug" value={activeQuote.rep_slug} />
                     <DetailField label="Assigned Rep" value={activeQuote.assigned_rep_name} />
                     <DetailField label="Product" value={getProductLabel(activeQuote)} />
+                    <DetailField label="Order Number" value={activeQuote.quote_id || activeQuote.id} />
                     <div>
                       <dt className="text-xs font-medium uppercase text-slate-500">Current Status</dt>
                       <dd className="mt-1">
@@ -2732,6 +3051,38 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         Text Customer
                       </Button>
                     )}
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => openAdminQuoteBuild()}
+                      onTouchEnd={(event) => runMobileTouchAction(event, () => openAdminQuoteBuild())}
+                      className="group flex min-h-28 touch-manipulation items-center gap-4 rounded-lg border-2 border-cyan-300 bg-gradient-to-r from-cyan-400 to-blue-500 p-4 text-left text-slate-950 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300 focus-visible:ring-offset-2"
+                    >
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-950 text-cyan-300 shadow-sm">
+                        <Calculator className="h-6 w-6" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-black uppercase tracking-[0.14em] text-slate-800">Continue customer quote</span>
+                        <span className="mt-1 block text-xl font-black leading-tight">Build This Quote Here</span>
+                        <span className="mt-1 block text-xs font-medium text-slate-800">Saved customer and vehicle information stays attached.</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openAdminOfficeDialogue}
+                      onTouchEnd={(event) => runMobileTouchAction(event, openAdminOfficeDialogue)}
+                      className="group flex min-h-28 touch-manipulation items-center gap-4 rounded-lg border-2 border-violet-300 bg-gradient-to-r from-violet-500 to-purple-600 p-4 text-left text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 focus-visible:ring-offset-2"
+                    >
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/95 text-violet-700 shadow-sm">
+                        <MessageSquare className="h-6 w-6" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-black uppercase tracking-[0.14em] text-violet-100">Shop + rep communication</span>
+                        <span className="mt-1 block text-xl font-black leading-tight">Office Dialogue & Upsells</span>
+                        <span className="mt-1 block text-xs font-medium text-violet-100">Open messages, image ideas, and Make a Quote tools.</span>
+                      </span>
+                    </button>
                   </div>
                   {canAssignReps && (
                     <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
@@ -2785,6 +3136,117 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     </div>
                   )}
                 </section>
+
+                {adminQuoteContinuationOpen && (
+                  <section ref={adminQuoteContinuationSectionRef} className="order-2 rounded-lg border-2 border-cyan-300 bg-gradient-to-br from-cyan-50 to-blue-50 p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-800">Same customer · same admin record</p>
+                        <h3 className="mt-1 text-xl font-black text-slate-950">Begin the Quote Build</h3>
+                        <p className="mt-1 text-sm text-slate-700">
+                          Continue this quote without leaving the popup or entering the customer information again. Preparation is saved in Office Dialogue for the shop and assigned rep.
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                        Lead information complete
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 rounded-md border border-cyan-200 bg-white p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <p><span className="block text-xs font-semibold uppercase text-slate-500">Customer</span>{formatValue(activeQuote.customer_name)}</p>
+                      <p><span className="block text-xs font-semibold uppercase text-slate-500">Vehicle</span>{getVehicleSummaryText(activeQuote)}</p>
+                      <p><span className="block text-xs font-semibold uppercase text-slate-500">Service</span>{formatValue(getQuoteValue(activeQuote, ['selectedService', 'quoteType', 'intakeType']))}</p>
+                      <p><span className="block text-xs font-semibold uppercase text-slate-500">Budget</span>{formatValue(getQuoteValue(activeQuote, 'budget'))}</p>
+                    </div>
+
+                    {adminQuoteBuildUpsellIdea && (
+                      <div className="mt-4 grid gap-4 rounded-md border border-amber-300 bg-amber-50 p-3 sm:grid-cols-[minmax(0,220px)_1fr] sm:items-center">
+                        {adminQuoteBuildUpsellIdea.imageUrl && <img
+                          src={adminQuoteBuildUpsellIdea.imageUrl}
+                          alt={adminQuoteBuildUpsellIdea.title}
+                          className="max-h-44 w-full rounded-md border border-amber-200 bg-white object-contain"
+                        />}
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wide text-amber-800">Quote started from upsell image</p>
+                          <p className="mt-1 font-bold text-amber-950">{adminQuoteBuildUpsellIdea.title}</p>
+                          {adminQuoteBuildUpsellIdea.message && (
+                            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{adminQuoteBuildUpsellIdea.message}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 rounded-lg border-2 border-violet-300 bg-violet-50 p-4">
+                      <div className="mb-3">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">Website build reference</p>
+                        <h4 className="mt-1 text-lg font-black text-violet-950">Upload Hero or Logo Reference Photo</h4>
+                        <p className="mt-1 text-sm text-violet-900">
+                          Take a photo or choose one from your phone. The saved rule requires the website hero to use it, clean it up, remove the background, and keep the full logo readable on Android and iPhone screens.
+                        </p>
+                      </div>
+                      <FileUpload
+                        onFilesUploaded={setAdminWebsiteHeroReferenceFiles}
+                        quoteId={activeQuote.quote_id || activeQuote.id}
+                        acceptedTypes="image/*"
+                        maxFiles={1}
+                        maxFileSizeMB={20}
+                        title="Upload Website Hero Reference"
+                        showCameraButton
+                        additionalTags={['website_hero_reference', 'logo_reference', 'transparent_background_required', 'mobile_safe_logo']}
+                        enforceMaxFilesError
+                      />
+                      <p className="mt-3 whitespace-pre-line rounded-md border border-violet-200 bg-white p-3 text-xs font-medium leading-5 text-violet-950">
+                        {WEBSITE_HERO_REFERENCE_RULE}
+                      </p>
+                    </div>
+
+                    <div className="mt-4">
+                      <label htmlFor="admin-quote-preparation-notes" className="text-sm font-semibold text-slate-900">Quote preparation notes</label>
+                      <Textarea
+                        id="admin-quote-preparation-notes"
+                        value={adminQuotePreparationNotes}
+                        onChange={(event) => {
+                          setAdminQuotePreparationNotes(event.target.value);
+                          setAdminQuoteContinuationError('');
+                          setAdminQuoteContinuationStatus('');
+                        }}
+                        placeholder="Add pricing direction, measurements needed, upsells, design scope, or customer expectations."
+                        className="mt-2 bg-white"
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <Button
+                        type="button"
+                        onClick={() => void saveAdminQuoteContinuation()}
+                        onTouchEnd={(event) => runMobileTouchAction(event, () => void saveAdminQuoteContinuation())}
+                        disabled={savingAdminQuoteContinuation}
+                        className="min-h-12 flex-1 touch-manipulation bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-white hover:from-cyan-400 hover:to-blue-500"
+                      >
+                        <Calculator className="mr-2 h-4 w-4" />
+                        {savingAdminQuoteContinuation ? 'Saving...' : 'Save & Start Quote Build'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={closeAdminQuoteBuild}
+                        onTouchEnd={(event) => runMobileTouchAction(event, closeAdminQuoteBuild)}
+                        className="min-h-12 touch-manipulation"
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Customer Details
+                      </Button>
+                    </div>
+
+                    {adminQuoteContinuationStatus && (
+                      <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{adminQuoteContinuationStatus}</p>
+                    )}
+                    {adminQuoteContinuationError && (
+                      <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{adminQuoteContinuationError}</p>
+                    )}
+                  </section>
+                )}
 
                 <section className="order-2">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer Proof Portal</h3>
@@ -3320,6 +3782,26 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                   </section>
                 )}
 
+                {isStickerQuote && (
+                  <section className="order-4">
+                    <h3 className="mb-3 text-sm font-semibold text-slate-950">Sticker & Decal Details</h3>
+                    <dl className="grid gap-4 md:grid-cols-3">
+                      <DetailField label="Decal Type" value={getStickerValue(activeQuote, 'decalType')} />
+                      <DetailField label="Material" value={getStickerValue(activeQuote, 'material')} />
+                      <DetailField label="Width" value={getStickerValue(activeQuote, 'width')} />
+                      <DetailField label="Height" value={getStickerValue(activeQuote, 'height')} />
+                      <DetailField label="Unit" value={getStickerValue(activeQuote, 'unit')} />
+                      <DetailField label="Quantity" value={getStickerValue(activeQuote, 'quantity')} />
+                      <DetailField label="Application Surface" value={getStickerValue(activeQuote, 'surface')} />
+                      <DetailField label="Finish" value={getStickerValue(activeQuote, 'finish')} />
+                    </dl>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <DetailField label="Decal Text" value={getStickerValue(activeQuote, 'decalText')} />
+                      <DetailField label="Notes" value={getStickerValue(activeQuote, 'notes')} />
+                    </div>
+                  </section>
+                )}
+
                 <section className="order-9">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Activity Timeline</h3>
                   {loadingEvents ? (
@@ -3610,9 +4092,75 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                   </div>
                 </section>
 
-                <section className="order-8">
-                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Internal Notes</h3>
+                <section ref={adminOfficeDialogueSectionRef} className="order-2 scroll-mt-4">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Office Dialogue</h3>
+                  <p className="mb-3 text-xs text-slate-600">
+                    Use this customer thread for shop-to-rep messages and upsell images. Every image keeps its note in the list, and the rep can open it directly in the quote build.
+                  </p>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-amber-950">Upsell Image Idea</p>
+                          <p className="mt-1 text-xs text-amber-800">
+                            Add a Google Maps screenshot or opportunity photo so the rep can see what else this customer may need.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="border-amber-300 bg-white text-amber-950 hover:bg-amber-100"
+                          onClick={() => {
+                            setShowUpsellComposer((current) => !current);
+                            setUpsellIdeaError('');
+                            setUpsellIdeaStatus('');
+                          }}
+                        >
+                          <ImagePlus className="mr-2 h-4 w-4" />
+                          {showUpsellComposer ? 'Close' : 'Add Image Idea'}
+                        </Button>
+                      </div>
+
+                      {showUpsellComposer && (
+                        <div className="mt-4 space-y-3 rounded-md border border-amber-200 bg-white p-3">
+                          <Input
+                            value={upsellIdeaTitle}
+                            onChange={(event) => setUpsellIdeaTitle(event.target.value)}
+                            placeholder="Example: Replace the faded roadside sign"
+                          />
+                          <Textarea
+                            value={upsellIdeaMessage}
+                            onChange={(event) => setUpsellIdeaMessage(event.target.value)}
+                            placeholder="Explain what you noticed and what the rep should offer."
+                            rows={3}
+                          />
+                          <FileUpload
+                            onFilesUploaded={setUpsellIdeaFiles}
+                            quoteId={selectedQuote.quote_id || selectedQuote.id}
+                            acceptedTypes="image/*"
+                            maxFiles={1}
+                            maxFileSizeMB={15}
+                            title="Upload Opportunity Image"
+                            showCameraButton
+                            additionalTags={['upsell_idea', 'office_dialogue']}
+                            enforceMaxFilesError
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => void saveUpsellImageIdea()}
+                            disabled={savingUpsellIdea || !upsellIdeaTitle.trim() || !upsellIdeaFiles[0]?.url}
+                            className="w-full bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
+                          >
+                            <ImagePlus className="mr-2 h-4 w-4" />
+                            {savingUpsellIdea ? 'Saving...' : 'Save Idea & Notify Rep'}
+                          </Button>
+                        </div>
+                      )}
+
+                      {upsellIdeaStatus && <p className="mt-3 text-sm font-medium text-emerald-700">{upsellIdeaStatus}</p>}
+                      {upsellIdeaError && <p className="mt-3 text-sm font-medium text-red-700">{upsellIdeaError}</p>}
+                    </div>
+
                     <Textarea
                       value={newInternalNote}
                       onChange={(event) => {
@@ -3621,12 +4169,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         setNoteMessage('');
                         setNoteWarning('');
                       }}
-                      placeholder="Document calls, follow-ups, pricing discussions, design notes, or next steps."
+                      placeholder="Write a message to the assigned rep or add an internal office update for this customer."
                       rows={4}
                     />
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-2">
-                        <p className="text-xs text-slate-500">Internal only. Notes are timestamped and shown newest first.</p>
+                        <p className="text-xs text-slate-500">Office-only dialogue. Messages are timestamped and stay with this customer.</p>
                         {hasSalesRepNotificationTarget ? (
                           <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
                             <Checkbox
@@ -3645,7 +4193,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         )}
                       </div>
                       <Button onClick={saveInternalNote} disabled={savingNote || !newInternalNote.trim()}>
-                        {savingNote ? 'Saving...' : 'Add Note'}
+                        {savingNote ? 'Saving...' : 'Save Office Message'}
                       </Button>
                     </div>
                     {noteMessage && (
@@ -3672,15 +4220,43 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                       <p className="text-sm text-slate-500">No internal notes yet.</p>
                     ) : (
                       <div className="space-y-3">
-                        {internalNotes.map((note) => (
-                          <div key={note.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                        {internalNotes.map((note) => {
+                          const upsellIdea = parseUpsellImageIdea(note.note_text);
+                          return (
+                          <div key={note.id} className={`rounded-md border p-3 ${upsellIdea ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
                             <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                               <p className="text-xs font-medium uppercase text-slate-500">{note.created_by}</p>
                               <time className="text-xs text-slate-500">{formatDate(note.created_at)}</time>
                             </div>
-                            <p className="whitespace-pre-wrap text-sm text-slate-900">{note.note_text}</p>
+                            {upsellIdea ? (
+                              <div className="space-y-3">
+                                {upsellIdea.imageUrl && <img src={upsellIdea.imageUrl} alt={upsellIdea.title} className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain" />}
+                                <div>
+                                  <p className="font-semibold text-amber-950">Upsell idea: {upsellIdea.title}</p>
+                                  {upsellIdea.message && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{upsellIdea.message}</p>}
+                                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
+                                      onClick={() => openAdminQuoteBuild(upsellIdea)}
+                                      onTouchEnd={(event) => runMobileTouchAction(event, () => openAdminQuoteBuild(upsellIdea))}
+                                    >
+                                      <Calculator className="mr-2 h-4 w-4" />
+                                      Make a Quote
+                                    </Button>
+                                    {upsellIdea.imageUrl && <a href={upsellIdea.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-semibold text-amber-800 underline">
+                                      Open full image <ExternalLink className="ml-1 h-3 w-3" />
+                                    </a>}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap text-sm text-slate-900">{note.note_text}</p>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

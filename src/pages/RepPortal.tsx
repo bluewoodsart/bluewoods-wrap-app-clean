@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowDownRight, Bug, CalendarDays, Download, ExternalLink, FileText, LogOut, MessageSquare, Phone, QrCode, RefreshCw, UploadCloud } from 'lucide-react';
+import { ArrowDownRight, ArrowLeft, Bug, Calculator, CalendarDays, ChevronDown, ChevronRight, Coins, Download, ExternalLink, FileText, ImagePlus, LogOut, Mail, MessageSquare, Phone, QrCode, RefreshCw, Sparkles, Star, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,8 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
+import { QuoteInvoiceBuilder } from '@/components/QuoteInvoiceBuilder';
+import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
+import { runMobileTouchAction } from '@/lib/mobileTouch';
+import StaffFeed from '@/components/StaffFeed';
+import ZoeGameHub from '@/components/ZoeGameHub';
+import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
 import { supabase } from '@/lib/supabase';
 import type { UploadedFile } from '@/types';
+import { setRepPortalSessionActive } from '@/lib/repTracking';
 
 interface AdminUser {
   id: string;
@@ -113,6 +120,14 @@ interface MeetingCalendarEvent {
   title: string;
   dueDate: string;
   details: string;
+}
+
+interface OfficeNote {
+  id: string;
+  quote_request_id: string;
+  note_text: string;
+  created_by: string;
+  created_at: string;
 }
 
 const formatDate = (value: string | null | undefined) => {
@@ -248,6 +263,7 @@ const getProductType = (quote: RepQuoteRow) =>
 const getProductLabel = (quote: RepQuoteRow) => {
   const productType = getProductType(quote);
   if (productType === 'sign' || productType === 'signage') return 'Generic Signage';
+  if (productType === 'decal' || productType === 'sticker') return 'Stickers & Decals';
   return formatLabel(productType);
 };
 
@@ -274,6 +290,12 @@ const getSignageValue = (quote: RepQuoteRow, key: string) => {
   const signage = getSummaryValue(quote, ['signage', 'sign']);
   if (!signage || typeof signage !== 'object' || Array.isArray(signage)) return undefined;
   return (signage as Record<string, unknown>)[key];
+};
+
+const getStickerValue = (quote: RepQuoteRow, key: string) => {
+  const sticker = getSummaryValue(quote, ['sticker', 'decal']);
+  if (!sticker || typeof sticker !== 'object' || Array.isArray(sticker)) return undefined;
+  return (sticker as Record<string, unknown>)[key];
 };
 
 const getFollowUpBucket = (summary: FollowUpSummary) => {
@@ -318,18 +340,22 @@ const getDashboardMetricClassName = (label: string) => {
 };
 
 const getGroupClassName = (title: string) => {
+  if (title === "Today's Follow-ups") return 'border-amber-200 bg-amber-50/45';
   if (title === 'New Leads') return 'border-blue-200 bg-blue-50/40';
-  if (title === 'Waiting for Customer') return 'border-red-200 bg-red-50/45';
+  if (title === 'Waiting on Customer') return 'border-red-200 bg-red-50/45';
   if (title === 'Ready for Install') return 'border-emerald-200 bg-emerald-50/45';
   if (title === 'Completed') return 'border-slate-200 bg-slate-100/65';
+  if (title === 'Need Deposit') return 'border-violet-200 bg-violet-50/45';
   return 'border-slate-200 bg-white';
 };
 
 const getGroupBadgeClassName = (title: string) => {
+  if (title === "Today's Follow-ups") return 'bg-amber-100 text-amber-800';
   if (title === 'New Leads') return 'bg-blue-100 text-blue-800';
-  if (title === 'Waiting for Customer') return 'bg-red-100 text-red-800';
+  if (title === 'Waiting on Customer') return 'bg-red-100 text-red-800';
   if (title === 'Ready for Install') return 'bg-emerald-100 text-emerald-800';
   if (title === 'Completed') return 'bg-slate-200 text-slate-700';
+  if (title === 'Need Deposit') return 'bg-violet-100 text-violet-800';
   return 'bg-slate-100 text-slate-700';
 };
 
@@ -384,6 +410,8 @@ const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') =
 };
 
 const JAZZY_REFERRAL_ONE_SHEET_PATH = '/jazzy/kevin-jazzy-referral-one-sheet.pdf';
+const WHEELERS_TOWING_QUOTE_ID = 'SW-20260715-07175D';
+const WHEELERS_TOWING_PAGE_URL = 'https://www.slapwrapz.com/trapstar/local/wheelers-towing';
 
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
@@ -433,7 +461,34 @@ const RepPortal = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [quotes, setQuotes] = useState<RepQuoteRow[]>([]);
+  const [quoteChooserOpen, setQuoteChooserOpen] = useState(false);
+  const [guideQuoteButton, setGuideQuoteButton] = useState(false);
+  const [zoeEmptyCustomerCelebration, setZoeEmptyCustomerCelebration] = useState(false);
+  const zoeQuoteMissionOpenedRef = useRef(false);
+  const zoeQuoteMissionVerifiedRef = useRef(false);
   const [selectedQuote, setSelectedQuote] = useState<RepQuoteRow | null>(null);
+  const [officeNotes, setOfficeNotes] = useState<OfficeNote[]>([]);
+  const [loadingOfficeNotes, setLoadingOfficeNotes] = useState(false);
+  const [newOfficeMessage, setNewOfficeMessage] = useState('');
+  const [savingOfficeMessage, setSavingOfficeMessage] = useState(false);
+  const [officeMessageStatus, setOfficeMessageStatus] = useState('');
+  const [officeMessageError, setOfficeMessageError] = useState('');
+  const [showRepUpsellComposer, setShowRepUpsellComposer] = useState(false);
+  const [repUpsellTitle, setRepUpsellTitle] = useState('');
+  const [repUpsellMessage, setRepUpsellMessage] = useState('');
+  const [repUpsellFiles, setRepUpsellFiles] = useState<UploadedFile[]>([]);
+  const [savingRepUpsell, setSavingRepUpsell] = useState(false);
+  const [quoteContinuationOpen, setQuoteContinuationOpen] = useState(false);
+  const [quoteBuildUpsellIdea, setQuoteBuildUpsellIdea] = useState<UpsellImageIdea | null>(null);
+  const [quotePreparationNotes, setQuotePreparationNotes] = useState('');
+  const [websiteHeroReferenceFiles, setWebsiteHeroReferenceFiles] = useState<UploadedFile[]>([]);
+  const [savingQuoteContinuation, setSavingQuoteContinuation] = useState(false);
+  const [quoteContinuationStatus, setQuoteContinuationStatus] = useState('');
+  const [quoteContinuationError, setQuoteContinuationError] = useState('');
+  const [invoiceBuilderOpen, setInvoiceBuilderOpen] = useState(false);
+  const [activePriorityGroupId, setActivePriorityGroupId] = useState<string | null>(null);
+  const [guidedPriorityGroupId, setGuidedPriorityGroupId] = useState<string | null>(null);
+  const [expandedPriorityGroupIds, setExpandedPriorityGroupIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [error, setError] = useState('');
@@ -459,9 +514,332 @@ const RepPortal = () => {
   const [portalFeedbackMessage, setPortalFeedbackMessage] = useState('');
   const [portalFeedbackState, setPortalFeedbackState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [portalFeedbackStatus, setPortalFeedbackStatus] = useState('');
+  const [portalFeedbackResult, setPortalFeedbackResult] = useState('pass');
+  const [portalFeedbackFiles, setPortalFeedbackFiles] = useState<UploadedFile[]>([]);
+  const [guidedPortalReport, setGuidedPortalReport] = useState(false);
+  const [zoeNavigationPhase, setZoeNavigationPhase] = useState<'idle' | 'back' | 'forward'>('idle');
+  const zoeNavigationPhaseRef = useRef<'idle' | 'back' | 'forward'>('idle');
   const meetingDueDateInputRef = useRef<HTMLInputElement | null>(null);
+  const quoteDetailsSectionRef = useRef<HTMLElement | null>(null);
+  const quoteContinuationSectionRef = useRef<HTMLElement | null>(null);
+  const quoteDetailHistoryPushedRef = useRef(false);
+  const selectedQuoteRef = useRef<RepQuoteRow | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const selectedQuoteId = selectedQuote?.id;
+
+  const closeSelectedQuoteDetail = useCallback(() => {
+    setSelectedQuote(null);
+    setMeetingNotes('');
+    setMeetingNextStep('');
+    setMeetingDueDate('');
+    setMeetingMessage('');
+    setMeetingError('');
+    setMeetingSuccessOpen(false);
+    setNewOfficeMessage('');
+    setOfficeMessageStatus('');
+    setOfficeMessageError('');
+    setShowRepUpsellComposer(false);
+    setRepUpsellTitle('');
+    setRepUpsellMessage('');
+    setRepUpsellFiles([]);
+    setQuoteContinuationOpen(false);
+    setQuoteBuildUpsellIdea(null);
+    setQuotePreparationNotes('');
+    setWebsiteHeroReferenceFiles([]);
+    setQuoteContinuationStatus('');
+    setQuoteContinuationError('');
+    setInvoiceBuilderOpen(false);
+  }, []);
+
+  const requestCloseSelectedQuoteDetail = useCallback(() => {
+    if (
+      typeof window !== 'undefined' &&
+      quoteDetailHistoryPushedRef.current &&
+      window.history.state?.repQuoteDetailOpen
+    ) {
+      window.history.back();
+      return;
+    }
+
+    quoteDetailHistoryPushedRef.current = false;
+    closeSelectedQuoteDetail();
+  }, [closeSelectedQuoteDetail]);
+
+  useEffect(() => {
+    selectedQuoteRef.current = selectedQuote;
+  }, [selectedQuote]);
+
+  useEffect(() => {
+    if (!selectedQuote || quoteDetailHistoryPushedRef.current || typeof window === 'undefined') return;
+
+    window.history.pushState(
+      {
+        ...(window.history.state || {}),
+        repQuoteDetailOpen: true,
+        repQuoteId: selectedQuote.id
+      },
+      '',
+      window.location.href
+    );
+    quoteDetailHistoryPushedRef.current = true;
+  }, [selectedQuote]);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (
+        selectedQuoteRef.current &&
+        quoteDetailHistoryPushedRef.current &&
+        !event.state?.repQuoteDetailOpen
+      ) {
+        quoteDetailHistoryPushedRef.current = false;
+        closeSelectedQuoteDetail();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [closeSelectedQuoteDetail]);
+
+  const startQuoteForCustomer = (quote: RepQuoteRow) => {
+    setSelectedQuote(quote);
+    setQuoteContinuationOpen(true);
+    setInvoiceBuilderOpen(false);
+    setQuoteBuildUpsellIdea(null);
+    setQuotePreparationNotes('');
+    setWebsiteHeroReferenceFiles([]);
+    setQuoteContinuationStatus('');
+    setQuoteContinuationError('');
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        quoteContinuationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  };
+
+  const startQuoteFromUpsell = (idea: UpsellImageIdea) => {
+    setQuoteBuildUpsellIdea(idea);
+    setWebsiteHeroReferenceFiles([]);
+    setQuotePreparationNotes([
+      `Upsell opportunity: ${idea.title}`,
+      idea.message,
+      idea.imageUrl ? `Reference image: ${idea.imageUrl}` : ''
+    ].filter(Boolean).join('\n\n'));
+    setQuoteContinuationStatus('');
+    setQuoteContinuationError('');
+    setQuoteContinuationOpen(true);
+    window.requestAnimationFrame(() => {
+      quoteContinuationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const returnToCustomerDetails = () => {
+    setQuoteContinuationOpen(false);
+    setQuoteBuildUpsellIdea(null);
+    setQuoteContinuationStatus('');
+    setQuoteContinuationError('');
+    window.requestAnimationFrame(() => {
+      quoteDetailsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const saveQuoteContinuation = async () => {
+    if (!selectedQuote || savingQuoteContinuation) return;
+
+    const normalizedFiles = [...getFiles(selectedQuote), ...websiteHeroReferenceFiles]
+      .filter((file) => Boolean(file.url))
+      .map((file, index) => ({
+        id: file.id || `${selectedQuote.id}-file-${index}`,
+        name: file.name || `Customer file ${index + 1}`,
+        url: file.url || '',
+        type: file.type || '',
+        size: file.size || 0,
+        tags: file.tags || []
+      }));
+
+    setSavingQuoteContinuation(true);
+    setQuoteContinuationError('');
+    setQuoteContinuationStatus('Saving to this customer...');
+
+    const { error: continuationError } = await supabase.rpc('continue_rep_quote_request_v1', {
+      p_quote_request_id: selectedQuote.id,
+      p_customer_name: selectedQuote.customer_name,
+      p_customer_email: selectedQuote.customer_email,
+      p_customer_phone: selectedQuote.customer_phone || '',
+      p_preferred_contact: ['email', 'text', 'call'].includes(selectedQuote.preferred_contact || '')
+        ? selectedQuote.preferred_contact
+        : 'email',
+      p_quote_data: {
+        ...(selectedQuote.quote_summary || {}),
+        repQuoteBuildStatus: 'started',
+        repQuoteBuildStartedAt: new Date().toISOString(),
+        repQuotePreparationNotes: quotePreparationNotes.trim(),
+        websiteHeroReferenceRule: websiteHeroReferenceFiles.length > 0 ? WEBSITE_HERO_REFERENCE_RULE : null,
+        websiteHeroReferenceFiles: websiteHeroReferenceFiles.map((file) => ({ name: file.name, url: file.url })),
+        repQuoteBuildSource: quoteBuildUpsellIdea ? 'upsell_image_idea' : 'customer_record',
+        ...(quoteBuildUpsellIdea ? { repQuoteUpsellIdea: quoteBuildUpsellIdea } : {})
+      },
+      p_uploaded_files: normalizedFiles
+    });
+
+    if (continuationError) {
+      setSavingQuoteContinuation(false);
+      setQuoteContinuationStatus('');
+      setQuoteContinuationError(continuationError.message);
+      return;
+    }
+
+    const heroReferenceList = formatWebsiteHeroReferences(websiteHeroReferenceFiles);
+    const officeNote = [
+      quotePreparationNotes.trim() ? `Quote build preparation:\n${quotePreparationNotes.trim()}` : '',
+      heroReferenceList ? `WEBSITE HERO REFERENCES:\n${heroReferenceList}\n\n${WEBSITE_HERO_REFERENCE_RULE}` : ''
+    ].filter(Boolean).join('\n\n');
+
+    if (officeNote) {
+      await supabase.rpc('add_quote_internal_note_rep_v1', {
+        p_quote_request_id: selectedQuote.id,
+        p_note_text: officeNote
+      });
+      await loadOfficeNotes(selectedQuote.id);
+    }
+
+    setSavingQuoteContinuation(false);
+    setQuoteContinuationStatus('Saved to this customer. Opening the official invoice builder on this same record.');
+    setInvoiceBuilderOpen(true);
+    await refreshAssignedQuotes();
+  };
+
+  const loadOfficeNotes = useCallback(async (quoteRequestId: string) => {
+    setLoadingOfficeNotes(true);
+    setOfficeMessageError('');
+
+    const { data, error: notesError } = await supabase.rpc('get_quote_internal_notes_rep_v1', {
+      p_quote_request_id: quoteRequestId
+    });
+
+    setLoadingOfficeNotes(false);
+    if (notesError) {
+      setOfficeNotes([]);
+      setOfficeMessageError(notesError.message);
+      return;
+    }
+
+    setOfficeNotes((data || []) as OfficeNote[]);
+  }, []);
+
+  const sendOfficeMessage = async () => {
+    if (!selectedQuote || savingOfficeMessage) return;
+    const trimmedMessage = newOfficeMessage.trim();
+    if (!trimmedMessage) {
+      setOfficeMessageError('Add a message before sending.');
+      return;
+    }
+
+    setSavingOfficeMessage(true);
+    setOfficeMessageError('');
+    setOfficeMessageStatus('Saving message...');
+
+    const { error: saveError } = await supabase.rpc('add_quote_internal_note_rep_v1', {
+      p_quote_request_id: selectedQuote.id,
+      p_note_text: trimmedMessage
+    });
+
+    if (saveError) {
+      setSavingOfficeMessage(false);
+      setOfficeMessageStatus('');
+      setOfficeMessageError(saveError.message);
+      return;
+    }
+
+    setNewOfficeMessage('');
+    await loadOfficeNotes(selectedQuote.id);
+
+    const emailResponse = await fetch('/api/send-internal-note-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipientType: 'office',
+        authorName: adminUser?.display_name || adminUser?.email || 'Sales rep',
+        quoteId: selectedQuote.quote_id || selectedQuote.id,
+        customerName: selectedQuote.customer_name,
+        noteText: trimmedMessage
+      })
+    });
+
+    setSavingOfficeMessage(false);
+    if (!emailResponse.ok) {
+      setOfficeMessageStatus('Message saved.');
+      setOfficeMessageError('The office email notification did not send, but your message is safely saved here.');
+      return;
+    }
+
+    setOfficeMessageStatus('Message saved and sent to SlapWrapz Quotes.');
+  };
+
+  const saveRepUpsellIdea = async () => {
+    if (!selectedQuote || savingRepUpsell) return;
+    const title = repUpsellTitle.trim();
+    const message = repUpsellMessage.trim();
+    const imageFile = repUpsellFiles[0];
+
+    if (!title || !imageFile?.url) {
+      setOfficeMessageError('Add a title and upload an opportunity image before saving.');
+      return;
+    }
+
+    const idea = { title, message, imageUrl: imageFile.url, imageName: imageFile.name };
+    setSavingRepUpsell(true);
+    setOfficeMessageError('');
+    setOfficeMessageStatus('Saving upsell image idea...');
+
+    const { error: saveError } = await supabase.rpc('add_quote_internal_note_rep_v1', {
+      p_quote_request_id: selectedQuote.id,
+      p_note_text: encodeUpsellImageIdea(idea)
+    });
+
+    if (saveError) {
+      setSavingRepUpsell(false);
+      setOfficeMessageStatus('');
+      setOfficeMessageError(saveError.message);
+      return;
+    }
+
+    await loadOfficeNotes(selectedQuote.id);
+    const response = await fetch('/api/send-internal-note-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipientType: 'office',
+        authorName: adminUser?.display_name || adminUser?.email || 'Sales rep',
+        quoteId: selectedQuote.quote_id || selectedQuote.id,
+        customerName: selectedQuote.customer_name,
+        noteText: formatUpsellIdeaForEmail(idea)
+      })
+    });
+
+    setSavingRepUpsell(false);
+    setRepUpsellTitle('');
+    setRepUpsellMessage('');
+    setRepUpsellFiles([]);
+    setShowRepUpsellComposer(false);
+
+    if (!response.ok) {
+      setOfficeMessageStatus('Upsell image idea saved.');
+      setOfficeMessageError('The office email did not send, but the image idea is safely saved here.');
+      return;
+    }
+
+    setOfficeMessageStatus('Upsell image idea saved and sent to SlapWrapz Quotes.');
+  };
+
+  useEffect(() => {
+    if (!selectedQuoteId) {
+      setOfficeNotes([]);
+      return;
+    }
+
+    void loadOfficeNotes(selectedQuoteId);
+  }, [loadOfficeNotes, selectedQuoteId]);
 
   const loadPortal = async () => {
     setLoading(true);
@@ -505,6 +883,8 @@ const RepPortal = () => {
       setLoading(false);
       return;
     }
+
+    setRepPortalSessionActive(true);
 
     setLoadingQuotes(true);
     const quoteRpc =
@@ -550,6 +930,7 @@ const RepPortal = () => {
 
   const handleLogout = async () => {
     setSigningOut(true);
+    setRepPortalSessionActive(false);
     await supabase.auth.signOut();
     setSigningOut(false);
     navigate('/login?redirect=/rep', { replace: true });
@@ -565,7 +946,7 @@ const RepPortal = () => {
       .map((file, index) => `${index + 1}. ${file.name}: ${file.url}`)
       .join('\n');
     const directionWithReferences = referenceFileLines
-      ? `${trimmedDirection}\n\nREFERENCE UPLOADS:\n${referenceFileLines}`
+      ? `${trimmedDirection}\n\nWEBSITE HERO REFERENCES:\n${referenceFileLines}\n\n${WEBSITE_HERO_REFERENCE_RULE}`
       : trimmedDirection;
 
     if (trimmedDirection.length < 40) {
@@ -620,9 +1001,9 @@ const RepPortal = () => {
         setPageIdeas((current) => [savedIdea, ...current.filter((idea) => idea.id !== savedIdea.id)]);
       }
       setCoverDirectionMessage(
-        adminUser.rep_slug === 'jarrel'
-          ? 'Your page idea was sent to BWB and auto-approved for testing. Would you like to add anything else?'
-          : 'Your page idea was sent to BWB for review. Would you like to add anything else?'
+        savedIdea?.status === 'approved'
+          ? 'Your page idea is in the build lane. BWB can now build a first look from it.'
+          : 'Your page idea was sent to BWB for review. Add the word build when you want it to go straight into the build lane.'
       );
     } catch (coverError) {
       setCoverDirectionState('error');
@@ -783,13 +1164,23 @@ const RepPortal = () => {
       setPortalFeedbackStatus('Add a little more detail so BWB knows what to fix or improve.');
       return;
     }
+    if (adminUser.rep_slug === 'zoe' && guidedPortalReport && portalFeedbackFiles.length === 0) {
+      setPortalFeedbackState('error');
+      setPortalFeedbackStatus('Add one screenshot or short recording before sending the mission report.');
+      return;
+    }
+
+    const attachmentLines = portalFeedbackFiles.map((file) => `${file.name}: ${file.url}`);
+    const feedbackMessage = adminUser.rep_slug === 'zoe'
+      ? `Mission 01 result: ${portalFeedbackResult === 'pass' ? 'Pass' : 'Needs Fix'}\n${trimmedMessage}${attachmentLines.length ? `\nEvidence:\n${attachmentLines.join('\n')}` : ''}`
+      : trimmedMessage;
 
     setPortalFeedbackState('sending');
     setPortalFeedbackStatus('Sending portal note...');
 
     const { error: feedbackError } = await supabase.rpc('submit_rep_portal_feedback_v1', {
       p_feedback_type: portalFeedbackType,
-      p_message: trimmedMessage,
+      p_message: feedbackMessage,
       p_page_path: `${window.location.pathname}${window.location.search}`
     });
 
@@ -805,8 +1196,14 @@ const RepPortal = () => {
 
     setPortalFeedbackState('sent');
     setPortalFeedbackMessage('');
+    setPortalFeedbackFiles([]);
     setPortalFeedbackType('bug');
     setPortalFeedbackStatus('Sent to BWB. Thanks. This helps improve the rep portal.');
+    if (adminUser.rep_slug === 'zoe' && guidedPortalReport) {
+      setGuidedPortalReport(false);
+      window.dispatchEvent(new CustomEvent('bwb-zoe-mission-step-completed', { detail: { step: 4 } }));
+      window.setTimeout(() => document.getElementById('zoe-mission-one')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 650);
+    }
   };
 
   const selectedFiles = useMemo(() => (selectedQuote ? getFiles(selectedQuote) : []), [selectedQuote]);
@@ -828,30 +1225,175 @@ const RepPortal = () => {
     completed: quotes.filter(isCompletedQuote).length,
     needDeposit: quotes.filter(needsDeposit).length
   }), [quotes]);
+  const scrollToPriorityGroup = (targetId: string) => {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    setActivePriorityGroupId(targetId);
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  useEffect(() => {
+    const guideQuote = () => {
+      setGuideQuoteButton(true);
+      window.setTimeout(() => {
+        document.getElementById('zoe-start-quote-target')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    };
+    window.addEventListener('bwb-zoe-guide-quote', guideQuote);
+    return () => window.removeEventListener('bwb-zoe-guide-quote', guideQuote);
+  }, []);
+
+  useEffect(() => {
+    if (adminUser?.rep_slug !== 'zoe') return;
+    if (quoteChooserOpen) {
+      zoeQuoteMissionOpenedRef.current = true;
+      if (quotes.length > 0) {
+        zoeQuoteMissionVerifiedRef.current = true;
+        window.dispatchEvent(new CustomEvent('bwb-zoe-mission-step-completed', { detail: { step: 0 } }));
+      }
+      return;
+    }
+    if (zoeQuoteMissionOpenedRef.current) {
+      const verified = zoeQuoteMissionVerifiedRef.current;
+      zoeQuoteMissionOpenedRef.current = false;
+      zoeQuoteMissionVerifiedRef.current = false;
+      if (verified) window.dispatchEvent(new CustomEvent('bwb-zoe-mission-step-completed', { detail: { step: 1 } }));
+    }
+  }, [adminUser?.rep_slug, quoteChooserOpen, quotes.length]);
+
+  const completeZoeEmptyCustomerDiscovery = async () => {
+    await loadPortal();
+    zoeQuoteMissionVerifiedRef.current = true;
+    window.dispatchEvent(new CustomEvent('bwb-zoe-mission-step-completed', { detail: { step: 0 } }));
+    setZoeEmptyCustomerCelebration(true);
+    window.setTimeout(() => {
+      setZoeEmptyCustomerCelebration(false);
+      setQuoteChooserOpen(false);
+      window.setTimeout(() => {
+        document.getElementById('zoe-mission-one')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 250);
+    }, 2200);
+  };
+
+  const openQuoteStart = () => {
+    setGuideQuoteButton(false);
+    setQuoteChooserOpen(true);
+  };
   const groupedQuotes = useMemo(() => [
     {
+      id: 'priority-todays-follow-ups',
+      title: "Today's Follow-ups",
+      description: 'Follow-up tasks due today.',
+      quotes: quotes.filter((quote) => (getFollowUpSummary(quote).due_today_follow_up_count || 0) > 0)
+    },
+    {
+      id: 'priority-waiting-on-customer',
+      title: 'Waiting on Customer',
+      description: 'Open customer action requests on assigned quotes.',
+      quotes: quotes.filter(isWaitingOnCustomer)
+    },
+    {
+      id: 'priority-new-leads',
       title: 'New Leads',
       description: 'Fresh assigned quote requests.',
       quotes: quotes.filter(isNewLead)
     },
     {
-      title: 'Waiting for Customer',
-      description: 'Open customer action requests on assigned quotes.',
-      quotes: quotes.filter(isWaitingOnCustomer)
-    },
-    {
+      id: 'priority-ready-for-install',
       title: 'Ready for Install',
       description: 'Approved, printing, or scheduled work.',
       quotes: quotes.filter(isReadyForInstall)
     },
     {
+      id: 'priority-completed',
       title: 'Completed',
       description: 'Assigned work marked complete.',
       quotes: quotes.filter(isCompletedQuote)
+    },
+    {
+      id: 'priority-need-deposit',
+      title: 'Need Deposit',
+      description: 'Quote sent and waiting for a deposit.',
+      quotes: quotes.filter(needsDeposit)
     }
   ], [quotes]);
+
+  useEffect(() => {
+    const guideQuoteGroup = () => {
+      const targetGroup = groupedQuotes.find((group) => group.quotes.length > 0) || groupedQuotes[0];
+      if (!targetGroup) return;
+      setGuidedPriorityGroupId(targetGroup.id);
+      setExpandedPriorityGroupIds((current) => current.filter((id) => id !== targetGroup.id));
+      window.setTimeout(() => {
+        document.getElementById(targetGroup.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    };
+    window.addEventListener('bwb-zoe-guide-quote-group', guideQuoteGroup);
+    return () => window.removeEventListener('bwb-zoe-guide-quote-group', guideQuoteGroup);
+  }, [groupedQuotes]);
+
+  useEffect(() => {
+    const startHistoryCheck = () => {
+      const cleanState = { ...(window.history.state || {}) };
+      delete cleanState.zoeMissionNavCheck;
+      window.history.replaceState(cleanState, '', window.location.href);
+      window.history.pushState({ ...cleanState, zoeMissionNavCheck: true }, '', window.location.href);
+      zoeNavigationPhaseRef.current = 'back';
+      setZoeNavigationPhase('back');
+    };
+    const handleHistoryStep = (event: PopStateEvent) => {
+      if (zoeNavigationPhaseRef.current === 'back' && !event.state?.zoeMissionNavCheck) {
+        zoeNavigationPhaseRef.current = 'forward';
+        setZoeNavigationPhase('forward');
+        return;
+      }
+      if (zoeNavigationPhaseRef.current === 'forward' && event.state?.zoeMissionNavCheck) {
+        zoeNavigationPhaseRef.current = 'idle';
+        setZoeNavigationPhase('idle');
+        window.dispatchEvent(new CustomEvent('bwb-zoe-mission-step-completed', { detail: { step: 3 } }));
+        window.setTimeout(() => document.getElementById('zoe-mission-one')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 500);
+      }
+    };
+    const guideReport = () => {
+      setGuidedPortalReport(true);
+      setPortalFeedbackState('idle');
+      setPortalFeedbackStatus('');
+      window.setTimeout(() => document.getElementById('zoe-portal-report')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    };
+    window.addEventListener('bwb-zoe-start-history-check', startHistoryCheck);
+    window.addEventListener('bwb-zoe-guide-report', guideReport);
+    window.addEventListener('popstate', handleHistoryStep);
+    return () => {
+      window.removeEventListener('bwb-zoe-start-history-check', startHistoryCheck);
+      window.removeEventListener('bwb-zoe-guide-report', guideReport);
+      window.removeEventListener('popstate', handleHistoryStep);
+    };
+  }, []);
+
+  const togglePriorityGroup = (groupId: string, jobCount: number) => {
+    const isExpanded = expandedPriorityGroupIds.includes(groupId);
+    setExpandedPriorityGroupIds((current) => isExpanded ? current.filter((id) => id !== groupId) : [...current, groupId]);
+    if (!isExpanded && adminUser?.rep_slug === 'zoe' && guidedPriorityGroupId === groupId) {
+      if (jobCount > 0) {
+        setGuidedPriorityGroupId(null);
+        window.dispatchEvent(new CustomEvent('bwb-zoe-mission-step-completed', { detail: { step: 2 } }));
+        window.setTimeout(() => document.getElementById('zoe-mission-one')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 900);
+      }
+    }
+  };
   const selectedCallHref = getPhoneHref(selectedQuote?.customer_phone, 'tel');
   const selectedTextHref = getPhoneHref(selectedQuote?.customer_phone, 'sms');
+  const showWheelersTowingPage = (selectedQuote?.quote_id || '').trim().toUpperCase() === WHEELERS_TOWING_QUOTE_ID;
+  const wheelersPageMessage = selectedQuote
+    ? `Hi ${selectedQuote.customer_name}, we put together a sample one-page website for Wheeler's Towing. You can preview it here: ${WHEELERS_TOWING_PAGE_URL}`
+    : '';
+  const wheelersEmailHref = selectedQuote?.customer_email
+    ? `mailto:${selectedQuote.customer_email}?subject=${encodeURIComponent("Wheeler's Towing website preview")}&body=${encodeURIComponent(wheelersPageMessage)}`
+    : undefined;
+  const wheelersTextHref = selectedQuote?.customer_phone
+    ? `${getPhoneHref(selectedQuote.customer_phone, 'sms')}?&body=${encodeURIComponent(wheelersPageMessage)}`
+    : undefined;
   const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
   const repPublicUrl = adminUser?.rep_slug ? `www.slapwrapz.com/${adminUser.rep_slug}` : 'www.slapwrapz.com';
   const repPublicPageUrl = `https://${repPublicUrl}`;
@@ -946,7 +1488,8 @@ const RepPortal = () => {
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 md:px-8">
+      <main className="mx-auto min-w-0 max-w-7xl space-y-5 overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 md:px-8">
+        {adminUser.rep_slug === 'zoe' && <ZoeGameHub onStartQuote={openQuoteStart} />}
         <section>
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -961,23 +1504,61 @@ const RepPortal = () => {
             </Button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            {[
-              { label: "Today's Follow-ups", value: dashboardCounts.todayFollowUps, detail: 'Due today' },
-              { label: 'Waiting on Customer', value: dashboardCounts.waitingOnCustomer, detail: 'Open requests' },
-              { label: 'New Leads', value: dashboardCounts.newLeads, detail: 'New or partial' },
-              { label: 'Ready for Install', value: dashboardCounts.readyForInstall, detail: 'Approved or scheduled' },
-              { label: 'Completed', value: dashboardCounts.completed, detail: 'Assigned complete' },
-              { label: 'Need Deposit', value: dashboardCounts.needDeposit, detail: 'Quote sent stage' }
-            ].map((metric) => (
-              <div key={metric.label} className={`rounded-md border p-4 shadow-sm ${getDashboardMetricClassName(metric.label)}`}>
-                <p className="text-xs font-semibold uppercase opacity-75">{metric.label}</p>
-                <p className="mt-2 text-3xl font-bold">{metric.value}</p>
-                <p className="mt-1 text-xs opacity-70">{metric.detail}</p>
+          <div id="zoe-start-quote-target" className="relative mb-4 scroll-mt-24">
+          {guideQuoteButton && adminUser.rep_slug === 'zoe' && (
+            <div className="mb-3 flex animate-bounce items-center justify-center gap-2 rounded-xl border-2 border-[#fff600] bg-[#11152d] px-4 py-3 text-center text-sm font-black uppercase tracking-wide text-[#fff600] shadow-xl" role="status">
+              Tap this button <ArrowDownRight className="h-6 w-6" />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={openQuoteStart}
+            onTouchEnd={(event) => runMobileTouchAction(event, openQuoteStart)}
+            className={`flex min-h-28 w-full touch-manipulation items-center justify-between gap-3 rounded-lg border-2 bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 p-4 text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 sm:gap-4 sm:p-5 ${guideQuoteButton ? 'border-[#fff600] ring-4 ring-[#fff600]/50' : 'border-cyan-300'}`}
+            aria-label="Choose a customer and open the quote builder"
+          >
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-950 text-cyan-300 shadow-md sm:h-14 sm:w-14">
+                <Calculator className="h-7 w-7" />
+              </span>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-800">Create a customer quote</p>
+                <p className="mt-1 text-xl font-black leading-tight sm:text-3xl">Start a Quote Here</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">
+                  Choose an assigned customer and open the in-portal quote builder.
+                </p>
               </div>
+            </div>
+            <ArrowDownRight className="h-8 w-8 shrink-0" />
+          </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-6">
+            {[
+              { label: "Today's Follow-ups", value: dashboardCounts.todayFollowUps, detail: 'Due today', targetId: 'priority-todays-follow-ups' },
+              { label: 'Waiting on Customer', value: dashboardCounts.waitingOnCustomer, detail: 'Open requests', targetId: 'priority-waiting-on-customer' },
+              { label: 'New Leads', value: dashboardCounts.newLeads, detail: 'New or partial', targetId: 'priority-new-leads' },
+              { label: 'Ready for Install', value: dashboardCounts.readyForInstall, detail: 'Approved or scheduled', targetId: 'priority-ready-for-install' },
+              { label: 'Completed', value: dashboardCounts.completed, detail: 'Assigned complete', targetId: 'priority-completed' },
+              { label: 'Need Deposit', value: dashboardCounts.needDeposit, detail: 'Quote sent stage', targetId: 'priority-need-deposit' }
+            ].map((metric) => (
+              <button
+                type="button"
+                key={metric.label}
+                onClick={() => scrollToPriorityGroup(metric.targetId)}
+                className={`min-w-0 touch-manipulation cursor-pointer rounded-md border p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 sm:p-4 ${getDashboardMetricClassName(metric.label)}`}
+                aria-label={`View ${metric.label}`}
+                aria-current={activePriorityGroupId === metric.targetId ? 'location' : undefined}
+              >
+                <p className="break-words text-[10px] font-semibold uppercase leading-tight opacity-75 sm:text-xs">{metric.label}</p>
+                <p className="mt-2 text-2xl font-bold sm:text-3xl">{metric.value}</p>
+                <p className="mt-1 text-xs opacity-70">{metric.detail}</p>
+              </button>
             ))}
           </div>
         </section>
+
+        <StaffFeed />
 
         {showJazzyPartnerPacket && (
           <Card className="border-amber-200 bg-amber-50/70">
@@ -1074,10 +1655,11 @@ const RepPortal = () => {
                 </p>
                 <p>
                   The idea can come from you directly, or you can paste a response from ChatGPT, Claude, Gemini,
-                  or another AI tool. BWB reviews it first, then Codex can recommend the page update.
+                  or another AI tool. If you include the word build, it goes straight into the build lane for a first look.
+                  Otherwise BWB can review it first.
                 </p>
                 <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                  Nothing changes live automatically. Ashley approves the direction before the front end is updated.
+                  Build lane means BWB/Codex can create a test look quickly. A page still needs to be checked before it becomes the active live page.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div>
@@ -1120,21 +1702,24 @@ const RepPortal = () => {
                     className="border-blue-200 bg-white text-blue-900 hover:bg-blue-50"
                   >
                     <UploadCloud className="mr-2 h-4 w-4" />
-                    Upload Reference
+                    Upload Hero Photo
                   </Button>
                 </div>
                 {showCoverReferenceUpload && (
                   <div className="rounded-md border border-blue-200 bg-white p-4">
                     <FileUpload
                       onFilesUploaded={setCoverReferenceFiles}
-                      acceptedTypes="image/*,.pdf,.svg,.ai,.eps"
+                      acceptedTypes="image/*"
                       maxFiles={6}
                       maxFileSizeMB={25}
-                      title="Upload Reference Files"
+                      title="Upload Website Hero Reference Photos"
                       showCameraButton
-                      additionalTags={['rep_page_reference', 'cover_page_reference', adminUser.rep_slug ? `rep_${adminUser.rep_slug}` : 'rep_reference']}
+                      additionalTags={['rep_page_reference', 'cover_page_reference', 'website_hero_reference', 'transparent_background_required', 'mobile_safe_logo', adminUser.rep_slug ? `rep_${adminUser.rep_slug}` : 'rep_reference']}
                       enforceMaxFilesError
                     />
+                    <p className="mt-3 whitespace-pre-line rounded-md border border-violet-200 bg-violet-50 p-3 text-xs font-medium leading-5 text-violet-950">
+                      {WEBSITE_HERO_REFERENCE_RULE}
+                    </p>
                     {coverReferenceFiles.length > 0 && (
                       <div className="mt-3 space-y-2">
                         <p className="text-xs font-semibold uppercase text-blue-900">Attached references</p>
@@ -1165,7 +1750,7 @@ const RepPortal = () => {
               <Textarea
                 value={coverDirection}
                 onChange={(event) => setCoverDirection(event.target.value)}
-                placeholder={coverDirectionState === 'sent' ? coverDirectionFollowUpPrompt : coverDirectionPrompt}
+                placeholder={coverDirectionState === 'sent' ? coverDirectionFollowUpPrompt : `${coverDirectionPrompt}\n\nSay "build" in the idea when you want this sent straight to the build lane.`}
                 className="min-h-[280px] resize-y bg-white text-sm leading-6 text-slate-800"
                 aria-label="SlapWrapz page direction"
               />
@@ -1261,29 +1846,36 @@ const RepPortal = () => {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {groupedQuotes.map((group) => (
-              <div key={group.title} className={`rounded-md border shadow-sm ${getGroupClassName(group.title)}`}>
-                <div className="border-b border-current/10 bg-white/65 px-4 py-3">
+            {groupedQuotes.map((group) => {
+              const groupExpanded = adminUser.rep_slug !== 'zoe' || expandedPriorityGroupIds.includes(group.id);
+              const groupGuided = adminUser.rep_slug === 'zoe' && guidedPriorityGroupId === group.id;
+              return (
+              <div
+                key={group.title}
+                id={group.id}
+                className={`relative scroll-mt-24 rounded-md border shadow-sm transition-shadow ${getGroupClassName(group.title)} ${activePriorityGroupId === group.id ? 'ring-4 ring-cyan-400 ring-offset-2' : ''} ${groupGuided ? 'ring-4 ring-[#fff600] ring-offset-4' : ''}`}
+              >
+                {groupGuided && <div className="absolute -top-14 left-1/2 z-20 flex -translate-x-1/2 animate-bounce items-center gap-2 whitespace-nowrap rounded-xl bg-[#11152d] px-4 py-3 text-xs font-black uppercase text-[#fff600] shadow-xl">Open this group <ArrowDownRight className="h-5 w-5" /></div>}
+                <button type="button" onClick={() => togglePriorityGroup(group.id, group.quotes.length)} className="block w-full touch-manipulation border-b border-current/10 bg-white/65 px-4 py-3 text-left" aria-expanded={groupExpanded}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold text-slate-950">{group.title}</h3>
                       <p className="text-xs text-slate-500">{group.description}</p>
                     </div>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getGroupBadgeClassName(group.title)}`}>
-                      {group.quotes.length}
-                    </span>
+                    <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getGroupBadgeClassName(group.title)}`}>{group.quotes.length}</span>{groupExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}</div>
                   </div>
-                </div>
-                <div className="divide-y divide-slate-100">
+                </button>
+                {groupExpanded && <div className="divide-y divide-slate-100">
                   {group.quotes.length === 0 ? (
-                    <p className="px-4 py-5 text-sm text-slate-500">No quotes in this group.</p>
+                    <p className="px-4 py-5 text-sm text-slate-500">No jobs are assigned to this group yet. Try a colored group with a number above zero.</p>
                   ) : (
                     group.quotes.slice(0, 5).map((quote) => (
                       <button
                         key={`${group.title}-${quote.id}`}
                         type="button"
-                        className={`block w-full border-l-4 px-4 py-3 text-left ${getFollowUpSurfaceClassName(getFollowUpSummary(quote))}`}
+                        className={`block min-h-12 w-full touch-manipulation border-l-4 px-4 py-3 text-left ${getFollowUpSurfaceClassName(getFollowUpSummary(quote))}`}
                         onClick={() => setSelectedQuote(quote)}
+                        onTouchEnd={(event) => runMobileTouchAction(event, () => setSelectedQuote(quote))}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -1298,13 +1890,13 @@ const RepPortal = () => {
                       </button>
                     ))
                   )}
-                </div>
+                </div>}
               </div>
-            ))}
+            );})}
           </div>
         </section>
 
-        <Card>
+        <Card id="rep-quote-work-area" className="scroll-mt-6">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Assigned Quote Requests</CardTitle>
@@ -1339,8 +1931,9 @@ const RepPortal = () => {
                       <button
                         key={`mobile-${quote.id}`}
                         type="button"
-                        className={`w-full rounded-md border p-4 text-left shadow-sm ${getFollowUpSurfaceClassName(followUpSummary)}`}
+                        className={`min-h-12 w-full touch-manipulation rounded-md border p-4 text-left shadow-sm ${getFollowUpSurfaceClassName(followUpSummary)}`}
                         onClick={() => setSelectedQuote(quote)}
+                        onTouchEnd={(event) => runMobileTouchAction(event, () => setSelectedQuote(quote))}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -1399,6 +1992,7 @@ const RepPortal = () => {
                             key={quote.id}
                             className={`cursor-pointer ${getFollowUpSurfaceClassName(followUpSummary)}`}
                             onClick={() => setSelectedQuote(quote)}
+                            onTouchEnd={(event) => runMobileTouchAction(event, () => setSelectedQuote(quote))}
                           >
                             <TableCell>
                               <div className="min-w-[13rem] space-y-1">
@@ -1450,7 +2044,8 @@ const RepPortal = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-slate-950 text-white shadow-sm">
+        <Card id="zoe-portal-report" className={`relative scroll-mt-24 border-slate-200 bg-slate-950 text-white shadow-sm ${guidedPortalReport ? 'ring-4 ring-[#fff600] ring-offset-4' : ''}`}>
+          {guidedPortalReport && <div className="absolute -top-14 left-1/2 z-20 flex -translate-x-1/2 animate-bounce items-center gap-2 whitespace-nowrap rounded-xl bg-[#11152d] px-4 py-3 text-xs font-black uppercase text-[#fff600] shadow-xl">Send your mission report <ArrowDownRight className="h-5 w-5" /></div>}
           <CardHeader className="pb-3">
             <div className="flex items-start gap-3">
               <div className="mt-1 rounded-md bg-white/10 p-2 text-cyan-200">
@@ -1484,6 +2079,18 @@ const RepPortal = () => {
                 placeholder="Example: I clicked Save Meeting and expected a calendar link, but nothing happened."
               />
             </div>
+            {adminUser.rep_slug === 'zoe' && guidedPortalReport && (
+              <div className="grid gap-3 rounded-xl border border-cyan-300/25 bg-white/5 p-3 md:grid-cols-[14rem_1fr]">
+                <div>
+                  <label className="text-xs font-black uppercase tracking-wide text-cyan-200" htmlFor="zoe-test-result">Test result</label>
+                  <select id="zoe-test-result" value={portalFeedbackResult} onChange={(event) => setPortalFeedbackResult(event.target.value)} className="mt-2 h-11 w-full rounded-md border border-white/10 bg-white px-3 text-sm text-slate-950">
+                    <option value="pass">Pass</option>
+                    <option value="needs_fix">Needs Fix</option>
+                  </select>
+                </div>
+                <FileUpload onFilesUploaded={setPortalFeedbackFiles} acceptedTypes="image/*,video/*" maxFiles={2} maxFileSizeMB={25} title="Add Screenshot or Short Recording" showCameraButton additionalTags={['zoe_mission_01', 'mobile_qa_evidence', 'rep_portal_feedback']} enforceMaxFilesError />
+              </div>
+            )}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className={`text-sm ${
                 portalFeedbackState === 'error'
@@ -1508,28 +2115,91 @@ const RepPortal = () => {
         </Card>
       </main>
 
+      {zoeNavigationPhase !== 'idle' && (
+        <div className="fixed inset-x-3 bottom-4 z-[100] mx-auto max-w-lg rounded-2xl border-2 border-[#fff600] bg-[#11152d] p-4 text-center text-white shadow-2xl" role="status" aria-live="assertive">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#fff600]">Browser navigation test</p>
+          <p className="mt-2 text-lg font-black">{zoeNavigationPhase === 'back' ? 'Press your browser Back button once.' : 'Great—now press your browser Forward button once.'}</p>
+          <p className="mt-1 text-xs text-cyan-100">The portal should stay open and restore correctly.</p>
+        </div>
+      )}
+
+      <Dialog open={quoteChooserOpen} onOpenChange={(open) => { if (!zoeEmptyCustomerCelebration) setQuoteChooserOpen(open); }}>
+        <DialogContent className={`max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl overscroll-contain overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-all duration-700 sm:w-full sm:p-6 ${zoeEmptyCustomerCelebration ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
+          <DialogHeader>
+            <DialogTitle>Choose the customer you are quoting</DialogTitle>
+            <DialogDescription>
+              The customer’s saved lead information will open directly in the newer in-portal quote builder.
+            </DialogDescription>
+          </DialogHeader>
+
+          {quotes.length === 0 ? (
+            <div className="relative overflow-hidden rounded-xl border-2 border-dashed border-cyan-300 bg-cyan-50 p-5 text-center">
+              {zoeEmptyCustomerCelebration && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 via-violet-900 to-fuchsia-800 text-white" role="status" aria-live="assertive">
+                  <div className="absolute inset-0" aria-hidden="true">
+                    {[...Array(12)].map((_, index) => <Star key={`zoe-star-${index}`} className="absolute h-6 w-6 animate-ping fill-yellow-300 text-yellow-300" style={{ left: `${8 + ((index * 17) % 84)}%`, top: `${8 + ((index * 23) % 75)}%`, animationDelay: `${index * 90}ms` }} />)}
+                  </div>
+                  <Sparkles className="relative h-12 w-12 text-yellow-300" />
+                  <p className="relative mt-2 text-3xl font-black uppercase">Good job!</p>
+                  <p className="relative mt-2 max-w-sm px-4 text-sm font-bold text-cyan-100">You noticed something was off: Refresh worked, but no customer appeared because none is assigned yet.</p>
+                  <div className="relative mt-4 flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 font-black text-slate-950"><Coins className="h-5 w-5" /> Mission coins earned</div>
+                </div>
+              )}
+              <p className="font-bold text-slate-950">No assigned customers yet</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                The quote builder starts from a saved customer lead so information is not entered twice. Once a customer is assigned to this rep, they will appear here.
+              </p>
+              {adminUser.rep_slug === 'zoe' && <p className="mt-3 text-sm font-black text-violet-800">Do you notice something is off? Try refreshing and watch what happens.</p>}
+              <Button type="button" variant="outline" className="mt-4 min-h-11 touch-manipulation bg-white" onClick={() => adminUser.rep_slug === 'zoe' ? void completeZoeEmptyCustomerDiscovery() : void loadPortal()} disabled={loadingQuotes || zoeEmptyCustomerCelebration}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${loadingQuotes ? 'animate-spin' : ''}`} />
+                Refresh Assigned Customers
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {quotes.map((quote) => (
+                <button
+                  key={`quote-chooser-${quote.id}`}
+                  type="button"
+                  className="flex min-h-20 w-full touch-manipulation items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                  onClick={() => {
+                    setQuoteChooserOpen(false);
+                    startQuoteForCustomer(quote);
+                  }}
+                  onTouchEnd={(event) => runMobileTouchAction(event, () => {
+                    setQuoteChooserOpen(false);
+                    startQuoteForCustomer(quote);
+                  })}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-bold text-slate-950">{quote.customer_name}</span>
+                    <span className="mt-1 block truncate text-sm text-slate-600">{getProjectTitle(quote)} · {quote.customer_email}</span>
+                    <span className="mt-1 block text-xs font-medium text-slate-500">{quote.quote_id || 'Saved customer record'}</span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-cyan-100 px-3 py-2 text-xs font-bold text-cyan-900">Open Quote Build</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={Boolean(selectedQuote)}
         onOpenChange={(open) => {
           if (open) return;
-          setSelectedQuote(null);
-          setMeetingNotes('');
-          setMeetingNextStep('');
-          setMeetingDueDate('');
-          setMeetingMessage('');
-          setMeetingError('');
-          setMeetingSuccessOpen(false);
+          requestCloseSelectedQuoteDetail();
         }}
       >
         {selectedQuote && (
-          <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-5xl overflow-y-auto overflow-x-hidden p-4 sm:w-full sm:p-6">
+          <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6">
             <DialogHeader>
               <DialogTitle className="break-words">{selectedQuote.quote_id || selectedQuote.customer_name}</DialogTitle>
               <DialogDescription>Read-only assigned quote details</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6">
-              <section>
+              <section ref={quoteDetailsSectionRef}>
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
                 <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <DetailField label="Name" value={selectedQuote.customer_name} />
@@ -1539,7 +2209,7 @@ const RepPortal = () => {
                   <DetailField label="Status" value={formatLabel(selectedQuote.status)} />
                   <DetailField label="Product" value={getProductLabel(selectedQuote)} />
                   <DetailField label="Received" value={formatDate(selectedQuote.created_at)} />
-                  <DetailField label="Quote ID" value={selectedQuote.quote_id || selectedQuote.id} />
+                  <DetailField label="Order Number" value={selectedQuote.quote_id || selectedQuote.id} />
                 </dl>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   {selectedCallHref ? (
@@ -1568,8 +2238,209 @@ const RepPortal = () => {
                       Text Customer
                     </Button>
                   )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="min-h-12 touch-manipulation bg-cyan-400 font-bold text-slate-950 hover:bg-cyan-300"
+                    onClick={() => startQuoteForCustomer(selectedQuote)}
+                    onTouchEnd={(event) => runMobileTouchAction(event, () => startQuoteForCustomer(selectedQuote))}
+                  >
+                    <Calculator className="mr-2 h-4 w-4" />
+                    Continue Quote Build Here
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-12 touch-manipulation border-orange-300 bg-orange-50 font-bold text-orange-900 hover:bg-orange-100"
+                    onClick={() => setInvoiceBuilderOpen(true)}
+                    onTouchEnd={(event) => runMobileTouchAction(event, () => setInvoiceBuilderOpen(true))}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Open Invoice / Quote
+                  </Button>
                 </div>
+
+                {showWheelersTowingPage && (
+                  <div className="mt-5 overflow-hidden rounded-xl border-2 border-red-200 bg-gradient-to-br from-red-50 via-white to-slate-50 shadow-sm">
+                    <div className="border-b border-red-100 bg-slate-950 px-4 py-3 text-white sm:px-5">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-red-300">Website example ready</p>
+                      <h3 className="mt-1 text-lg font-black">Wheeler's Towing one-page lead site</h3>
+                    </div>
+                    <div className="p-4 sm:p-5">
+                      <p className="max-w-3xl text-sm leading-6 text-slate-700">
+                        This live example was created for this order. Open it first, then send the same link to {selectedQuote.customer_name} by email or text.
+                      </p>
+                      <p className="mt-3 break-all rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+                        {WHEELERS_TOWING_PAGE_URL}
+                      </p>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                        <Button asChild size="sm" className="bg-slate-950 font-bold text-white hover:bg-slate-800">
+                          <a href={WHEELERS_TOWING_PAGE_URL} target="_blank" rel="noreferrer">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Open Live Page
+                          </a>
+                        </Button>
+                        {wheelersEmailHref ? (
+                          <Button asChild size="sm" className="bg-red-600 font-bold text-white hover:bg-red-500">
+                            <a href={wheelersEmailHref}>
+                              <Mail className="mr-2 h-4 w-4" />
+                              Email Example
+                            </a>
+                          </Button>
+                        ) : (
+                          <Button size="sm" disabled>
+                            <Mail className="mr-2 h-4 w-4" />
+                            No Customer Email
+                          </Button>
+                        )}
+                        {wheelersTextHref ? (
+                          <Button asChild size="sm" variant="outline" className="border-red-200 bg-white font-bold text-red-700 hover:bg-red-50">
+                            <a href={wheelersTextHref}>
+                              <MessageSquare className="mr-2 h-4 w-4" />
+                              Text Example
+                            </a>
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" disabled>
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                            No Customer Phone
+                          </Button>
+                        )}
+                      </div>
+                      <p className="mt-3 text-xs text-slate-500">
+                        Email and text buttons use the customer contact information already saved on this order and prepare the message for the rep to review before sending.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </section>
+
+              {quoteContinuationOpen && (
+                <section ref={quoteContinuationSectionRef} className="rounded-lg border-2 border-cyan-300 bg-gradient-to-br from-cyan-50 to-blue-50 p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-800">Same customer · same record</p>
+                      <h3 className="mt-1 text-xl font-black text-slate-950">Begin the Quote Build</h3>
+                      <p className="mt-1 text-sm text-slate-700">
+                        The original lead form is complete. Use this handoff to begin building the actual quote without leaving this popup or entering the customer again.
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                      Lead information complete
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 rounded-md border border-cyan-200 bg-white p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                    <p><span className="block text-xs font-semibold uppercase text-slate-500">Customer</span>{formatValue(selectedQuote.customer_name)}</p>
+                    <p><span className="block text-xs font-semibold uppercase text-slate-500">Vehicle</span>{formatValue(getVehicleValue(selectedQuote))}</p>
+                    <p><span className="block text-xs font-semibold uppercase text-slate-500">Service</span>{formatValue(getSummaryValue(selectedQuote, ['selectedService', 'quoteType', 'intakeType']))}</p>
+                    <p><span className="block text-xs font-semibold uppercase text-slate-500">Budget</span>{formatValue(getSummaryValue(selectedQuote, 'budget'))}</p>
+                  </div>
+
+                  {quoteBuildUpsellIdea && (
+                    <div className="mt-4 grid gap-4 rounded-md border border-amber-300 bg-amber-50 p-3 sm:grid-cols-[minmax(0,220px)_1fr] sm:items-center">
+                      {quoteBuildUpsellIdea.imageUrl && <img
+                        src={quoteBuildUpsellIdea.imageUrl}
+                        alt={quoteBuildUpsellIdea.title}
+                        className="max-h-44 w-full rounded-md border border-amber-200 bg-white object-contain"
+                      />}
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-amber-800">Quote started from upsell image</p>
+                        <p className="mt-1 font-bold text-amber-950">{quoteBuildUpsellIdea.title}</p>
+                        {quoteBuildUpsellIdea.message && (
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{quoteBuildUpsellIdea.message}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 rounded-lg border-2 border-violet-300 bg-violet-50 p-4">
+                    <div className="mb-3">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700">Website build reference</p>
+                      <h4 className="mt-1 text-lg font-black text-violet-950">Upload Hero or Logo Reference Photo</h4>
+                      <p className="mt-1 text-sm text-violet-900">
+                        Take a photo or choose one from your phone. When a reference is uploaded, the website build must use it, clean it up, remove the background, and keep the complete logo readable on Android and iPhone screens.
+                      </p>
+                    </div>
+                    <FileUpload
+                      onFilesUploaded={setWebsiteHeroReferenceFiles}
+                      quoteId={selectedQuote.quote_id || selectedQuote.id}
+                      acceptedTypes="image/*"
+                      maxFiles={1}
+                      maxFileSizeMB={20}
+                      title="Upload Website Hero Reference"
+                      showCameraButton
+                      additionalTags={['website_hero_reference', 'logo_reference', 'transparent_background_required', 'mobile_safe_logo']}
+                      enforceMaxFilesError
+                    />
+                    <p className="mt-3 whitespace-pre-line rounded-md border border-violet-200 bg-white p-3 text-xs font-medium leading-5 text-violet-950">
+                      {WEBSITE_HERO_REFERENCE_RULE}
+                    </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <label htmlFor="quote-preparation-notes" className="text-sm font-semibold text-slate-900">Quote preparation notes</label>
+                    <Textarea
+                      id="quote-preparation-notes"
+                      value={quotePreparationNotes}
+                      onChange={(event) => {
+                        setQuotePreparationNotes(event.target.value);
+                        setQuoteContinuationError('');
+                        setQuoteContinuationStatus('');
+                      }}
+                      placeholder="Add anything the quote builder should know: pricing direction, measurements needed, upsells, design scope, or customer expectations."
+                      className="mt-2 bg-white"
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      type="button"
+                      onClick={() => void saveQuoteContinuation()}
+                      onTouchEnd={(event) => runMobileTouchAction(event, () => void saveQuoteContinuation())}
+                      disabled={savingQuoteContinuation}
+                      className="min-h-12 flex-1 touch-manipulation bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-white hover:from-cyan-400 hover:to-blue-500"
+                    >
+                      <Calculator className="mr-2 h-4 w-4" />
+                      {savingQuoteContinuation ? 'Saving...' : 'Save & Start Quote Build'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={returnToCustomerDetails}
+                      onTouchEnd={(event) => runMobileTouchAction(event, returnToCustomerDetails)}
+                      className="min-h-12 touch-manipulation"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to Customer Details
+                    </Button>
+                  </div>
+
+                  {quoteContinuationStatus && (
+                    <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{quoteContinuationStatus}</p>
+                  )}
+                  {quoteContinuationError && (
+                    <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{quoteContinuationError}</p>
+                  )}
+                </section>
+              )}
+
+              {invoiceBuilderOpen && (
+                <QuoteInvoiceBuilder
+                  quoteRequestId={selectedQuote.id}
+                  orderNumber={selectedQuote.quote_id || selectedQuote.id}
+                  customerName={selectedQuote.customer_name}
+                  customerEmail={selectedQuote.customer_email}
+                  customerPhone={selectedQuote.customer_phone || ''}
+                  customerCompany={String(getSummaryValue(selectedQuote, 'companyName') || '')}
+                  projectDescription={[
+                    String(getSummaryValue(selectedQuote, 'manualVehicleDescription') || ''),
+                    String(getSummaryValue(selectedQuote, ['selectedService', 'quoteType']) || '')
+                  ].filter(Boolean).join(' · ') || getProjectTitle(selectedQuote)}
+                />
+              )}
 
               <section className="rounded-md border border-blue-200 bg-blue-50/60 p-4">
                 <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -1683,6 +2554,130 @@ const RepPortal = () => {
                 </div>
               </section>
 
+              <section className="rounded-md border border-violet-200 bg-violet-50/70 p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold text-violet-950">Office Dialogue</h3>
+                  <p className="mt-1 text-xs text-violet-800">
+                    Messages, upsell images, and their notes stay in one growing customer list. Each upsell image can be sent directly into this customer's quote build.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {loadingOfficeNotes ? (
+                    <p className="text-sm text-violet-800">Loading office messages...</p>
+                  ) : officeNotes.length === 0 ? (
+                    <p className="rounded-md border border-violet-100 bg-white p-3 text-sm text-slate-600">No office messages yet.</p>
+                  ) : (
+                    officeNotes.map((note) => {
+                      const upsellIdea = parseUpsellImageIdea(note.note_text);
+                      return (
+                      <div key={note.id} className={`rounded-md border p-3 ${upsellIdea ? 'border-amber-200 bg-amber-50' : 'border-violet-100 bg-white'}`}>
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wide text-violet-700">{note.created_by}</span>
+                          <time className="text-xs text-slate-500">{formatDate(note.created_at)}</time>
+                        </div>
+                        {upsellIdea ? (
+                          <div className="space-y-3">
+                            {upsellIdea.imageUrl && <img src={upsellIdea.imageUrl} alt={upsellIdea.title} className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain" />}
+                            <div>
+                              <p className="font-semibold text-amber-950">Upsell idea: {upsellIdea.title}</p>
+                              {upsellIdea.message && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{upsellIdea.message}</p>}
+                              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="min-h-12 touch-manipulation bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
+                                  onClick={() => startQuoteFromUpsell(upsellIdea)}
+                                  onTouchEnd={(event) => runMobileTouchAction(event, () => startQuoteFromUpsell(upsellIdea))}
+                                >
+                                  <Calculator className="mr-2 h-4 w-4" />
+                                  Make a Quote
+                                </Button>
+                                {upsellIdea.imageUrl && <a href={upsellIdea.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-semibold text-amber-800 underline">
+                                  Open full image <ExternalLink className="ml-1 h-3 w-3" />
+                                </a>}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap text-sm text-slate-900">{note.note_text}</p>
+                        )}
+                      </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-amber-950">Upsell Image Idea</p>
+                      <p className="mt-1 text-xs text-amber-800">Capture a sign, vehicle, storefront, or other opportunity worth offering.</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-amber-300 bg-white text-amber-950 hover:bg-amber-100"
+                      onClick={() => setShowRepUpsellComposer((current) => !current)}
+                    >
+                      <ImagePlus className="mr-2 h-4 w-4" />
+                      {showRepUpsellComposer ? 'Close' : 'Add Image Idea'}
+                    </Button>
+                  </div>
+
+                  {showRepUpsellComposer && (
+                    <div className="mt-4 space-y-3 rounded-md border border-amber-200 bg-white p-3">
+                      <Input value={repUpsellTitle} onChange={(event) => setRepUpsellTitle(event.target.value)} placeholder="Example: Replace the faded roadside sign" />
+                      <Textarea value={repUpsellMessage} onChange={(event) => setRepUpsellMessage(event.target.value)} placeholder="Explain what you noticed and what could be offered." rows={3} />
+                      <FileUpload
+                        onFilesUploaded={setRepUpsellFiles}
+                        quoteId={selectedQuote.quote_id || selectedQuote.id}
+                        acceptedTypes="image/*"
+                        maxFiles={1}
+                        maxFileSizeMB={15}
+                        title="Upload Opportunity Image"
+                        showCameraButton
+                        additionalTags={['upsell_idea', 'office_dialogue']}
+                        enforceMaxFilesError
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => void saveRepUpsellIdea()}
+                        disabled={savingRepUpsell || !repUpsellTitle.trim() || !repUpsellFiles[0]?.url}
+                        className="w-full bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
+                      >
+                        <ImagePlus className="mr-2 h-4 w-4" />
+                        {savingRepUpsell ? 'Saving...' : 'Save Upsell Image Idea'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-md border border-violet-200 bg-white p-3">
+                  <Textarea
+                    value={newOfficeMessage}
+                    onChange={(event) => {
+                      setNewOfficeMessage(event.target.value);
+                      setOfficeMessageError('');
+                      setOfficeMessageStatus('');
+                    }}
+                    placeholder="Example: Can the shop confirm the install timing, or can SlapWrapz help answer this pricing question?"
+                    rows={4}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => void sendOfficeMessage()}
+                    disabled={savingOfficeMessage || !newOfficeMessage.trim()}
+                    className="mt-3 w-full bg-violet-600 text-white hover:bg-violet-500"
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {savingOfficeMessage ? 'Sending...' : 'Save & Send to SlapWrapz Quotes'}
+                  </Button>
+                  {officeMessageStatus && <p className="mt-3 text-sm font-medium text-emerald-700">{officeMessageStatus}</p>}
+                  {officeMessageError && <p className="mt-3 text-sm font-medium text-red-700">{officeMessageError}</p>}
+                </div>
+              </section>
+
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Project</h3>
                 <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1749,6 +2744,24 @@ const RepPortal = () => {
                     <DetailField label="Quantity" value={getSignageValue(selectedQuote, 'quantity')} />
                     <DetailField label="Sign Text" value={getSignageValue(selectedQuote, 'signText')} />
                     <DetailField label="Notes" value={getSignageValue(selectedQuote, 'notes')} />
+                  </dl>
+                </section>
+              )}
+
+              {getSummaryValue(selectedQuote, ['sticker', 'decal']) && (
+                <section>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Sticker & Decal Details</h3>
+                  <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailField label="Decal Type" value={getStickerValue(selectedQuote, 'decalType')} />
+                    <DetailField label="Material" value={getStickerValue(selectedQuote, 'material')} />
+                    <DetailField label="Width" value={getStickerValue(selectedQuote, 'width')} />
+                    <DetailField label="Height" value={getStickerValue(selectedQuote, 'height')} />
+                    <DetailField label="Unit" value={getStickerValue(selectedQuote, 'unit')} />
+                    <DetailField label="Quantity" value={getStickerValue(selectedQuote, 'quantity')} />
+                    <DetailField label="Application Surface" value={getStickerValue(selectedQuote, 'surface')} />
+                    <DetailField label="Finish" value={getStickerValue(selectedQuote, 'finish')} />
+                    <DetailField label="Decal Text" value={getStickerValue(selectedQuote, 'decalText')} />
+                    <DetailField label="Notes" value={getStickerValue(selectedQuote, 'notes')} />
                   </dl>
                 </section>
               )}

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
@@ -14,6 +14,7 @@ import RepPortal from "./pages/RepPortal";
 import FullProject from "./pages/FullProject";
 import UploadAssets from "./pages/UploadAssets";
 import CustomerProofPortal from "./pages/CustomerProofPortal";
+import CustomerInvoicePortal from "./pages/CustomerInvoicePortal";
 import DesignerPacketPortal from "./pages/DesignerPacketPortal";
 import LoginPlaceholder from "./pages/LoginPlaceholder";
 import RegisterPlaceholder from "./pages/RegisterPlaceholder";
@@ -21,13 +22,16 @@ import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import ShortIntakeFlow from "./components/ShortIntakeFlow";
 import BannerQuoteFlow from "./components/BannerQuoteFlow";
 import SignageQuoteFlow from "./components/SignageQuoteFlow";
+import StickerQuoteFlow from "./components/StickerQuoteFlow";
 import BrandChannelLanding from "./components/BrandChannelLanding";
 import FullWrapQuoteFlow from "./components/FullWrapQuoteFlow";
 import WheelersTowingLanding from "./pages/WheelersTowingLanding";
+import ZoeWelcome from "./pages/ZoeWelcome";
+import MusicBingo from "./pages/MusicBingo";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 import { getBrandChannel } from "@/lib/brandChannels";
-import { getSafeStartOverPath, getStoredRepSlug } from "@/lib/repTracking";
+import { getSafeStartOverPath, getStoredRepSlug, isRepPortalSessionActive } from "@/lib/repTracking";
 
 const queryClient = new QueryClient();
 const trapstarChannel = getBrandChannel('trapstar');
@@ -35,10 +39,16 @@ const jazzyChannel = getBrandChannel('jazzy');
 const jarrelChannel = getBrandChannel('jarrel');
 const anthonyChannel = getBrandChannel('anthony');
 const adamChannel = getBrandChannel('adam');
+const wesleyChannel = getBrandChannel('wesley');
 
 const RootRoute = ({ isPreviewMode }: { isPreviewMode: boolean }) => {
   return <Index isPreviewMode={isPreviewMode} />;
 };
+
+const LegacyQuickQuoteRoute = () =>
+  isRepPortalSessionActive()
+    ? <Navigate to="/rep" replace />
+    : <ShortIntakeFlow />;
 
 const App = () => {
   useEffect(() => {
@@ -97,12 +107,17 @@ const App = () => {
               <Route path="/jarrel" element={<BrandChannelLanding channel={jarrelChannel} />} />
               <Route path="/anthony" element={<BrandChannelLanding channel={anthonyChannel} />} />
               <Route path="/adam" element={<BrandChannelLanding channel={adamChannel} />} />
-              <Route path="/wraps" element={<ShortIntakeFlow />} />
+              <Route path="/wesley" element={<BrandChannelLanding channel={wesleyChannel} />} />
+              <Route path="/zoe" element={<ZoeWelcome />} />
+              <Route path="/zoe/login" element={<ZoeWelcome />} />
+              <Route path="/music-bingo" element={<MusicBingo />} />
+              <Route path="/wraps" element={<LegacyQuickQuoteRoute />} />
               <Route path="/wraps/full" element={<FullWrapQuoteFlow />} />
-              <Route path="/quick-quote" element={<ShortIntakeFlow />} />
+              <Route path="/quick-quote" element={<LegacyQuickQuoteRoute />} />
               <Route path="/full-project" element={<FullProject />} />
               <Route path="/banners" element={<BannerQuoteFlow />} />
               <Route path="/signs" element={<SignageQuoteFlow />} />
+              <Route path="/stickers-decals" element={<StickerQuoteFlow />} />
               <Route path="/login" element={<LoginPlaceholder />} />
               <Route
                 path="/jazzy/login"
@@ -184,6 +199,22 @@ const App = () => {
                   />
                 )}
               />
+              <Route
+                path="/wesley/login"
+                element={(
+                  <LoginPlaceholder
+                    defaultRedirect="/rep"
+                    brandName="SlapWrapz"
+                    brandSubtitle="Powered by Blue Woods Brands"
+                    uppercaseBrandSubtitle={false}
+                    eyebrow="Wesley Portal"
+                    heading="Wesley Portal Login"
+                    backLinkLabel="Back to Wesley"
+                    backLinkTarget="/wesley"
+                    allowAccountSwitch
+                  />
+                )}
+              />
               <Route path="/register" element={<RegisterPlaceholder />} />
               <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
               <Route path="/admin" element={<Admin />} />
@@ -191,6 +222,7 @@ const App = () => {
               <Route path="/rep" element={<RepPortal />} />
               <Route path="/upload-assets/:token" element={<UploadAssets />} />
               <Route path="/proof/:token" element={<CustomerProofPortal />} />
+              <Route path="/invoice/:token" element={<CustomerInvoicePortal />} />
               <Route path="/designer/:token" element={<DesignerPacketPortal />} />
               <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/confirmation" element={<QuoteConfirmationFinal onStartNewQuote={() => window.location.href = getSafeStartOverPath()} />} />

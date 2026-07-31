@@ -152,6 +152,31 @@ export const brandChannels: Record<string, BrandChannel> = {
       'Truck show, club, and lifestyle graphics',
       'Photos, logo direction, and follow-up connected to Adam'
     ]
+  },
+  wesley: {
+    slug: 'wesley',
+    name: 'SlapWrapz',
+    eyebrow: 'W. Forbes Events',
+    headerSubtitle: 'Powered by Blue Woods Brands',
+    parentBrand: 'Powered by SlapWrapz',
+    poweredBy: '',
+    repSlug: 'wesley',
+    wrapQuotePath: '/wraps?rep=wesley',
+    bannerQuotePath: '/banners?rep=wesley',
+    fullProjectPath: '/wraps/full?rep=wesley',
+    heroImagePath: '/slapwrapz/vehicle-wraps-hero-no-qr.png',
+    headline: 'Event graphics, vehicle visibility, banners, and mobile promotion built for the moment people show up.',
+    description:
+      'Wesley connects event planners, vendors, crews, and local businesses with SlapWrapz wrap quotes, banners, window graphics, stickers, and follow-up through Blue Woods Brands production.',
+    cardEyebrow: 'Event Visibility Quote Path',
+    cardHeadline: 'Make the setup look official',
+    cardDescription:
+      'Start with the event, vehicle, booth, banner, storefront, or promo idea and keep the request connected from first click to follow-up.',
+    featureBullets: [
+      'Event banners, booth graphics, and vendor visibility',
+      'Vehicle wraps, trailer graphics, decals, and stickers',
+      'Quote requests stay connected to Wesley'
+    ]
   }
 };
 

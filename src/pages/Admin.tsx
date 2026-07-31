@@ -1,12 +1,15 @@
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { LogOut, RefreshCw } from 'lucide-react';
+import { BadgeCheck, LogOut, RefreshCw, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
 import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
+import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
+import ProductionHub from '@/components/admin/ProductionHub';
+import StaffFeed from '@/components/StaffFeed';
 import { supabase } from '@/lib/supabase';
 import AdminStatus from './AdminStatus';
 
@@ -66,6 +69,8 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [approvalsLoading, setApprovalsLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -118,6 +123,26 @@ const Admin = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!adminUser || adminUser.role === 'sales_rep' || adminUser.role === 'rep_manager') return;
+
+    const loadApprovalCount = async () => {
+      setApprovalsLoading(true);
+      const { data, error: approvalError } = await supabase.rpc('list_admin_rep_page_ideas_v1', {
+        p_rep_slug: null
+      });
+      if (!approvalError) {
+        setPendingApprovalCount((data ?? []).filter((idea: { status?: string }) => idea.status === 'pending_review').length);
+      }
+      setApprovalsLoading(false);
+    };
+
+    void loadApprovalCount();
+    const refreshApprovals = () => void loadApprovalCount();
+    window.addEventListener('bwb-approvals-updated', refreshApprovals);
+    return () => window.removeEventListener('bwb-approvals-updated', refreshApprovals);
+  }, [adminUser]);
 
   const handleLogout = async () => {
     setSigningOut(true);
@@ -195,6 +220,48 @@ const Admin = () => {
   }
 
   const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
+  const routeParams = new URLSearchParams(location.search);
+  const requestedTab = routeParams.get('tab');
+  const activeTab = routeParams.has('rep') || requestedTab === 'reps'
+    ? 'rep-onboarding'
+    : requestedTab === 'quotes'
+      ? 'quote-requests'
+      : requestedTab === 'pricing'
+        ? 'pricing-sandbox'
+        : requestedTab === 'video-reviews'
+          ? 'video-reviews'
+          : requestedTab === 'production'
+            ? 'production'
+        : 'staff-feed';
+
+  const changeAdminTab = (nextTab: string) => {
+    const nextParams = new URLSearchParams(location.search);
+    const tabValue = nextTab === 'rep-onboarding'
+      ? 'reps'
+      : nextTab === 'quote-requests'
+        ? 'quotes'
+        : nextTab === 'pricing-sandbox'
+          ? 'pricing'
+          : nextTab === 'video-reviews'
+            ? 'video-reviews'
+            : nextTab === 'production'
+              ? 'production'
+            : 'social';
+    nextParams.set('tab', tabValue);
+    if (nextTab !== 'rep-onboarding') {
+      nextParams.delete('rep');
+      nextParams.delete('approvals');
+    }
+    navigate({ pathname: '/admin', search: `?${nextParams.toString()}` });
+  };
+
+  const openApprovals = () => {
+    const nextParams = new URLSearchParams(location.search);
+    nextParams.set('tab', 'reps');
+    nextParams.set('approvals', '1');
+    nextParams.delete('rep');
+    navigate({ pathname: '/admin', search: `?${nextParams.toString()}` });
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -212,15 +279,37 @@ const Admin = () => {
           </Button>
         </div>
       </div>
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
-        <Tabs defaultValue="quote-requests" className="space-y-5">
-          <TabsList className={canViewPricingSandbox ? 'grid w-full max-w-2xl grid-cols-3' : 'grid w-full max-w-md grid-cols-2'}>
-            <TabsTrigger value="quote-requests">Quote Requests</TabsTrigger>
-            <TabsTrigger value="rep-onboarding">Reps</TabsTrigger>
-            {canViewPricingSandbox && (
-              <TabsTrigger value="pricing-sandbox">Pricing Sandbox</TabsTrigger>
-            )}
-          </TabsList>
+      <div className="mx-auto min-w-0 max-w-7xl overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 md:px-8">
+        <Tabs value={activeTab} onValueChange={changeAdminTab} className="space-y-5">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <TabsList className="flex h-auto w-full max-w-3xl overflow-x-auto">
+              <TabsTrigger value="staff-feed" className="min-h-11 min-w-max flex-1 px-3">Staff Feed</TabsTrigger>
+              <TabsTrigger value="video-reviews" className="min-h-11 min-w-max flex-1 px-3">Video Instructions</TabsTrigger>
+              <TabsTrigger value="quote-requests" className="min-h-11 min-w-max flex-1 px-3">Quote Requests</TabsTrigger>
+              <TabsTrigger value="rep-onboarding" className="min-h-11 min-w-max flex-1 px-3">Reps</TabsTrigger>
+              <TabsTrigger value="production" className="min-h-11 min-w-max flex-1 px-3">Production</TabsTrigger>
+              {canViewPricingSandbox && (
+                <TabsTrigger value="pricing-sandbox" className="min-h-11 min-w-max flex-1 px-3">Pricing Sandbox</TabsTrigger>
+              )}
+            </TabsList>
+            <button
+              type="button"
+              onClick={openApprovals}
+              className={`flex min-h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-black shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 lg:w-auto ${pendingApprovalCount > 0 ? 'border-red-700 bg-red-600 text-white focus-visible:ring-red-300' : 'border-emerald-700 bg-emerald-500 text-emerald-950 focus-visible:ring-emerald-300'}`}
+              aria-label={pendingApprovalCount > 0 ? `${pendingApprovalCount} approvals pending` : 'Approvals are all clear'}
+            >
+              {pendingApprovalCount > 0 ? <ShieldAlert className="h-5 w-5" /> : <BadgeCheck className="h-5 w-5" />}
+              {approvalsLoading ? 'Checking Approvals...' : pendingApprovalCount > 0 ? `Approvals · ${pendingApprovalCount} Pending` : 'Approvals · All Clear'}
+            </button>
+          </div>
+
+          <TabsContent value="staff-feed" className="mt-0">
+            <StaffFeed />
+          </TabsContent>
+
+          <TabsContent value="video-reviews" className="mt-0">
+            <VideoInstructionReview currentAdminRole={adminUser.role} />
+          </TabsContent>
 
           <TabsContent value="quote-requests" className="mt-0">
             <AdminStatus enableBulkActions currentAdminRole={adminUser.role} />
@@ -228,6 +317,10 @@ const Admin = () => {
 
           <TabsContent value="rep-onboarding" className="mt-0">
             <RepOnboardingPromptCard />
+          </TabsContent>
+
+          <TabsContent value="production" className="mt-0">
+            <ProductionHub />
           </TabsContent>
 
           {canViewPricingSandbox && (
