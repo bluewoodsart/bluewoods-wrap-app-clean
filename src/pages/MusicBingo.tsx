@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowRight,
+  CalendarDays,
   Check,
   Gift,
   Headphones,
@@ -109,7 +110,7 @@ const MusicBingo = () => {
           <section className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-5 pb-12 pt-8 md:grid-cols-[1.05fr_.95fr] md:px-8 md:pb-20 md:pt-16">
             <div>
               <div className="mb-5 inline-flex rotate-[-2deg] items-center gap-2 rounded-full bg-[#d9f99d] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[3px_3px_0_#17211a]">
-                <Radio className="h-4 w-4" /> Live at The Local Tap
+                <Radio className="h-4 w-4" /> Live at Anthony&apos;s Pizza
               </div>
               <h1 className="max-w-2xl text-5xl font-black leading-[0.91] tracking-[-0.065em] sm:text-6xl md:text-[5.3rem]">
                 Hear it.
@@ -124,6 +125,11 @@ const MusicBingo = () => {
               <div className="mt-7 flex flex-wrap gap-3 text-sm font-bold">
                 <span className="flex items-center gap-2 rounded-full bg-white px-4 py-2"><Users className="h-4 w-4 text-[#e7462b]" /> 84 playing now</span>
                 <span className="flex items-center gap-2 rounded-full bg-white px-4 py-2"><Gift className="h-4 w-4 text-[#e7462b]" /> 3 prizes tonight</span>
+              </div>
+              <div className="mt-6 max-w-lg rounded-2xl border-2 border-[#17211a] bg-[#ffcc4d] p-4 shadow-[4px_4px_0_#17211a]">
+                <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em]"><CalendarDays className="h-4 w-4" /> This week at Anthony&apos;s</p>
+                <p className="mt-2 text-xl font-black">Wednesday Night Music Bingo</p>
+                <p className="mt-1 text-sm font-bold text-[#5b5131]">7:00 PM · Free to play · Pizza and drink prizes</p>
               </div>
             </div>
 
@@ -161,10 +167,11 @@ const MusicBingo = () => {
                 Join the game <ArrowRight className="h-5 w-5" />
               </button>
               <p className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold text-[#677169]">
-                <MapPin className="h-3.5 w-3.5" /> The Local Tap · Atlanta, GA
+                <MapPin className="h-3.5 w-3.5" /> Anthony&apos;s Pizza · Atlanta, GA
               </p>
             </div>
           </section>
+          <SponsorStrip light />
         </div>
 
         {showHow && (
@@ -255,6 +262,7 @@ const MusicBingo = () => {
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 md:hidden">
             <NowPlaying song={nowPlaying} onNext={nextSong} />
           </div>
+          <div className="mt-4 md:hidden"><SponsorStrip /></div>
 
           <button
             onClick={() => setShowWin(true)}
@@ -272,12 +280,13 @@ const MusicBingo = () => {
           <div className="rounded-2xl bg-[#d9f99d] p-5 text-[#17211a]">
             <div className="flex items-center gap-2"><Gift className="h-5 w-5" /><p className="font-black">Next prize</p></div>
             <p className="mt-4 text-2xl font-black leading-tight">Dinner for two</p>
-            <p className="mt-2 text-sm font-bold opacity-65">$40 value · The Local Tap</p>
+            <p className="mt-2 text-sm font-bold opacity-65">$40 value · Anthony&apos;s Pizza</p>
           </div>
           <div className="rounded-2xl border border-white/10 p-5">
             <p className="text-xs font-black uppercase tracking-[0.15em] text-[#aeb8b0]">Your table</p>
             <div className="mt-3 flex items-center justify-between"><span className="font-bold">Table 12</span><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">4 playing</span></div>
           </div>
+          <SponsorStrip />
         </aside>
       </div>
 
@@ -320,6 +329,29 @@ const NowPlaying = ({ song, onNext }: { song: (typeof songs)[number]; onNext: ()
       Demo: play next song <ArrowRight className="h-4 w-4" />
     </button>
   </>
+);
+
+const SponsorStrip = ({ light = false }: { light?: boolean }) => (
+  <section className={light ? 'relative z-10 mx-auto max-w-6xl px-5 pb-10 md:px-8' : ''} aria-label="Local partners">
+    <div className={`rounded-2xl border p-4 ${light ? 'border-[#17211a]/15 bg-white/75 text-[#17211a]' : 'border-white/10 bg-white/5 text-white'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className={`text-[0.65rem] font-black uppercase tracking-[0.16em] ${light ? 'text-[#677169]' : 'text-[#aeb8b0]'}`}>Local partners</p>
+        <span className={`text-[0.6rem] font-bold ${light ? 'text-[#8b918c]' : 'text-white/35'}`}>Sponsored</span>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {[
+          ['Fresh Slice', '2-for-1 Tuesdays'],
+          ['City Auto Care', '10% off service'],
+          ['Peachtree Dental', 'New patient special'],
+        ].map(([business, offer]) => (
+          <div key={business} className={`min-w-0 rounded-xl px-3 py-3 ${light ? 'bg-[#f4f0e8]' : 'bg-white/[0.06]'}`}>
+            <p className="truncate text-xs font-black">{business}</p>
+            <p className={`mt-1 line-clamp-2 text-[0.65rem] font-bold leading-tight ${light ? 'text-[#677169]' : 'text-[#aeb8b0]'}`}>{offer}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
 );
 
 export default MusicBingo;
