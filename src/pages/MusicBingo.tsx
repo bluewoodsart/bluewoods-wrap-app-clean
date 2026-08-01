@@ -100,9 +100,13 @@ const MusicBingo = () => {
               <div className="flex h-10 w-10 -rotate-3 items-center justify-center rounded-xl bg-[#17211a] text-[#ffcc4d] shadow-[3px_3px_0_#ff6846]">
                 <Music2 className="h-5 w-5" />
               </div>
-              <span className="text-xl font-black tracking-[-0.04em]">BingoBeat</span>
+              <div>
+                <span className="block text-xl font-black leading-none tracking-[-0.04em]">BingoBeat</span>
+                <span className="mt-1 block max-w-[9rem] text-[0.5rem] font-black uppercase leading-[1.2] tracking-[0.07em] text-[#677169] sm:max-w-none sm:text-[0.55rem] sm:leading-none">Brought to you by BWB + Forbes Entertainment</span>
+              </div>
+              <img src="/favicon/favicon1.png" alt="BWB Bluewoods" className="h-9 w-9 rounded-lg object-cover shadow-sm" />
             </div>
-            <button onClick={() => setShowHow(true)} className="rounded-full border-2 border-[#17211a] bg-white/70 px-4 py-2 text-sm font-black transition hover:-translate-y-0.5 hover:bg-white">
+            <button onClick={() => setShowHow(true)} className="rounded-full border-2 border-[#17211a] bg-white/70 px-3 py-2 text-xs font-black transition hover:-translate-y-0.5 hover:bg-white sm:px-4 sm:text-sm">
               How it works
             </button>
           </header>
@@ -209,7 +213,11 @@ const MusicBingo = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-7">
           <button onClick={() => setScreen('join')} className="flex items-center gap-2 font-black">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ffcc4d] text-[#17211a]"><Music2 className="h-4 w-4" /></span>
-            <span className="hidden sm:inline">BingoBeat</span>
+            <span className="hidden text-left sm:block">
+              <span className="block leading-none">BingoBeat</span>
+              <span className="mt-1 block text-[0.48rem] uppercase tracking-[0.08em] text-[#aeb8b0]">Brought to you by BWB + Forbes Entertainment</span>
+            </span>
+            <img src="/favicon/favicon1.png" alt="BWB Bluewoods" className="h-7 w-7 rounded-md object-cover" />
           </button>
           <div className="min-w-0 text-center">
             <p className="truncate text-sm font-black">Decades Dance-Off</p>
