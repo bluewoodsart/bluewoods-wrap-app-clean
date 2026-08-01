@@ -68,7 +68,7 @@ const MusicBingo = () => {
 
   useEffect(() => {
     if (!isClipPlaying) return;
-    const timer = window.setTimeout(() => setIsClipPlaying(false), 8000);
+    const timer = window.setTimeout(() => setIsClipPlaying(false), 3000);
     return () => window.clearTimeout(timer);
   }, [isClipPlaying]);
 
@@ -341,7 +341,7 @@ const MusicBingo = () => {
 const NowPlaying = ({ song, onNext, isPlaying, isRevealed, onPlay, onReveal }: { song: (typeof songs)[number]; onNext: () => void; isPlaying: boolean; isRevealed: boolean; onPlay: () => void; onReveal: () => void }) => (
   <>
     <div className="flex items-center justify-between">
-      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#ffcc4d]"><Volume2 className="h-4 w-4" /> Mystery clip</p>
+      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#ffcc4d]"><Volume2 className="h-4 w-4" /> 3-second mystery clip</p>
       <span className="flex items-center gap-1 rounded-full bg-[#ff6846]/20 px-2 py-1 text-[0.65rem] font-black uppercase text-[#ff8e75]"><span className={`h-1.5 w-1.5 rounded-full bg-[#ff6846] ${isPlaying ? 'animate-pulse' : ''}`} /> {isPlaying ? 'Playing' : 'Ready'}</span>
     </div>
     <div className="mt-5 flex items-center gap-4">
@@ -351,7 +351,7 @@ const NowPlaying = ({ song, onNext, isPlaying, isRevealed, onPlay, onReveal }: {
         <p className="mt-1 truncate text-sm font-bold text-[#aeb8b0]">{isRevealed ? `${song.artist} · ${song.year}` : 'Song and artist hidden'}</p>
       </div>
     </div>
-    <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full bg-[#ffcc4d] transition-all duration-[8000ms] ease-linear ${isPlaying ? 'w-full' : 'w-0'}`} /></div>
+    <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10"><div style={{ transitionDuration: '3000ms' }} className={`h-full rounded-full bg-[#ffcc4d] transition-all ease-linear ${isPlaying ? 'w-full' : 'w-0'}`} /></div>
     <div className="mt-4 grid grid-cols-2 gap-2">
       <button onClick={onPlay} disabled={isPlaying} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-[#ffcc4d] text-xs font-black text-[#17211a] disabled:opacity-60"><Play className="h-3.5 w-3.5 fill-current" /> {isPlaying ? 'Playing clip…' : 'Play clip'}</button>
       <button onClick={isRevealed ? onNext : onReveal} disabled={isPlaying} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white/10 text-xs font-black transition hover:bg-white/15 disabled:opacity-40">{isRevealed ? <>Next song <ArrowRight className="h-4 w-4" /></> : 'Reveal answer'}</button>
