@@ -102,9 +102,15 @@ const MusicBingo = () => {
               </div>
               <div>
                 <span className="block text-xl font-black leading-none tracking-[-0.04em]">BingoBeat</span>
-                <span className="mt-1 block max-w-[9rem] text-[0.5rem] font-black uppercase leading-[1.2] tracking-[0.07em] text-[#677169] sm:max-w-none sm:text-[0.55rem] sm:leading-none">Brought to you by BWB + Forbes Entertainment</span>
+                <span className="mt-1 block text-[0.48rem] font-black uppercase leading-none tracking-[0.07em] text-[#677169]">Brought to you by</span>
+                <div className="mt-1 flex items-center gap-1.5" aria-label="BWB and Forbes Events">
+                  <span className="relative h-7 w-16 overflow-hidden rounded bg-white">
+                    <img src="/bwb-bluewoods-logo.png" alt="BWB Bluewoods" className="absolute inset-0 h-full w-full scale-150 object-contain" />
+                  </span>
+                  <span className="text-[0.55rem] font-black text-[#677169]">+</span>
+                  <img src="/forbes-events-logo.png" alt="Forbes Events" className="h-7 w-9 rounded bg-black object-contain" />
+                </div>
               </div>
-              <img src="/favicon/favicon1.png" alt="BWB Bluewoods" className="h-9 w-9 rounded-lg object-cover shadow-sm" />
             </div>
             <button onClick={() => setShowHow(true)} className="rounded-full border-2 border-[#17211a] bg-white/70 px-3 py-2 text-xs font-black transition hover:-translate-y-0.5 hover:bg-white sm:px-4 sm:text-sm">
               How it works
@@ -215,9 +221,10 @@ const MusicBingo = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ffcc4d] text-[#17211a]"><Music2 className="h-4 w-4" /></span>
             <span className="hidden text-left sm:block">
               <span className="block leading-none">BingoBeat</span>
-              <span className="mt-1 block text-[0.48rem] uppercase tracking-[0.08em] text-[#aeb8b0]">Brought to you by BWB + Forbes Entertainment</span>
+              <span className="mt-1 block text-[0.48rem] uppercase tracking-[0.08em] text-[#aeb8b0]">Brought to you by BWB + Forbes Events</span>
             </span>
             <img src="/favicon/favicon1.png" alt="BWB Bluewoods" className="h-7 w-7 rounded-md object-cover" />
+            <img src="/forbes-events-logo.png" alt="Forbes Events" className="h-7 w-7 rounded-md bg-black object-contain" />
           </button>
           <div className="min-w-0 text-center">
             <p className="truncate text-sm font-black">Decades Dance-Off</p>
