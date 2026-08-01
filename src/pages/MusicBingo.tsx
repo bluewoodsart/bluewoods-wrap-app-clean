@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   CalendarDays,
@@ -63,6 +63,14 @@ const MusicBingo = () => {
   const [songIndex, setSongIndex] = useState(0);
   const [showHow, setShowHow] = useState(false);
   const [showWin, setShowWin] = useState(false);
+  const [isClipPlaying, setIsClipPlaying] = useState(false);
+  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
+
+  useEffect(() => {
+    if (!isClipPlaying) return;
+    const timer = window.setTimeout(() => setIsClipPlaying(false), 8000);
+    return () => window.clearTimeout(timer);
+  }, [isClipPlaying]);
 
   const card = useMemo(() => {
     const result = [...songs.slice(0, 12), { title: 'FREE', artist: 'Good vibes', year: '★' }, ...songs.slice(12)];
@@ -81,12 +89,16 @@ const MusicBingo = () => {
 
   const nextSong = () => {
     setSongIndex((current) => (current + 1) % songs.length);
+    setIsClipPlaying(false);
+    setIsAnswerRevealed(false);
   };
 
   const resetGame = () => {
     setMarked(new Set([12]));
     setSongIndex(0);
     setShowWin(false);
+    setIsClipPlaying(false);
+    setIsAnswerRevealed(false);
   };
 
   if (screen === 'join') {
@@ -275,7 +287,7 @@ const MusicBingo = () => {
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 md:hidden">
-            <NowPlaying song={nowPlaying} onNext={nextSong} />
+            <NowPlaying song={nowPlaying} onNext={nextSong} isPlaying={isClipPlaying} isRevealed={isAnswerRevealed} onPlay={() => setIsClipPlaying(true)} onReveal={() => setIsAnswerRevealed(true)} />
           </div>
           <div className="mt-4 md:hidden"><SponsorStrip /></div>
 
@@ -290,7 +302,7 @@ const MusicBingo = () => {
 
         <aside className="hidden space-y-4 md:block">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <NowPlaying song={nowPlaying} onNext={nextSong} />
+            <NowPlaying song={nowPlaying} onNext={nextSong} isPlaying={isClipPlaying} isRevealed={isAnswerRevealed} onPlay={() => setIsClipPlaying(true)} onReveal={() => setIsAnswerRevealed(true)} />
           </div>
           <div className="rounded-2xl bg-[#d9f99d] p-5 text-[#17211a]">
             <div className="flex items-center gap-2"><Gift className="h-5 w-5" /><p className="font-black">Next prize</p></div>
@@ -326,23 +338,24 @@ const MusicBingo = () => {
   );
 };
 
-const NowPlaying = ({ song, onNext }: { song: (typeof songs)[number]; onNext: () => void }) => (
+const NowPlaying = ({ song, onNext, isPlaying, isRevealed, onPlay, onReveal }: { song: (typeof songs)[number]; onNext: () => void; isPlaying: boolean; isRevealed: boolean; onPlay: () => void; onReveal: () => void }) => (
   <>
     <div className="flex items-center justify-between">
-      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#ffcc4d]"><Volume2 className="h-4 w-4" /> Now playing</p>
-      <span className="flex items-center gap-1 rounded-full bg-[#ff6846]/20 px-2 py-1 text-[0.65rem] font-black uppercase text-[#ff8e75]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff6846]" /> Live</span>
+      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#ffcc4d]"><Volume2 className="h-4 w-4" /> Mystery clip</p>
+      <span className="flex items-center gap-1 rounded-full bg-[#ff6846]/20 px-2 py-1 text-[0.65rem] font-black uppercase text-[#ff8e75]"><span className={`h-1.5 w-1.5 rounded-full bg-[#ff6846] ${isPlaying ? 'animate-pulse' : ''}`} /> {isPlaying ? 'Playing' : 'Ready'}</span>
     </div>
     <div className="mt-5 flex items-center gap-4">
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#ffcc4d] text-[#17211a] shadow-[4px_4px_0_#ff6846]"><Play className="ml-1 h-7 w-7 fill-current" /></div>
+      <button onClick={onPlay} disabled={isPlaying} aria-label="Play mystery song clip" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#ffcc4d] text-[#17211a] shadow-[4px_4px_0_#ff6846] disabled:opacity-70"><Play className="ml-1 h-7 w-7 fill-current" /></button>
       <div className="min-w-0">
-        <p className="truncate text-xl font-black">{song.title}</p>
-        <p className="mt-1 truncate text-sm font-bold text-[#aeb8b0]">{song.artist} · {song.year}</p>
+        <p className="truncate text-xl font-black">{isRevealed ? song.title : 'Listen and guess…'}</p>
+        <p className="mt-1 truncate text-sm font-bold text-[#aeb8b0]">{isRevealed ? `${song.artist} · ${song.year}` : 'Song and artist hidden'}</p>
       </div>
     </div>
-    <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full w-2/3 rounded-full bg-[#ffcc4d]" /></div>
-    <button onClick={onNext} className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-white/10 text-xs font-black transition hover:bg-white/15">
-      Demo: play next song <ArrowRight className="h-4 w-4" />
-    </button>
+    <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full bg-[#ffcc4d] transition-all duration-[8000ms] ease-linear ${isPlaying ? 'w-full' : 'w-0'}`} /></div>
+    <div className="mt-4 grid grid-cols-2 gap-2">
+      <button onClick={onPlay} disabled={isPlaying} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-[#ffcc4d] text-xs font-black text-[#17211a] disabled:opacity-60"><Play className="h-3.5 w-3.5 fill-current" /> {isPlaying ? 'Playing clip…' : 'Play clip'}</button>
+      <button onClick={isRevealed ? onNext : onReveal} disabled={isPlaying} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white/10 text-xs font-black transition hover:bg-white/15 disabled:opacity-40">{isRevealed ? <>Next song <ArrowRight className="h-4 w-4" /></> : 'Reveal answer'}</button>
+    </div>
   </>
 );
 
