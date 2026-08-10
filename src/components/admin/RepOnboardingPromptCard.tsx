@@ -81,8 +81,8 @@ const getIdeaStatusClassName = (status: string) => {
 };
 
 const getIdeaBuildHint = (idea: RepPageIdeaReviewRow) => {
-  if (idea.status === 'built') return 'Built look is ready to inspect.';
-  if (idea.status === 'approved') return 'In the build lane for a Codex first look.';
+  if (idea.status === 'built') return 'Built front end is ready to inspect.';
+  if (idea.status === 'approved') return 'Approved front-end preview is ready to open.';
   if (idea.status === 'pending_review') return 'Waiting for admin review.';
   if (idea.status === 'rejected') return 'Rejected idea. Do not build.';
   return formatStatus(idea.status);
@@ -90,6 +90,9 @@ const getIdeaBuildHint = (idea: RepPageIdeaReviewRow) => {
 
 const formatStatus = (status: string) =>
   status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const getIdeaPreviewUrl = (idea: RepPageIdeaReviewRow) =>
+  idea.page_url || `/admin/rep-page-preview/${idea.id}`;
 
 const RepOnboardingPromptCard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -219,7 +222,7 @@ const RepOnboardingPromptCard = () => {
     }, { replace: true });
   };
 
-  const updateIdeaStatus = async (idea: RepPageIdeaReviewRow, status: 'approved' | 'rejected') => {
+  const updateIdeaStatus = async (idea: RepPageIdeaReviewRow, status: 'approved' | 'rejected', previewWindow?: Window | null) => {
     setUpdatingIdeaId(idea.id);
     setPageIdeaError('');
     setPageIdeaMessage('');
@@ -232,6 +235,7 @@ const RepOnboardingPromptCard = () => {
     setUpdatingIdeaId('');
 
     if (error) {
+      previewWindow?.close();
       setPageIdeaError(error.message);
       return;
     }
@@ -247,9 +251,25 @@ const RepOnboardingPromptCard = () => {
     window.dispatchEvent(new Event('bwb-approvals-updated'));
     setPageIdeaMessage(
       status === 'approved'
-        ? `${idea.rep_name || idea.rep_slug}'s page idea moved to the build lane. Codex can build a first look from it.`
+        ? `${idea.rep_name || idea.rep_slug}'s page idea is approved. The front-end preview is ready.`
         : `${idea.rep_name || idea.rep_slug}'s page idea was rejected.`
     );
+
+    if (status === 'approved' && previewWindow) {
+      previewWindow.opener = null;
+      previewWindow.location.href = getIdeaPreviewUrl(idea);
+    } else if (status === 'approved') {
+      window.location.assign(getIdeaPreviewUrl(idea));
+    }
+  };
+
+  const approveAndOpenPreview = (idea: RepPageIdeaReviewRow) => {
+    const previewWindow = window.open('', '_blank');
+    if (previewWindow) {
+      previewWindow.document.title = 'Preparing BWB front-end preview';
+      previewWindow.document.body.innerHTML = '<div style="font-family:system-ui;padding:40px;text-align:center"><h1>Preparing the approved front end...</h1><p>This preview will open automatically.</p></div>';
+    }
+    void updateIdeaStatus(idea, 'approved', previewWindow);
   };
 
   const createRep = async () => {
@@ -487,24 +507,24 @@ const RepOnboardingPromptCard = () => {
                           />
                         ) : (
                           <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-medium text-slate-500">
-                            {idea.status === 'approved' ? 'Build lane' : 'No preview yet'}
+                            {idea.status === 'approved' || idea.status === 'built' ? 'Front end ready' : 'No preview yet'}
                           </div>
                         )}
                       </div>
-                      {idea.page_url && (
+                      {(idea.status === 'approved' || idea.status === 'built') && (
                         <Button className="mt-3" size="sm" variant="outline" asChild>
-                          <a href={idea.page_url} target="_blank" rel="noreferrer">
+                          <a href={getIdeaPreviewUrl(idea)} target="_blank" rel="noreferrer">
                             <ExternalLink className="mr-2 h-4 w-4" />
-                            Open Test Look
+                            Open Front End
                           </a>
                         </Button>
                       )}
                     </div>
                     {idea.status === 'pending_review' && (
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                        <Button size="sm" onClick={() => void updateIdeaStatus(idea, 'approved')} disabled={updatingIdeaId === idea.id}>
+                        <Button size="sm" onClick={() => approveAndOpenPreview(idea)} disabled={updatingIdeaId === idea.id}>
                           <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Approve for Build
+                          Approve & Open Front End
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => void updateIdeaStatus(idea, 'rejected')} disabled={updatingIdeaId === idea.id}>
                           <XCircle className="mr-2 h-4 w-4" />
@@ -638,7 +658,7 @@ const RepOnboardingPromptCard = () => {
                         />
                       ) : (
                         <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-center text-xs font-medium text-slate-500">
-                          {idea.status === 'approved' ? 'Build lane' : 'No preview'}
+                          {idea.status === 'approved' || idea.status === 'built' ? 'Front end ready' : 'No preview'}
                         </div>
                       )}
                     </div>
@@ -648,11 +668,11 @@ const RepOnboardingPromptCard = () => {
                       <>
                         <Button
                           size="sm"
-                          onClick={() => void updateIdeaStatus(idea, 'approved')}
+                          onClick={() => approveAndOpenPreview(idea)}
                           disabled={updatingIdeaId === idea.id}
                         >
                           <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Approve for Build
+                          Approve & Open Front End
                         </Button>
                         <Button
                           size="sm"
@@ -664,13 +684,17 @@ const RepOnboardingPromptCard = () => {
                           Reject
                         </Button>
                       </>
-                    ) : (
-                      <Button size="sm" variant="outline" disabled>
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        Ready for Build
+                    ) : idea.status === 'approved' || idea.status === 'built' ? (
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" asChild>
+                        <a href={getIdeaPreviewUrl(idea)} target="_blank" rel="noreferrer">
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Open Front End
+                        </a>
                       </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>{formatStatus(idea.status)}</Button>
                     )}
-                    {idea.page_url && (
+                    {idea.page_url && idea.status !== 'approved' && idea.status !== 'built' && (
                       <Button size="sm" variant="outline" asChild>
                         <a href={idea.page_url} target="_blank" rel="noreferrer">
                           <ExternalLink className="mr-2 h-4 w-4" />

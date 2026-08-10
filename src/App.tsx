@@ -28,6 +28,7 @@ import FullWrapQuoteFlow from "./components/FullWrapQuoteFlow";
 import WheelersTowingLanding from "./pages/WheelersTowingLanding";
 import ZoeWelcome from "./pages/ZoeWelcome";
 import MusicBingo from "./pages/MusicBingo";
+import RepPageIdeaPreview from "./pages/RepPageIdeaPreview";
 import { WrapOrderAPI } from "@/components/WrapOrderAPI";
 import { StorageBucketAPI } from "@/components/StorageBucketAPI";
 import { getBrandChannel } from "@/lib/brandChannels";
@@ -218,6 +219,7 @@ const App = () => {
               <Route path="/register" element={<RegisterPlaceholder />} />
               <Route path="/test-short-intake" element={<ShortIntakeFlow />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/rep-page-preview/:ideaId" element={<RepPageIdeaPreview />} />
               <Route path="/admin-status" element={<AdminStatus />} />
               <Route path="/rep" element={<RepPortal />} />
               <Route path="/upload-assets/:token" element={<UploadAssets />} />
