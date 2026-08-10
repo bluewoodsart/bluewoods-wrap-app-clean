@@ -4139,14 +4139,14 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             onFilesUploaded={setUpsellIdeaFiles}
                             quoteId={selectedQuote.quote_id || selectedQuote.id}
                             acceptedTypes="image/*"
-                            maxFiles={10}
+                            maxFiles={25}
                             maxFileSizeMB={15}
                             title="Upload Opportunity Image"
                             showCameraButton
                             additionalTags={['upsell_idea', 'office_dialogue']}
                             enforceMaxFilesError
                           />
-                          <p className="text-xs text-slate-600">Select up to 10 photos at once, or add another batch. When all photos are listed, use Save Idea & Notify Rep.</p>
+                          <p className="text-xs text-slate-600">Add up to 25 photos using one selection or several batches. When all photos are listed, use Save Idea & Notify Rep.</p>
                           <Button
                             type="button"
                             onClick={() => void saveUpsellImageIdea()}
