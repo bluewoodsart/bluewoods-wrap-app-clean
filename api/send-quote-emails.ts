@@ -555,12 +555,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         ['Budget', quoteDetails.budget]
       ]);
 
+  const repPortalUrl = `https://www.slapwrapz.com/rep?urgentLead=${encodeURIComponent(formatSimpleValue(quoteDetails.quoteId))}`;
+
   const repHtml = assignedRep ? `
-    <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+    <div style="margin:0;background:#fff7ed;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
       <div style="max-width:720px;margin:0 auto;">
-        <div style="padding:24px;border-radius:16px;background:#0f172a;color:#ffffff;">
-          <h1 style="margin:0;font-size:24px;">${isBannerRequest ? 'New Banner Quote Request Assigned to You' : 'New SlapWrapz lead assigned to you'}</h1>
-          <p style="margin:8px 0 0;color:#d1d5db;">This quote was submitted with your sales rep link.</p>
+        <div style="padding:24px;border-radius:16px;background:#b91c1c;color:#ffffff;">
+          <p style="margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">Immediate response required</p>
+          <h1 style="margin:0;font-size:26px;">${isBannerRequest ? 'New Banner Lead Assigned to You' : 'New SlapWrapz Lead Assigned to You'}</h1>
+          <p style="margin:8px 0 0;color:#fee2e2;">Acknowledge and contact this customer within five minutes or the lead becomes available to the team.</p>
         </div>
 
         <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
@@ -570,6 +573,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
         ${section('Lead Details', repLeadSummary)}
         ${isBannerRequest ? section('Banner Details', bannerDetails) : ''}
+        <a href="${escapeHtml(repPortalUrl)}" style="display:block;margin-top:18px;border-radius:10px;background:#dc2626;padding:15px;text-align:center;color:#fff;text-decoration:none;font-size:17px;font-weight:800;">Open Lead &amp; Confirm Receipt</a>
       </div>
     </div>
   ` : '';
@@ -620,26 +624,28 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         job: sendLoggedEmail(apiKey, 'sales rep', {
           from: FROM_EMAIL,
           to: assignedRep.email,
-          subject: isBannerRequest ? 'New Banner Quote Request assigned to you' : 'New SlapWrapz lead assigned to you',
+          subject: isBannerRequest ? 'URGENT: New banner lead — contact within 5 minutes' : 'URGENT: New SlapWrapz lead — contact within 5 minutes',
           html: repHtml,
           text: isBannerRequest
             ? [
-                'New Banner Quote Request assigned to you.',
+                'URGENT: New Banner Quote Request assigned to you. Acknowledge and contact within five minutes.',
                 `Quote ID: ${formatSimpleValue(quoteDetails.quoteId) || 'not provided'}`,
                 `Customer: ${formatSimpleValue(contactInfo?.name) || 'not provided'}`,
                 `Email: ${customerEmail}`,
                 `Phone: ${formatSimpleValue(contactInfo?.phone) || 'not provided'}`,
-                ...bannerDetailText
+                ...bannerDetailText,
+                `Open lead: ${repPortalUrl}`
               ].join('\n')
             : [
-                'New SlapWrapz lead assigned to you.',
+                'URGENT: New SlapWrapz lead assigned to you. Acknowledge and contact within five minutes.',
                 `Quote ID: ${formatSimpleValue(quoteDetails.quoteId) || 'not provided'}`,
                 `Customer: ${formatSimpleValue(contactInfo?.name) || 'not provided'}`,
                 `Email: ${customerEmail}`,
                 `Phone: ${formatSimpleValue(contactInfo?.phone) || 'not provided'}`,
                 `Vehicle: ${vehicle.mainVehicle || 'not provided'}`,
                 `Service: ${formatSimpleValue(quoteDetails.selectedService) || 'not provided'}`,
-                `Budget: ${formatSimpleValue(quoteDetails.budget) || 'not provided'}`
+                `Budget: ${formatSimpleValue(quoteDetails.budget) || 'not provided'}`,
+                `Open lead: ${repPortalUrl}`
               ].join('\n')
         })
       });

@@ -1779,9 +1779,44 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       return;
     }
 
+    let notificationWarning = '';
+    if (nextRepSlug) {
+      const assignedRep = assignableReps.find((rep) => rep.rep_slug === nextRepSlug);
+      const activeQuote = selectedQuoteDetail || selectedQuote;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (assignedRep?.rep_email && accessToken) {
+        const emailResponse = await fetch('/api/send-urgent-lead-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            repEmail: assignedRep.rep_email,
+            repName: assignedRep.assigned_rep_name,
+            customerName: activeQuote.customer_name,
+            customerEmail: activeQuote.customer_email,
+            customerPhone: activeQuote.customer_phone,
+            quoteId: activeQuote.quote_id || activeQuote.id,
+            leadNature: getProductLabel(activeQuote),
+            leadSource: String(activeQuote.quote_data?.sourcePage || activeQuote.quote_data?.intakeFlow || 'SlapWrapz website'),
+            receivedAt: activeQuote.created_at
+          })
+        });
+
+        if (!emailResponse.ok) {
+          notificationWarning = ' The assignment and timer are active, but the urgent email did not send.';
+        }
+      } else {
+        notificationWarning = ' The assignment and timer are active, but this rep has no notification email.';
+      }
+    }
+
     setNotifySalesRep(Boolean(nextRepSlug));
     setSelectedAssignRepSlug(nextRepSlug || UNASSIGNED_REP_VALUE);
-    setAssignRepMessage(nextRepSlug ? 'Assigned rep saved.' : 'Quote unassigned.');
+    setAssignRepMessage(nextRepSlug ? `Assigned rep saved. Five-minute response timer started.${notificationWarning}` : 'Quote unassigned.');
     await loadStatusEvents(selectedQuote.id);
     await loadQuotes({ clearMessage: false });
     await loadQuoteDetail(selectedQuote.id);

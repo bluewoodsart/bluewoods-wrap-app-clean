@@ -13,6 +13,7 @@ import { QuoteInvoiceBuilder } from '@/components/QuoteInvoiceBuilder';
 import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, getUpsellIdeaImages, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import StaffFeed from '@/components/StaffFeed';
+import UrgentLeadResponseCenter, { type UrgentLeadRow } from '@/components/UrgentLeadResponseCenter';
 import ZoeGameHub from '@/components/ZoeGameHub';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
 import { supabase } from '@/lib/supabase';
@@ -461,6 +462,11 @@ const RepPortal = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [quotes, setQuotes] = useState<RepQuoteRow[]>([]);
+  const [urgentLeads, setUrgentLeads] = useState<UrgentLeadRow[]>([]);
+  const [loadingUrgentLeads, setLoadingUrgentLeads] = useState(false);
+  const [urgentLeadActionId, setUrgentLeadActionId] = useState<string | null>(null);
+  const [urgentLeadMessage, setUrgentLeadMessage] = useState('');
+  const [urgentLeadError, setUrgentLeadError] = useState('');
   const [quoteChooserOpen, setQuoteChooserOpen] = useState(false);
   const [guideQuoteButton, setGuideQuoteButton] = useState(false);
   const [zoeEmptyCustomerCelebration, setZoeEmptyCustomerCelebration] = useState(false);
@@ -527,6 +533,23 @@ const RepPortal = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const selectedQuoteId = selectedQuote?.id;
+
+  const loadUrgentLeads = useCallback(async () => {
+    setLoadingUrgentLeads(true);
+    const { data, error: urgentError } = await supabase.rpc('get_urgent_lead_queue_v1');
+    setLoadingUrgentLeads(false);
+
+    if (urgentError) {
+      if (!urgentError.message.toLowerCase().includes('function')) {
+        setUrgentLeadError(urgentError.message);
+      }
+      setUrgentLeads([]);
+      return;
+    }
+
+    setUrgentLeadError('');
+    setUrgentLeads((data ?? []) as UrgentLeadRow[]);
+  }, []);
 
   const closeSelectedQuoteDetail = useCallback(() => {
     setSelectedQuote(null);
@@ -908,6 +931,7 @@ const RepPortal = () => {
     }
 
     setQuotes((quoteData ?? []) as RepQuoteRow[]);
+    await loadUrgentLeads();
 
     const { data: ideaData, error: ideaError } = await supabase.rpc('list_my_rep_page_ideas_v1');
     if (ideaError) {
@@ -933,6 +957,12 @@ const RepPortal = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session || !adminUser || !['sales_rep', 'rep_manager'].includes(adminUser.role)) return;
+    const interval = window.setInterval(() => void loadUrgentLeads(), 5000);
+    return () => window.clearInterval(interval);
+  }, [adminUser, loadUrgentLeads, session]);
 
   const handleLogout = async () => {
     setSigningOut(true);
@@ -1062,6 +1092,84 @@ const RepPortal = () => {
       if (!current) return current;
       return nextQuotes.find((quote) => quote.id === current.id) ?? current;
     });
+    await loadUrgentLeads();
+  };
+
+  const acknowledgeUrgentLead = async (lead: UrgentLeadRow) => {
+    setUrgentLeadActionId(lead.quote_request_id);
+    setUrgentLeadMessage('');
+    setUrgentLeadError('');
+    const { error: acknowledgeError } = await supabase.rpc('acknowledge_urgent_lead_v1', {
+      p_quote_request_id: lead.quote_request_id
+    });
+    setUrgentLeadActionId(null);
+
+    if (acknowledgeError) {
+      setUrgentLeadError(acknowledgeError.message);
+      return;
+    }
+
+    setUrgentLeadMessage('Receipt confirmed. Contact the customer now before the timer ends.');
+    await loadUrgentLeads();
+  };
+
+  const contactUrgentLead = async (lead: UrgentLeadRow, method: 'call' | 'text' | 'email') => {
+    setUrgentLeadActionId(lead.quote_request_id);
+    setUrgentLeadMessage('');
+    setUrgentLeadError('');
+    const { error: contactError } = await supabase.rpc('mark_urgent_lead_contacted_v1', {
+      p_quote_request_id: lead.quote_request_id,
+      p_contact_method: method
+    });
+
+    if (contactError) {
+      setUrgentLeadActionId(null);
+      setUrgentLeadError(contactError.message);
+      await loadUrgentLeads();
+      return;
+    }
+
+    const digits = (lead.customer_phone || '').replace(/[^\d+]/g, '');
+    const subject = encodeURIComponent(`Your SlapWrapz request ${lead.quote_id || ''}`.trim());
+    const body = encodeURIComponent(`Hi ${lead.customer_name}, I received your SlapWrapz request and I am reaching out to help with your quote.`);
+    const destination = method === 'call'
+      ? `tel:${digits}`
+      : method === 'text'
+        ? `sms:${digits}?&body=${body}`
+        : `mailto:${lead.customer_email}?subject=${subject}&body=${body}`;
+
+    setUrgentLeadActionId(null);
+    setUrgentLeadMessage(`Contact stamped by ${method}. Opening the customer contact now.`);
+    await Promise.all([loadUrgentLeads(), refreshAssignedQuotes()]);
+    window.location.href = destination;
+  };
+
+  const claimUrgentLead = async (lead: UrgentLeadRow) => {
+    setUrgentLeadActionId(lead.quote_request_id);
+    setUrgentLeadMessage('');
+    setUrgentLeadError('');
+    const { error: claimError } = await supabase.rpc('claim_expired_urgent_lead_v1', {
+      p_quote_request_id: lead.quote_request_id
+    });
+    setUrgentLeadActionId(null);
+
+    if (claimError) {
+      setUrgentLeadError(claimError.message);
+      await loadUrgentLeads();
+      return;
+    }
+
+    setUrgentLeadMessage(`${lead.customer_name} is now assigned to you. Your new five-minute contact timer has started.`);
+    await Promise.all([loadUrgentLeads(), refreshAssignedQuotes()]);
+  };
+
+  const openUrgentLead = (lead: UrgentLeadRow) => {
+    const quote = quotes.find((candidate) => candidate.id === lead.quote_request_id);
+    if (quote) {
+      setSelectedQuote(quote);
+      return;
+    }
+    void refreshAssignedQuotes();
   };
 
   const saveCustomerMeeting = async () => {
@@ -1508,6 +1616,21 @@ const RepPortal = () => {
               <RefreshCw className={`mr-2 h-4 w-4 ${loadingQuotes ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
+          </div>
+
+          <div className="mb-5">
+            <UrgentLeadResponseCenter
+              leads={urgentLeads}
+              loading={loadingUrgentLeads}
+              actionLeadId={urgentLeadActionId}
+              message={urgentLeadMessage}
+              error={urgentLeadError}
+              onRefresh={() => void loadUrgentLeads()}
+              onAcknowledge={(lead) => void acknowledgeUrgentLead(lead)}
+              onContact={(lead, method) => void contactUrgentLead(lead, method)}
+              onClaim={(lead) => void claimUrgentLead(lead)}
+              onOpenLead={openUrgentLead}
+            />
           </div>
 
           <div id="zoe-start-quote-target" className="relative mb-4 scroll-mt-24">
