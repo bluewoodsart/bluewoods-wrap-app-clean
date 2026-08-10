@@ -174,6 +174,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
       setError(error instanceof Error ? error.message : 'Upload failed');
     } finally {
       setUploading(false);
+      // Allow another batch, including selecting the same file again after removal.
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -249,7 +252,14 @@ const FileUpload: React.FC<FileUploadProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center text-green-700">
               <CheckCircle className="w-5 h-5 mr-2" />
-              <span className="font-medium">{success}</span>
+              <div>
+                <p className="font-medium">{success}</p>
+                <p className="mt-1 text-sm text-green-700">
+                  {uploadedFiles.length < maxFiles
+                    ? 'You can add more files below, or continue when you are finished.'
+                    : 'All available file slots are filled. Continue when you are finished.'}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -266,6 +276,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
         <CardContent className="p-4 text-center sm:p-8">
           <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <p className="text-lg mb-4">Drag & drop files here, or click to select</p>
+          <p className="mb-4 text-sm text-gray-600">
+            {uploadedFiles.length} of {maxFiles} file{maxFiles === 1 ? '' : 's'} added
+          </p>
           
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:justify-center">
             <Button 

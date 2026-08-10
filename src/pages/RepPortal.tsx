@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
 import { QuoteInvoiceBuilder } from '@/components/QuoteInvoiceBuilder';
-import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
+import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, getUpsellIdeaImages, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import StaffFeed from '@/components/StaffFeed';
 import ZoeGameHub from '@/components/ZoeGameHub';
@@ -787,7 +787,13 @@ const RepPortal = () => {
       return;
     }
 
-    const idea = { title, message, imageUrl: imageFile.url, imageName: imageFile.name };
+    const idea = {
+      title,
+      message,
+      imageUrl: imageFile.url,
+      imageName: imageFile.name,
+      images: repUpsellFiles.map((file) => ({ url: file.url, name: file.name }))
+    };
     setSavingRepUpsell(true);
     setOfficeMessageError('');
     setOfficeMessageStatus('Saving upsell image idea...');
@@ -2578,7 +2584,11 @@ const RepPortal = () => {
                         </div>
                         {upsellIdea ? (
                           <div className="space-y-3">
-                            {upsellIdea.imageUrl && <img src={upsellIdea.imageUrl} alt={upsellIdea.title} className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain" />}
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {getUpsellIdeaImages(upsellIdea).map((image, index) => (
+                                <img key={`${image.url}-${index}`} src={image.url} alt={`${upsellIdea.title} ${index + 1}`} className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain" />
+                              ))}
+                            </div>
                             <div>
                               <p className="font-semibold text-amber-950">Upsell idea: {upsellIdea.title}</p>
                               {upsellIdea.message && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{upsellIdea.message}</p>}
@@ -2593,7 +2603,7 @@ const RepPortal = () => {
                                   <Calculator className="mr-2 h-4 w-4" />
                                   Make a Quote
                                 </Button>
-                                {upsellIdea.imageUrl && <a href={upsellIdea.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-semibold text-amber-800 underline">
+                                {getUpsellIdeaImages(upsellIdea)[0] && <a href={getUpsellIdeaImages(upsellIdea)[0].url} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-semibold text-amber-800 underline">
                                   Open full image <ExternalLink className="ml-1 h-3 w-3" />
                                 </a>}
                               </div>
@@ -2633,13 +2643,14 @@ const RepPortal = () => {
                         onFilesUploaded={setRepUpsellFiles}
                         quoteId={selectedQuote.quote_id || selectedQuote.id}
                         acceptedTypes="image/*"
-                        maxFiles={1}
+                        maxFiles={10}
                         maxFileSizeMB={15}
                         title="Upload Opportunity Image"
                         showCameraButton
                         additionalTags={['upsell_idea', 'office_dialogue']}
                         enforceMaxFilesError
                       />
+                      <p className="text-xs text-slate-600">Select up to 10 photos at once, or add another batch. When all photos are listed, use Save Upsell Image Idea.</p>
                       <Button
                         type="button"
                         onClick={() => void saveRepUpsellIdea()}
