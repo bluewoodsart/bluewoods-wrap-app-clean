@@ -18,7 +18,7 @@ import ZoeGameHub from '@/components/ZoeGameHub';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
 import { supabase } from '@/lib/supabase';
 import type { UploadedFile } from '@/types';
-import { clearClientAuthStorage, setRepPortalSessionActive } from '@/lib/repTracking';
+import { clearClientAuthStorage, isClientForceLoggedOut, markClientForceLoggedOut, setRepPortalSessionActive } from '@/lib/repTracking';
 
 interface AdminUser {
   id: string;
@@ -882,6 +882,14 @@ const RepPortal = () => {
     setLoading(true);
     setError('');
 
+    if (isClientForceLoggedOut()) {
+      setSession(null);
+      setAdminUser(null);
+      setQuotes([]);
+      setLoading(false);
+      return;
+    }
+
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError) {
@@ -975,6 +983,7 @@ const RepPortal = () => {
   const handleLogout = () => {
     setSigningOut(true);
     setRepPortalSessionActive(false);
+    markClientForceLoggedOut();
     clearClientAuthStorage();
     window.location.assign('/logout');
   };

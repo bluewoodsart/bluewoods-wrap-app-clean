@@ -1,17 +1,19 @@
 import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { clearClientAuthStorage, setRepPortalSessionActive } from '@/lib/repTracking';
+import { clearClientAuthStorage, markClientForceLoggedOut, setRepPortalSessionActive } from '@/lib/repTracking';
 
 const Logout = () => {
   useEffect(() => {
     const finishLogout = async () => {
       setRepPortalSessionActive(false);
+      markClientForceLoggedOut();
       clearClientAuthStorage();
 
       await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
 
       setRepPortalSessionActive(false);
+      markClientForceLoggedOut();
       clearClientAuthStorage();
       window.location.replace('/login?switchAccount=1&signedOut=1');
     };

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
-import { clearClientAuthStorage, getRoleSafePostLoginRedirect, getSafeInternalRedirect } from '@/lib/repTracking';
+import { clearClientAuthStorage, clearClientForceLogout, getRoleSafePostLoginRedirect, getSafeInternalRedirect } from '@/lib/repTracking';
 
 interface LoginPlaceholderProps {
   defaultRedirect?: string;
@@ -93,6 +93,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
       return;
     }
 
+    clearClientForceLogout();
     navigate(await getPostLoginRedirect(), { replace: true });
   };
 

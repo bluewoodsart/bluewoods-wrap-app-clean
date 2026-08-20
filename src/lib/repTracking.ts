@@ -1,5 +1,6 @@
 const REP_SLUG_STORAGE_KEY = 'slapwrapz_rep_slug';
 const REP_PORTAL_SESSION_KEY = 'slapwrapz_rep_portal_session';
+const FORCE_LOGOUT_STORAGE_KEY = 'slapwrapz_force_logout';
 
 const shouldClearAuthStorageKey = (key: string) =>
   key.startsWith('sb-') ||
@@ -28,6 +29,40 @@ export const clearClientAuthStorage = () => {
       console.warn('Unable to clear browser auth storage:', error);
     }
   });
+};
+
+export const markClientForceLoggedOut = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(FORCE_LOGOUT_STORAGE_KEY, 'true');
+    window.sessionStorage.setItem(FORCE_LOGOUT_STORAGE_KEY, 'true');
+  } catch (error) {
+    console.warn('Unable to mark browser logout state:', error);
+  }
+};
+
+export const clearClientForceLogout = () => {
+  if (typeof window === 'undefined') return;
+
+  [window.localStorage, window.sessionStorage].forEach((storage) => {
+    try {
+      storage.removeItem(FORCE_LOGOUT_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Unable to clear browser logout state:', error);
+    }
+  });
+};
+
+export const isClientForceLoggedOut = () => {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    return window.localStorage.getItem(FORCE_LOGOUT_STORAGE_KEY) === 'true' ||
+      window.sessionStorage.getItem(FORCE_LOGOUT_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
 };
 
 export const setRepPortalSessionActive = (active: boolean) => {

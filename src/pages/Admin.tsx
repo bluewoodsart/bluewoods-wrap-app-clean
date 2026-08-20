@@ -12,7 +12,7 @@ import ProductionHub from '@/components/admin/ProductionHub';
 import StaffFeed from '@/components/StaffFeed';
 import { supabase } from '@/lib/supabase';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
-import { clearClientAuthStorage } from '@/lib/repTracking';
+import { clearClientAuthStorage, isClientForceLoggedOut, markClientForceLoggedOut } from '@/lib/repTracking';
 import AdminStatus from './AdminStatus';
 
 interface AdminUser {
@@ -79,6 +79,13 @@ const Admin = () => {
   const loadAdminUser = async () => {
     setLoading(true);
     setError('');
+
+    if (isClientForceLoggedOut()) {
+      setSession(null);
+      setAdminUser(null);
+      setLoading(false);
+      return;
+    }
 
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
@@ -148,6 +155,7 @@ const Admin = () => {
 
   const handleLogout = () => {
     setSigningOut(true);
+    markClientForceLoggedOut();
     clearClientAuthStorage();
     window.location.assign('/logout');
   };
