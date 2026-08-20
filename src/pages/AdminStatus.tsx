@@ -1991,15 +1991,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const saveUpsellImageIdea = async () => {
     if (!selectedQuote || savingUpsellIdea) return;
 
-    const title = upsellIdeaTitle.trim();
+    const title = upsellIdeaTitle.trim() || 'Upsell image idea';
     const message = upsellIdeaMessage.trim();
     const imageFiles = upsellIdeaFiles.filter((file) => Boolean(file.url));
     const imageFile = imageFiles[0];
-
-    if (!title) {
-      setUpsellIdeaError('Add a short title for the upsell idea.');
-      return;
-    }
 
     if (!imageFile?.url) {
       setUpsellIdeaError('Upload the image you want the rep to see.');
@@ -4194,7 +4189,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                           <Button
                             type="button"
                             onClick={() => void saveUpsellImageIdea()}
-                            disabled={savingUpsellIdea || !upsellIdeaTitle.trim() || !upsellIdeaFiles.some((file) => Boolean(file.url))}
+                            disabled={savingUpsellIdea || !upsellIdeaFiles.some((file) => Boolean(file.url))}
                             className="w-full bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
                           >
                             <ImagePlus className="mr-2 h-4 w-4" />

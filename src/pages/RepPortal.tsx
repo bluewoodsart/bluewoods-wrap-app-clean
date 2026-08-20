@@ -802,13 +802,13 @@ const RepPortal = () => {
 
   const saveRepUpsellIdea = async () => {
     if (!selectedQuote || savingRepUpsell) return;
-    const title = repUpsellTitle.trim();
+    const title = repUpsellTitle.trim() || 'Upsell image idea';
     const message = repUpsellMessage.trim();
     const imageFiles = repUpsellFiles.filter((file) => Boolean(file.url));
     const imageFile = imageFiles[0];
 
-    if (!title || !imageFile?.url) {
-      setOfficeMessageError('Add a title and upload an opportunity image before saving.');
+    if (!imageFile?.url) {
+      setOfficeMessageError('Upload an opportunity image before saving.');
       return;
     }
 
@@ -2806,7 +2806,7 @@ const RepPortal = () => {
                       <Button
                         type="button"
                         onClick={() => void saveRepUpsellIdea()}
-                        disabled={savingRepUpsell || !repUpsellTitle.trim() || !repUpsellFiles.some((file) => Boolean(file.url))}
+                        disabled={savingRepUpsell || !repUpsellFiles.some((file) => Boolean(file.url))}
                         className="w-full bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
                       >
                         <ImagePlus className="mr-2 h-4 w-4" />
