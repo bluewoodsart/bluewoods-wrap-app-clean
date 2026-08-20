@@ -406,3 +406,27 @@
 .markdown-preview ol {
   @apply my-4 ml-6;
 }
+
+.admin-quote-dialog {
+  max-width: min(56rem, calc(100vw - 1rem));
+}
+
+.admin-quote-dialog a,
+.admin-quote-dialog dd,
+.admin-quote-dialog p {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .admin-quote-dialog {
+    top: max(0.5rem, env(safe-area-inset-top)) !important;
+    right: 0.5rem !important;
+    bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+    left: 0.5rem !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 1rem) !important;
+    transform: none !important;
+    align-content: start;
+  }
+}

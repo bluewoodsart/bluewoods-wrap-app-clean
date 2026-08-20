@@ -29,8 +29,15 @@ export const parseUpsellImageIdea = (noteText: string): UpsellImageIdea | null =
       imageUrl: idea.imageUrl || undefined,
       imageName: idea.imageName,
       images: Array.isArray(idea.images)
-        ? idea.images.filter((image) => image && typeof image.url === 'string' && image.url)
-        : undefined
+        ? idea.images
+            .filter((image) => image && typeof image.url === 'string' && image.url)
+            .map((image) => ({
+              url: image.url,
+              name: typeof image.name === 'string' ? image.name : undefined
+            }))
+        : idea.imageUrl
+          ? [{ url: idea.imageUrl, name: idea.imageName }]
+          : undefined
     };
   } catch {
     return null;

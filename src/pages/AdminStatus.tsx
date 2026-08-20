@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
-import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, getUpsellIdeaImages, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
+import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
 import {
@@ -810,7 +810,7 @@ const FileList = ({ files, emptyMessage = 'None uploaded.' }: { files: UploadedF
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid min-w-0 gap-3 sm:grid-cols-2">
       {files.map((file, index) => {
         const fileKey = file.id || file.url || `${file.name}-${index}`;
         const isDownloading = downloadingFileKey === fileKey;
@@ -818,7 +818,7 @@ const FileList = ({ files, emptyMessage = 'None uploaded.' }: { files: UploadedF
         return (
           <div
             key={fileKey}
-            className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm"
+            className="flex min-w-0 items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm"
           >
             {isImageFile(file) && file.url ? (
               <img
@@ -1895,12 +1895,13 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   };
 
   const openAdminQuoteBuild = (idea: UpsellImageIdea | null = null) => {
+    const ideaImages = idea?.images?.length ? idea.images : idea?.imageUrl ? [{ url: idea.imageUrl, name: idea.imageName }] : [];
     setAdminQuoteBuildUpsellIdea(idea);
     setAdminWebsiteHeroReferenceFiles([]);
     setAdminQuotePreparationNotes(idea ? [
       `Upsell opportunity: ${idea.title}`,
       idea.message,
-      idea.imageUrl ? `Reference image: ${idea.imageUrl}` : ''
+      ...ideaImages.map((image, index) => `Reference image ${index + 1}: ${image.url}`)
     ].filter(Boolean).join('\n\n') : '');
     setAdminQuoteContinuationStatus('');
     setAdminQuoteContinuationError('');
@@ -1992,7 +1993,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
 
     const title = upsellIdeaTitle.trim();
     const message = upsellIdeaMessage.trim();
-    const imageFile = upsellIdeaFiles[0];
+    const imageFiles = upsellIdeaFiles.filter((file) => Boolean(file.url));
+    const imageFile = imageFiles[0];
 
     if (!title) {
       setUpsellIdeaError('Add a short title for the upsell idea.');
@@ -2009,7 +2011,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       message,
       imageUrl: imageFile.url,
       imageName: imageFile.name,
-      images: upsellIdeaFiles.map((file) => ({ url: file.url, name: file.name }))
+      images: imageFiles.map((file) => ({ url: file.url, name: file.name }))
     };
 
     setSavingUpsellIdea(true);
@@ -3027,13 +3029,13 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             const selectedTextHref = getPhoneHref(activeQuote.customer_phone, 'sms');
 
             return (
-            <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6">
-              <DialogHeader>
-                <DialogTitle>{activeQuote.quote_id || activeQuote.customer_name}</DialogTitle>
+            <DialogContent className="admin-quote-dialog max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6">
+              <DialogHeader className="min-w-0 text-left">
+                <DialogTitle className="break-words pr-8 leading-snug">{activeQuote.quote_id || activeQuote.customer_name}</DialogTitle>
                 <DialogDescription>Read-only quote request details</DialogDescription>
               </DialogHeader>
 
-              <div className="flex flex-col gap-6">
+              <div className="flex min-w-0 flex-col gap-6">
                 {loadingDetail && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                     Loading quote details...
@@ -3197,11 +3199,18 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
 
                     {adminQuoteBuildUpsellIdea && (
                       <div className="mt-4 grid gap-4 rounded-md border border-amber-300 bg-amber-50 p-3 sm:grid-cols-[minmax(0,220px)_1fr] sm:items-center">
-                        {adminQuoteBuildUpsellIdea.imageUrl && <img
-                          src={adminQuoteBuildUpsellIdea.imageUrl}
-                          alt={adminQuoteBuildUpsellIdea.title}
-                          className="max-h-44 w-full rounded-md border border-amber-200 bg-white object-contain"
-                        />}
+                        {(adminQuoteBuildUpsellIdea.images?.length ? adminQuoteBuildUpsellIdea.images : adminQuoteBuildUpsellIdea.imageUrl ? [{ url: adminQuoteBuildUpsellIdea.imageUrl, name: adminQuoteBuildUpsellIdea.imageName }] : []).length > 0 && (
+                          <div className="grid gap-2">
+                            {(adminQuoteBuildUpsellIdea.images?.length ? adminQuoteBuildUpsellIdea.images : adminQuoteBuildUpsellIdea.imageUrl ? [{ url: adminQuoteBuildUpsellIdea.imageUrl, name: adminQuoteBuildUpsellIdea.imageName }] : []).map((image, index) => (
+                              <img
+                                key={`${image.url}-${index}`}
+                                src={image.url}
+                                alt={image.name || adminQuoteBuildUpsellIdea.title}
+                                className="max-h-44 w-full rounded-md border border-amber-200 bg-white object-contain"
+                              />
+                            ))}
+                          </div>
+                        )}
                         <div>
                           <p className="text-xs font-black uppercase tracking-wide text-amber-800">Quote started from upsell image</p>
                           <p className="mt-1 font-bold text-amber-950">{adminQuoteBuildUpsellIdea.title}</p>
@@ -3224,9 +3233,9 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         onFilesUploaded={setAdminWebsiteHeroReferenceFiles}
                         quoteId={activeQuote.quote_id || activeQuote.id}
                         acceptedTypes="image/*"
-                        maxFiles={1}
+                        maxFiles={4}
                         maxFileSizeMB={20}
-                        title="Upload Website Hero Reference"
+                        title="Upload Website Hero Reference Photos"
                         showCameraButton
                         additionalTags={['website_hero_reference', 'logo_reference', 'transparent_background_required', 'mobile_safe_logo']}
                         enforceMaxFilesError
@@ -4176,7 +4185,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             acceptedTypes="image/*"
                             maxFiles={25}
                             maxFileSizeMB={15}
-                            title="Upload Opportunity Image"
+                            title="Upload Opportunity Images"
                             showCameraButton
                             additionalTags={['upsell_idea', 'office_dialogue']}
                             enforceMaxFilesError
@@ -4185,7 +4194,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                           <Button
                             type="button"
                             onClick={() => void saveUpsellImageIdea()}
-                            disabled={savingUpsellIdea || !upsellIdeaTitle.trim() || !upsellIdeaFiles[0]?.url}
+                            disabled={savingUpsellIdea || !upsellIdeaTitle.trim() || !upsellIdeaFiles.some((file) => Boolean(file.url))}
                             className="w-full bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
                           >
                             <ImagePlus className="mr-2 h-4 w-4" />
@@ -4259,6 +4268,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                       <div className="space-y-3">
                         {internalNotes.map((note) => {
                           const upsellIdea = parseUpsellImageIdea(note.note_text);
+                          const upsellImages = upsellIdea?.images?.length
+                            ? upsellIdea.images
+                            : upsellIdea?.imageUrl
+                              ? [{ url: upsellIdea.imageUrl, name: upsellIdea.imageName }]
+                              : [];
                           return (
                           <div key={note.id} className={`rounded-md border p-3 ${upsellIdea ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
                             <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -4267,11 +4281,18 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             </div>
                             {upsellIdea ? (
                               <div className="space-y-3">
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                  {getUpsellIdeaImages(upsellIdea).map((image, index) => (
-                                    <img key={`${image.url}-${index}`} src={image.url} alt={`${upsellIdea.title} ${index + 1}`} className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain" />
-                                  ))}
-                                </div>
+                                {upsellImages.length > 0 && (
+                                  <div className="grid gap-2 sm:grid-cols-2">
+                                    {upsellImages.map((image, index) => (
+                                      <img
+                                        key={`${image.url}-${index}`}
+                                        src={image.url}
+                                        alt={image.name || upsellIdea.title}
+                                        className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain"
+                                      />
+                                    ))}
+                                  </div>
+                                )}
                                 <div>
                                   <p className="font-semibold text-amber-950">Upsell idea: {upsellIdea.title}</p>
                                   {upsellIdea.message && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{upsellIdea.message}</p>}
@@ -4286,9 +4307,17 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                                       <Calculator className="mr-2 h-4 w-4" />
                                       Make a Quote
                                     </Button>
-                                    {getUpsellIdeaImages(upsellIdea)[0] && <a href={getUpsellIdeaImages(upsellIdea)[0].url} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-semibold text-amber-800 underline">
-                                      Open full image <ExternalLink className="ml-1 h-3 w-3" />
-                                    </a>}
+                                    {upsellImages.map((image, index) => (
+                                      <a
+                                        key={`${image.url}-link-${index}`}
+                                        href={image.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center text-xs font-semibold text-amber-800 underline"
+                                      >
+                                        Open image {index + 1} <ExternalLink className="ml-1 h-3 w-3" />
+                                      </a>
+                                    ))}
                                   </div>
                                 </div>
                               </div>

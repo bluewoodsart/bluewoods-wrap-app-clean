@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
 import { QuoteInvoiceBuilder } from '@/components/QuoteInvoiceBuilder';
-import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, getUpsellIdeaImages, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
+import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import StaffFeed from '@/components/StaffFeed';
 import UrgentLeadResponseCenter, { type UrgentLeadRow } from '@/components/UrgentLeadResponseCenter';
@@ -641,12 +641,13 @@ const RepPortal = () => {
   };
 
   const startQuoteFromUpsell = (idea: UpsellImageIdea) => {
+    const ideaImages = idea.images?.length ? idea.images : idea.imageUrl ? [{ url: idea.imageUrl, name: idea.imageName }] : [];
     setQuoteBuildUpsellIdea(idea);
     setWebsiteHeroReferenceFiles([]);
     setQuotePreparationNotes([
       `Upsell opportunity: ${idea.title}`,
       idea.message,
-      idea.imageUrl ? `Reference image: ${idea.imageUrl}` : ''
+      ...ideaImages.map((image, index) => `Reference image ${index + 1}: ${image.url}`)
     ].filter(Boolean).join('\n\n'));
     setQuoteContinuationStatus('');
     setQuoteContinuationError('');
@@ -803,7 +804,8 @@ const RepPortal = () => {
     if (!selectedQuote || savingRepUpsell) return;
     const title = repUpsellTitle.trim();
     const message = repUpsellMessage.trim();
-    const imageFile = repUpsellFiles[0];
+    const imageFiles = repUpsellFiles.filter((file) => Boolean(file.url));
+    const imageFile = imageFiles[0];
 
     if (!title || !imageFile?.url) {
       setOfficeMessageError('Add a title and upload an opportunity image before saving.');
@@ -815,7 +817,7 @@ const RepPortal = () => {
       message,
       imageUrl: imageFile.url,
       imageName: imageFile.name,
-      images: repUpsellFiles.map((file) => ({ url: file.url, name: file.name }))
+      images: imageFiles.map((file) => ({ url: file.url, name: file.name }))
     };
     setSavingRepUpsell(true);
     setOfficeMessageError('');
@@ -2469,11 +2471,18 @@ const RepPortal = () => {
 
                   {quoteBuildUpsellIdea && (
                     <div className="mt-4 grid gap-4 rounded-md border border-amber-300 bg-amber-50 p-3 sm:grid-cols-[minmax(0,220px)_1fr] sm:items-center">
-                      {quoteBuildUpsellIdea.imageUrl && <img
-                        src={quoteBuildUpsellIdea.imageUrl}
-                        alt={quoteBuildUpsellIdea.title}
-                        className="max-h-44 w-full rounded-md border border-amber-200 bg-white object-contain"
-                      />}
+                      {(quoteBuildUpsellIdea.images?.length ? quoteBuildUpsellIdea.images : quoteBuildUpsellIdea.imageUrl ? [{ url: quoteBuildUpsellIdea.imageUrl, name: quoteBuildUpsellIdea.imageName }] : []).length > 0 && (
+                        <div className="grid gap-2">
+                          {(quoteBuildUpsellIdea.images?.length ? quoteBuildUpsellIdea.images : quoteBuildUpsellIdea.imageUrl ? [{ url: quoteBuildUpsellIdea.imageUrl, name: quoteBuildUpsellIdea.imageName }] : []).map((image, index) => (
+                            <img
+                              key={`${image.url}-${index}`}
+                              src={image.url}
+                              alt={image.name || quoteBuildUpsellIdea.title}
+                              className="max-h-44 w-full rounded-md border border-amber-200 bg-white object-contain"
+                            />
+                          ))}
+                        </div>
+                      )}
                       <div>
                         <p className="text-xs font-black uppercase tracking-wide text-amber-800">Quote started from upsell image</p>
                         <p className="mt-1 font-bold text-amber-950">{quoteBuildUpsellIdea.title}</p>
@@ -2492,13 +2501,13 @@ const RepPortal = () => {
                         Take a photo or choose one from your phone. When a reference is uploaded, the website build must use it, clean it up, remove the background, and keep the complete logo readable on Android and iPhone screens.
                       </p>
                     </div>
-                    <FileUpload
-                      onFilesUploaded={setWebsiteHeroReferenceFiles}
-                      quoteId={selectedQuote.quote_id || selectedQuote.id}
-                      acceptedTypes="image/*"
-                      maxFiles={1}
-                      maxFileSizeMB={20}
-                      title="Upload Website Hero Reference"
+                      <FileUpload
+                        onFilesUploaded={setWebsiteHeroReferenceFiles}
+                        quoteId={selectedQuote.quote_id || selectedQuote.id}
+                        acceptedTypes="image/*"
+                        maxFiles={4}
+                        maxFileSizeMB={20}
+                        title="Upload Website Hero Reference Photos"
                       showCameraButton
                       additionalTags={['website_hero_reference', 'logo_reference', 'transparent_background_required', 'mobile_safe_logo']}
                       enforceMaxFilesError
@@ -2699,6 +2708,11 @@ const RepPortal = () => {
                   ) : (
                     officeNotes.map((note) => {
                       const upsellIdea = parseUpsellImageIdea(note.note_text);
+                      const upsellImages = upsellIdea?.images?.length
+                        ? upsellIdea.images
+                        : upsellIdea?.imageUrl
+                          ? [{ url: upsellIdea.imageUrl, name: upsellIdea.imageName }]
+                          : [];
                       return (
                       <div key={note.id} className={`rounded-md border p-3 ${upsellIdea ? 'border-amber-200 bg-amber-50' : 'border-violet-100 bg-white'}`}>
                         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -2707,11 +2721,18 @@ const RepPortal = () => {
                         </div>
                         {upsellIdea ? (
                           <div className="space-y-3">
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {getUpsellIdeaImages(upsellIdea).map((image, index) => (
-                                <img key={`${image.url}-${index}`} src={image.url} alt={`${upsellIdea.title} ${index + 1}`} className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain" />
-                              ))}
-                            </div>
+                            {upsellImages.length > 0 && (
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {upsellImages.map((image, index) => (
+                                  <img
+                                    key={`${image.url}-${index}`}
+                                    src={image.url}
+                                    alt={image.name || upsellIdea.title}
+                                    className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain"
+                                  />
+                                ))}
+                              </div>
+                            )}
                             <div>
                               <p className="font-semibold text-amber-950">Upsell idea: {upsellIdea.title}</p>
                               {upsellIdea.message && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{upsellIdea.message}</p>}
@@ -2726,9 +2747,17 @@ const RepPortal = () => {
                                   <Calculator className="mr-2 h-4 w-4" />
                                   Make a Quote
                                 </Button>
-                                {getUpsellIdeaImages(upsellIdea)[0] && <a href={getUpsellIdeaImages(upsellIdea)[0].url} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-semibold text-amber-800 underline">
-                                  Open full image <ExternalLink className="ml-1 h-3 w-3" />
-                                </a>}
+                                {upsellImages.map((image, index) => (
+                                  <a
+                                    key={`${image.url}-link-${index}`}
+                                    href={image.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center text-xs font-semibold text-amber-800 underline"
+                                  >
+                                    Open image {index + 1} <ExternalLink className="ml-1 h-3 w-3" />
+                                  </a>
+                                ))}
                               </div>
                             </div>
                           </div>
@@ -2768,7 +2797,7 @@ const RepPortal = () => {
                         acceptedTypes="image/*"
                         maxFiles={25}
                         maxFileSizeMB={15}
-                        title="Upload Opportunity Image"
+                        title="Upload Opportunity Images"
                         showCameraButton
                         additionalTags={['upsell_idea', 'office_dialogue']}
                         enforceMaxFilesError
@@ -2777,7 +2806,7 @@ const RepPortal = () => {
                       <Button
                         type="button"
                         onClick={() => void saveRepUpsellIdea()}
-                        disabled={savingRepUpsell || !repUpsellTitle.trim() || !repUpsellFiles[0]?.url}
+                        disabled={savingRepUpsell || !repUpsellTitle.trim() || !repUpsellFiles.some((file) => Boolean(file.url))}
                         className="w-full bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
                       >
                         <ImagePlus className="mr-2 h-4 w-4" />

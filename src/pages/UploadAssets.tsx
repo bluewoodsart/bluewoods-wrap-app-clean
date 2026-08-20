@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Clock, UploadCloud } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +67,8 @@ const UploadAssets = () => {
   const [error, setError] = useState('');
   const [attaching, setAttaching] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const attachedFileIdsRef = useRef(new Set<string>());
+  const attachingFileIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     const loadToken = async () => {
@@ -100,8 +102,13 @@ const UploadAssets = () => {
   }, [token]);
 
   const attachUploadedFiles = async (files: UploadedFile[]) => {
-    if (!files.length || attaching) return;
+    const newFiles = files.filter(
+      (file) => !attachedFileIdsRef.current.has(file.id) && !attachingFileIdsRef.current.has(file.id)
+    );
 
+    if (!newFiles.length) return;
+
+    newFiles.forEach((file) => attachingFileIdsRef.current.add(file.id));
     setAttaching(true);
     setError('');
     setSuccessMessage('Saving uploaded files to your quote...');
@@ -109,10 +116,11 @@ const UploadAssets = () => {
     const { error: attachError } = await supabase
       .rpc('attach_uploaded_files_to_quote_public', {
         p_token: token,
-        p_file_ids: files.map((file) => file.id)
+        p_file_ids: newFiles.map((file) => file.id)
       });
 
     setAttaching(false);
+    newFiles.forEach((file) => attachingFileIdsRef.current.delete(file.id));
 
     if (attachError) {
       console.error('Uploaded file attach failed:', {
@@ -120,14 +128,15 @@ const UploadAssets = () => {
         details: attachError.details,
         hint: attachError.hint,
         code: attachError.code,
-        fileIds: files.map((file) => file.id)
+        fileIds: newFiles.map((file) => file.id)
       });
       setSuccessMessage('');
       setError(`Your files uploaded, but we could not attach them to your quote. Supabase error: ${attachError.message}`);
       return;
     }
 
-    setSuccessMessage('Files uploaded and attached to your quote. Thank you.');
+    newFiles.forEach((file) => attachedFileIdsRef.current.add(file.id));
+    setSuccessMessage('Files uploaded and attached to your quote. You can add more if needed.');
   };
 
   const requestedLabels = getRequestedItemLabels(tokenDetails?.requested_items ?? null);

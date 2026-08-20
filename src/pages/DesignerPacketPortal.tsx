@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, ExternalLink, FileText, RefreshCw, Send, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -131,6 +131,8 @@ const DesignerPacketPortal = () => {
   const [status, setStatus] = useState<DesignerPacketStatus>('in_design');
   const [noteText, setNoteText] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const submittedFileIdsRef = useRef(new Set<string>());
+  const submittingFileIdsRef = useRef(new Set<string>());
 
   const loadPacket = async () => {
     setLoading(true);
@@ -160,6 +162,8 @@ const DesignerPacketPortal = () => {
     setDetails(nextDetails);
     setStatus(nextDetails.status || 'in_design');
     setUploadedFiles([]);
+    submittedFileIdsRef.current = new Set();
+    submittingFileIdsRef.current = new Set();
   };
 
   useEffect(() => {
@@ -179,16 +183,16 @@ const DesignerPacketPortal = () => {
     [details?.files]
   );
 
-  const submitUpdate = async () => {
-    if (saving) return;
+  const submitUpdate = async (filesToSend = uploadedFiles, options: { autoFileSubmit?: boolean } = {}) => {
+    if (saving) return false;
 
     const hasNote = Boolean(noteText.trim());
-    const hasFiles = uploadedFiles.length > 0;
+    const hasFiles = filesToSend.length > 0;
 
     if (!hasNote && !hasFiles && status === details?.status) {
       setError('Add a note, upload a proof, or change the status before sending.');
       setMessage('');
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -199,8 +203,8 @@ const DesignerPacketPortal = () => {
       .rpc('submit_designer_packet_update_public', {
         p_token: token,
         p_status: status,
-        p_note_text: noteText.trim() || null,
-        p_uploaded_files: uploadedFiles.map((file) => ({
+        p_note_text: options.autoFileSubmit ? null : noteText.trim() || null,
+        p_uploaded_files: filesToSend.map((file) => ({
           id: file.id,
           name: file.name,
           url: file.url,
@@ -215,13 +219,43 @@ const DesignerPacketPortal = () => {
       console.error('Designer packet update failed:', submitError);
       setError(submitError.message || 'We could not send that update. Please contact SlapWrapz.');
       setMessage('');
-      return;
+      return false;
     }
 
-    setNoteText('');
-    setUploadedFiles([]);
-    setMessage('Update sent to SlapWrapz.');
+    if (!options.autoFileSubmit) {
+      setNoteText('');
+      setUploadedFiles([]);
+    }
+
+    setMessage(options.autoFileSubmit ? 'Proof file uploaded and sent to SlapWrapz.' : 'Update sent to SlapWrapz.');
     await loadPacket();
+    return true;
+  };
+
+  const handleUploadedProofFiles = (files: UploadedFile[]) => {
+    setUploadedFiles(files);
+
+    const newFiles = files.filter((file) => {
+      if (!file.id) return false;
+      return !submittedFileIdsRef.current.has(file.id) && !submittingFileIdsRef.current.has(file.id);
+    });
+
+    if (!newFiles.length) return;
+
+    newFiles.forEach((file) => {
+      if (file.id) submittingFileIdsRef.current.add(file.id);
+    });
+
+    void submitUpdate(newFiles, { autoFileSubmit: true }).then((sent) => {
+      newFiles.forEach((file) => {
+        if (file.id) {
+          submittingFileIdsRef.current.delete(file.id);
+          if (sent) {
+            submittedFileIdsRef.current.add(file.id);
+          }
+        }
+      });
+    });
   };
 
   return (
@@ -402,10 +436,10 @@ const DesignerPacketPortal = () => {
                     maxFileSizeMB={50}
                     additionalTags={['designer_proof', 'designer_packet']}
                     showCameraButton={false}
-                    onFilesUploaded={setUploadedFiles}
+                    onFilesUploaded={handleUploadedProofFiles}
                   />
 
-                  <Button onClick={submitUpdate} disabled={saving} className="w-full">
+                  <Button onClick={() => void submitUpdate()} disabled={saving} className="w-full">
                     {saving ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />

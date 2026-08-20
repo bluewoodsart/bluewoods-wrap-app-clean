@@ -59,18 +59,42 @@ const FileUpload: React.FC<FileUploadProps> = ({
     });
   };
 
-  const handleFileUpload = async (files: FileList) => {
+  const resetFilePickers = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+  };
+
+  const handleSelectedFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+
+    const selectedFiles = Array.from(files);
+    resetFilePickers();
+    void handleFileUpload(selectedFiles);
+  };
+
+  const handleFileUpload = async (files: File[]) => {
     if (!files.length) return;
 
     const maxFileSizeBytes = maxFileSizeMB * 1024 * 1024;
     const remainingFileSlots = maxFiles - uploadedFiles.length;
+    if (remainingFileSlots <= 0) {
+      setError(`You can upload up to ${maxFiles} file(s). Remove a file before adding another.`);
+      setSuccess(null);
+      return;
+    }
+
     if (enforceMaxFilesError && files.length > remainingFileSlots) {
       setError(`You can upload up to ${maxFiles} files in one upload session. Please choose ${remainingFileSlots} or fewer file(s).`);
       setSuccess(null);
       return;
     }
 
-    const oversizedFiles = Array.from(files).filter((file) => file.size > maxFileSizeBytes);
+    const oversizedFiles = files.filter((file) => file.size > maxFileSizeBytes);
 
     if (oversizedFiles.length) {
       const fileNames = oversizedFiles.map((file) => file.name).join(', ');
@@ -87,7 +111,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     const newFiles: UploadedFile[] = [];
 
     try {
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         if (uploadedFiles.length + newFiles.length >= maxFiles) break;
         
         console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
@@ -197,7 +221,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     e.preventDefault();
     setDragOver(false);
     const files = e.dataTransfer.files;
-    handleFileUpload(files);
+    void handleFileUpload(Array.from(files));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -287,7 +311,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               disabled={uploading || uploadedFiles.length >= maxFiles}
               className="min-h-12 w-full touch-manipulation sm:w-auto"
             >
-              {uploading ? 'Uploading...' : 'Choose Files'}
+              {uploading ? 'Uploading...' : uploadedFiles.length > 0 ? 'Add More Files' : 'Choose Files'}
             </Button>
             
             {showCameraButton && acceptedTypes.includes('image') && (
@@ -299,7 +323,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 className="min-h-12 w-full touch-manipulation sm:w-auto"
               >
                 <Camera className="w-4 h-4 mr-2" />
-                📸 Take Photo
+                {uploadedFiles.length > 0 ? 'Take Another Photo' : 'Take Photo'}
               </Button>
             )}
           </div>
@@ -309,7 +333,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
             type="file"
             multiple={maxFiles > 1}
             accept={acceptedTypes}
-            onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+            onChange={(e) => handleSelectedFiles(e.target.files)}
             className="hidden"
           />
           
@@ -319,7 +343,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               type="file"
               accept="image/*"
               capture="environment"
-              onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+              onChange={(e) => handleSelectedFiles(e.target.files)}
               className="hidden"
             />
           )}
