@@ -1,13 +1,32 @@
 const REP_SLUG_STORAGE_KEY = 'slapwrapz_rep_slug';
 const REP_PORTAL_SESSION_KEY = 'slapwrapz_rep_portal_session';
 
+const shouldClearAuthStorageKey = (key: string) =>
+  key.startsWith('sb-') ||
+  key === REP_SLUG_STORAGE_KEY ||
+  key === REP_PORTAL_SESSION_KEY ||
+  key.toLowerCase().includes('supabase') ||
+  key.toLowerCase().includes('auth-token');
+
+const clearMatchingStorageKeys = (storage: Storage) => {
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(Boolean) as string[];
+  keys.filter(shouldClearAuthStorageKey).forEach((key) => storage.removeItem(key));
+};
+
 export const clearClientAuthStorage = () => {
   if (typeof window === 'undefined') return;
 
-  [window.localStorage, window.sessionStorage].forEach((storage) => {
-    Object.keys(storage)
-      .filter((key) => key.startsWith('sb-') || key === REP_PORTAL_SESSION_KEY)
-      .forEach((key) => storage.removeItem(key));
+  const storageGetters = [
+    () => window.localStorage,
+    () => window.sessionStorage
+  ];
+
+  storageGetters.forEach((getStorage) => {
+    try {
+      clearMatchingStorageKeys(getStorage());
+    } catch (error) {
+      console.warn('Unable to clear browser auth storage:', error);
+    }
   });
 };
 

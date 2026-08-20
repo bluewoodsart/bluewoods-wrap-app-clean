@@ -972,13 +972,11 @@ const RepPortal = () => {
     return () => window.clearInterval(interval);
   }, [adminUser, loadUrgentLeads, session]);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setSigningOut(true);
     setRepPortalSessionActive(false);
-    await supabase.auth.signOut({ scope: 'global' });
     clearClientAuthStorage();
-    setSigningOut(false);
-    window.location.replace('/login?switchAccount=1');
+    window.location.assign('/logout');
   };
 
   const submitCoverDirection = async () => {

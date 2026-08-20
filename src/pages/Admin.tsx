@@ -146,12 +146,10 @@ const Admin = () => {
     return () => window.removeEventListener('bwb-approvals-updated', refreshApprovals);
   }, [adminUser]);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setSigningOut(true);
-    await supabase.auth.signOut({ scope: 'global' });
     clearClientAuthStorage();
-    setSigningOut(false);
-    window.location.replace('/login?switchAccount=1');
+    window.location.assign('/logout');
   };
 
   if (loading) {

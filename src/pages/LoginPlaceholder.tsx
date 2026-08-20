@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
-import { getRoleSafePostLoginRedirect, getSafeInternalRedirect } from '@/lib/repTracking';
+import { clearClientAuthStorage, getRoleSafePostLoginRedirect, getSafeInternalRedirect } from '@/lib/repTracking';
 
 interface LoginPlaceholderProps {
   defaultRedirect?: string;
@@ -40,6 +40,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
   const [searchParams] = useSearchParams();
   const redirectPath = getSafeInternalRedirect(searchParams.get('redirect'), defaultRedirect);
   const explicitAccountSwitch = searchParams.get('switchAccount') === '1';
+  const forcedSignedOut = searchParams.get('signedOut') === '1';
   const shouldAllowAccountSwitch = allowAccountSwitch && explicitAccountSwitch;
 
   const getPostLoginRedirect = async () => {
@@ -51,6 +52,12 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
 
   useEffect(() => {
     const checkExistingSession = async () => {
+      if (forcedSignedOut) {
+        clearClientAuthStorage();
+        setCheckingSession(false);
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
 
       if (data.session) {
@@ -67,7 +74,7 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
     };
 
     void checkExistingSession();
-  }, [navigate, redirectPath, shouldAllowAccountSwitch]);
+  }, [forcedSignedOut, navigate, redirectPath, shouldAllowAccountSwitch]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

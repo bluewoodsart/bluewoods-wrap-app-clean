@@ -17,6 +17,7 @@ import CustomerProofPortal from "./pages/CustomerProofPortal";
 import CustomerInvoicePortal from "./pages/CustomerInvoicePortal";
 import DesignerPacketPortal from "./pages/DesignerPacketPortal";
 import LoginPlaceholder from "./pages/LoginPlaceholder";
+import Logout from "./pages/Logout";
 import RegisterPlaceholder from "./pages/RegisterPlaceholder";
 import QuoteConfirmationFinal from "./components/QuoteConfirmationFinal";
 import ShortIntakeFlow from "./components/ShortIntakeFlow";
@@ -120,6 +121,7 @@ const App = () => {
               <Route path="/signs" element={<SignageQuoteFlow />} />
               <Route path="/stickers-decals" element={<StickerQuoteFlow />} />
               <Route path="/login" element={<LoginPlaceholder allowAccountSwitch />} />
+              <Route path="/logout" element={<Logout />} />
               <Route
                 path="/jazzy/login"
                 element={(
