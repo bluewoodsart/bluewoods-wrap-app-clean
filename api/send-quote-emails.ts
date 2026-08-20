@@ -3,6 +3,11 @@ import { request } from 'node:https';
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
 const BUSINESS_LEAD_EMAIL = 'quotes@slapwrapz.com';
+const SUPABASE_REST_HEADERS = {
+  Accept: 'application/json',
+  'Content-Type': 'application/json',
+  Prefer: 'return=minimal'
+};
 
 const SALES_REPS: Record<string, { name: string; email: string }> = {
   ashley: {
@@ -345,6 +350,112 @@ const sendLoggedEmail = async (apiKey: string, label: EmailLabel, payload: Recor
   }
 };
 
+const getSupabaseServerConfig = () => {
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
+
+  return { url, serviceKey };
+};
+
+const supabaseHeaders = (serviceKey: string) => ({
+  ...SUPABASE_REST_HEADERS,
+  apikey: serviceKey,
+  Authorization: `Bearer ${serviceKey}`
+});
+
+const fetchQuoteRequestId = async (
+  url: string,
+  serviceKey: string,
+  quoteId: string
+): Promise<string | null> => {
+  const response = await fetch(
+    `${url}/rest/v1/quote_requests?quote_id=eq.${encodeURIComponent(quoteId)}&select=id&limit=1`,
+    {
+      method: 'GET',
+      headers: supabaseHeaders(serviceKey)
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Quote lookup failed: ${response.status} ${body || 'No response body'}`);
+  }
+
+  const rows = await response.json() as Array<{ id?: string }>;
+  return rows[0]?.id || null;
+};
+
+const recordQuoteEmailStatus = async (
+  quoteDetails: Record<string, unknown>,
+  sentEmails: EmailLabel[],
+  failedEmails: EmailLabel[]
+) => {
+  const quoteId = formatSimpleValue(quoteDetails.quoteId);
+  if (!quoteId) {
+    console.warn('Quote email status not recorded: missing quote ID.');
+    return;
+  }
+
+  const { url, serviceKey } = getSupabaseServerConfig();
+  if (!url || !serviceKey) {
+    console.warn('Quote email status not recorded: Supabase server credentials are not configured.');
+    return;
+  }
+
+  try {
+    const quoteRequestId = await fetchQuoteRequestId(url, serviceKey, quoteId);
+    if (!quoteRequestId) {
+      console.warn('Quote email status not recorded: quote not found.', { quoteId });
+      return;
+    }
+
+    const customerEmailAccepted = sentEmails.includes('customer');
+    const eventType = customerEmailAccepted
+      ? 'quote_confirmation_email_sent'
+      : 'quote_confirmation_email_failed';
+    const status = customerEmailAccepted ? 'email_sent' : 'email_failed';
+    const message = customerEmailAccepted
+      ? `Customer confirmation email accepted. Sent: ${sentEmails.join(', ') || 'none'}. Failed: ${failedEmails.join(', ') || 'none'}.`
+      : `Customer confirmation email failed. Sent: ${sentEmails.join(', ') || 'none'}. Failed: ${failedEmails.join(', ') || 'none'}.`;
+
+    const eventResponse = await fetch(`${url}/rest/v1/quote_status_events`, {
+      method: 'POST',
+      headers: supabaseHeaders(serviceKey),
+      body: JSON.stringify({
+        quote_request_id: quoteRequestId,
+        event_type: eventType,
+        status,
+        message
+      })
+    });
+
+    if (!eventResponse.ok) {
+      const body = await eventResponse.text();
+      throw new Error(`Quote email event insert failed: ${eventResponse.status} ${body || 'No response body'}`);
+    }
+
+    if (customerEmailAccepted) {
+      const updateResponse = await fetch(
+        `${url}/rest/v1/quote_requests?id=eq.${encodeURIComponent(quoteRequestId)}`,
+        {
+          method: 'PATCH',
+          headers: supabaseHeaders(serviceKey),
+          body: JSON.stringify({
+            last_status_email_sent_at: new Date().toISOString()
+          })
+        }
+      );
+
+      if (!updateResponse.ok) {
+        const body = await updateResponse.text();
+        throw new Error(`Quote email timestamp update failed: ${updateResponse.status} ${body || 'No response body'}`);
+      }
+    }
+  } catch (error) {
+    console.error('Quote email status recording failed:', error instanceof Error ? error.message : error);
+  }
+};
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -652,25 +763,43 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
 
     const emailResults = await Promise.allSettled(emailJobs.map(({ job }) => job));
+    const sentEmails = emailResults
+      .map((result, index) => ({ result, label: emailJobs[index].label }))
+      .filter(({ result }) => result.status === 'fulfilled')
+      .map(({ label }) => label);
 
     const failedEmails = emailResults
       .map((result, index) => ({ result, label: emailJobs[index].label }))
-      .filter(({ result }) => result.status === 'rejected');
+      .filter(({ result }) => result.status === 'rejected')
+      .map(({ label }) => label);
+
+    await recordQuoteEmailStatus(quoteDetails, sentEmails, failedEmails);
 
     if (failedEmails.length > 0) {
       console.error('Quote email send failed:', {
-        failedEmails: failedEmails.map(({ label }) => label)
+        failedEmails
       });
-      return res.status(502).json({
-        error: 'Email send failed',
-        failedEmails: failedEmails.map(({ label }) => label)
+
+      if (failedEmails.includes('customer')) {
+        return res.status(502).json({
+          error: 'Customer email send failed',
+          sentEmails,
+          failedEmails
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        warning: 'Some internal notification emails failed, but the customer confirmation email was accepted.',
+        sentEmails,
+        failedEmails
       });
     }
 
     console.log('Quote email send completed:', {
-      sentEmails: emailJobs.map(({ label }) => label)
+      sentEmails
     });
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, sentEmails, failedEmails });
   } catch (error) {
     console.error(error);
     return res.status(502).json({ error: 'Email send failed' });

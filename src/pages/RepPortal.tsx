@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowDownRight, ArrowLeft, Bug, Calculator, CalendarDays, ChevronDown, ChevronRight, Coins, Download, ExternalLink, FileText, ImagePlus, LogOut, Mail, MessageSquare, Phone, QrCode, RefreshCw, Sparkles, Star, UploadCloud } from 'lucide-react';
+import { ArrowDownRight, ArrowLeft, Bug, Calculator, CalendarDays, ChevronDown, ChevronRight, Coins, Download, ExternalLink, FileText, ImagePlus, LogOut, Mail, Maximize2, MessageSquare, Phone, QrCode, RefreshCw, Sparkles, Star, UploadCloud, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -484,6 +484,7 @@ const RepPortal = () => {
   const [repUpsellMessage, setRepUpsellMessage] = useState('');
   const [repUpsellFiles, setRepUpsellFiles] = useState<UploadedFile[]>([]);
   const [savingRepUpsell, setSavingRepUpsell] = useState(false);
+  const [upsellImagePreview, setUpsellImagePreview] = useState<{ url: string; name?: string; title: string } | null>(null);
   const [quoteContinuationOpen, setQuoteContinuationOpen] = useState(false);
   const [quoteBuildUpsellIdea, setQuoteBuildUpsellIdea] = useState<UpsellImageIdea | null>(null);
   const [quotePreparationNotes, setQuotePreparationNotes] = useState('');
@@ -2743,12 +2744,22 @@ const RepPortal = () => {
                             {upsellImages.length > 0 && (
                               <div className="grid gap-2 sm:grid-cols-2">
                                 {upsellImages.map((image, index) => (
-                                  <img
+                                  <button
                                     key={`${image.url}-${index}`}
-                                    src={image.url}
-                                    alt={image.name || upsellIdea.title}
-                                    className="max-h-80 w-full rounded-md border border-amber-200 bg-white object-contain"
-                                  />
+                                    type="button"
+                                    className="group relative min-h-48 overflow-hidden rounded-md border border-amber-200 bg-white"
+                                    onClick={() => setUpsellImagePreview({ url: image.url, name: image.name, title: upsellIdea.title })}
+                                    aria-label={`Open ${image.name || upsellIdea.title} larger`}
+                                  >
+                                    <img
+                                      src={image.url}
+                                      alt={image.name || upsellIdea.title}
+                                      className="max-h-80 w-full object-contain transition duration-150 group-hover:scale-[1.01]"
+                                    />
+                                    <span className="absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-90 shadow-sm">
+                                      <Maximize2 className="h-4 w-4" />
+                                    </span>
+                                  </button>
                                 ))}
                               </div>
                             )}
@@ -3092,6 +3103,44 @@ const RepPortal = () => {
           </DialogContent>
         )}
       </Dialog>
+
+      {upsellImagePreview && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/85 p-3 sm:p-6">
+          <div className="relative flex max-h-[94dvh] w-full max-w-6xl flex-col rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-950">{upsellImagePreview.name || upsellImagePreview.title}</p>
+                <p className="text-xs text-slate-500">Upsell image preview</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 flex-none"
+                onClick={() => setUpsellImagePreview(null)}
+                aria-label="Close image preview"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto bg-slate-100 p-2">
+              <img
+                src={upsellImagePreview.url}
+                alt={upsellImagePreview.name || upsellImagePreview.title}
+                className="mx-auto max-h-[78dvh] w-auto max-w-full rounded-md object-contain"
+              />
+            </div>
+            <div className="flex justify-end border-t border-slate-200 p-3">
+              <Button variant="outline" asChild>
+                <a href={upsellImagePreview.url} target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open Original
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {meetingSuccessOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
