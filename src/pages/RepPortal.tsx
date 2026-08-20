@@ -2337,7 +2337,12 @@ const RepPortal = () => {
         }}
       >
         {selectedQuote && (
-          <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6">
+          <DialogContent
+            className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6"
+            onEscapeKeyDown={(event) => event.preventDefault()}
+            onInteractOutside={(event) => event.preventDefault()}
+            onPointerDownOutside={(event) => event.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle className="break-words">{selectedQuote.quote_id || selectedQuote.customer_name}</DialogTitle>
               <DialogDescription>Read-only assigned quote details</DialogDescription>
