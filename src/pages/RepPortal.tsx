@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { ArrowDownRight, ArrowLeft, Bug, Calculator, CalendarDays, ChevronDown, ChevronRight, Coins, Download, ExternalLink, FileText, ImagePlus, LogOut, Mail, MessageSquare, Phone, QrCode, RefreshCw, Sparkles, Star, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import ZoeGameHub from '@/components/ZoeGameHub';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
 import { supabase } from '@/lib/supabase';
 import type { UploadedFile } from '@/types';
-import { setRepPortalSessionActive } from '@/lib/repTracking';
+import { clearClientAuthStorage, setRepPortalSessionActive } from '@/lib/repTracking';
 
 interface AdminUser {
   id: string;
@@ -531,7 +531,6 @@ const RepPortal = () => {
   const quoteDetailHistoryPushedRef = useRef(false);
   const selectedQuoteRef = useRef<RepQuoteRow | null>(null);
   const location = useLocation();
-  const navigate = useNavigate();
   const selectedQuoteId = selectedQuote?.id;
 
   const loadUrgentLeads = useCallback(async () => {
@@ -976,9 +975,10 @@ const RepPortal = () => {
   const handleLogout = async () => {
     setSigningOut(true);
     setRepPortalSessionActive(false);
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'global' });
+    clearClientAuthStorage();
     setSigningOut(false);
-    navigate('/login?redirect=/rep', { replace: true });
+    window.location.replace('/login?switchAccount=1');
   };
 
   const submitCoverDirection = async () => {
@@ -1554,7 +1554,7 @@ const RepPortal = () => {
               You are currently signed in as an admin account. Log out first, then sign in with the rep account for Jazzy, Jarrel, Trapstar, or PressPlay.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button onClick={handleLogout} disabled={signingOut}>
+              <Button onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 {signingOut ? 'Signing out...' : 'Log Out'}
               </Button>
@@ -1583,7 +1583,7 @@ const RepPortal = () => {
               <Button variant="outline" asChild>
                 <Link to="/">Back to Home</Link>
               </Button>
-              <Button onClick={handleLogout} disabled={signingOut}>
+              <Button onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 {signingOut ? 'Signing out...' : 'Log Out'}
               </Button>
@@ -1604,7 +1604,7 @@ const RepPortal = () => {
               {adminUser.display_name || adminUser.email} - {adminUser.role === 'rep_manager' ? 'Manager team quotes' : 'Assigned quotes only'}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleLogout} disabled={signingOut}>
+          <Button variant="outline" size="sm" onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
             <LogOut className="mr-2 h-4 w-4" />
             {signingOut ? 'Signing out...' : 'Log Out'}
           </Button>

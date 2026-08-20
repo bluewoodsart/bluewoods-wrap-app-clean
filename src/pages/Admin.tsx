@@ -11,6 +11,8 @@ import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
 import ProductionHub from '@/components/admin/ProductionHub';
 import StaffFeed from '@/components/StaffFeed';
 import { supabase } from '@/lib/supabase';
+import { runMobileTouchAction } from '@/lib/mobileTouch';
+import { clearClientAuthStorage } from '@/lib/repTracking';
 import AdminStatus from './AdminStatus';
 
 interface AdminUser {
@@ -146,9 +148,10 @@ const Admin = () => {
 
   const handleLogout = async () => {
     setSigningOut(true);
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'global' });
+    clearClientAuthStorage();
     setSigningOut(false);
-    navigate('/login', { replace: true });
+    window.location.replace('/login?switchAccount=1');
   };
 
   if (loading) {
@@ -178,7 +181,7 @@ const Admin = () => {
             <p className="text-sm text-slate-600">{error}</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={() => void loadAdminUser()}>Try Again</Button>
-              <Button variant="outline" onClick={handleLogout} disabled={signingOut}>
+              <Button variant="outline" onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 {signingOut ? 'Signing out...' : 'Log Out'}
               </Button>
@@ -204,7 +207,7 @@ const Admin = () => {
               <Button variant="outline" asChild>
                 <Link to="/">Back to Home</Link>
               </Button>
-              <Button onClick={handleLogout} disabled={signingOut}>
+              <Button onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 {signingOut ? 'Signing out...' : 'Log Out'}
               </Button>
@@ -273,7 +276,7 @@ const Admin = () => {
               {adminUser.display_name || adminUser.email} · {formatRole(adminUser.role)}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleLogout} disabled={signingOut}>
+          <Button variant="outline" size="sm" onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
             <LogOut className="mr-2 h-4 w-4" />
             {signingOut ? 'Signing out...' : 'Log Out'}
           </Button>

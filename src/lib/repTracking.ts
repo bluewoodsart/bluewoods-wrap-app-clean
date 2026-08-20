@@ -1,6 +1,16 @@
 const REP_SLUG_STORAGE_KEY = 'slapwrapz_rep_slug';
 const REP_PORTAL_SESSION_KEY = 'slapwrapz_rep_portal_session';
 
+export const clearClientAuthStorage = () => {
+  if (typeof window === 'undefined') return;
+
+  [window.localStorage, window.sessionStorage].forEach((storage) => {
+    Object.keys(storage)
+      .filter((key) => key.startsWith('sb-') || key === REP_PORTAL_SESSION_KEY)
+      .forEach((key) => storage.removeItem(key));
+  });
+};
+
 export const setRepPortalSessionActive = (active: boolean) => {
   if (typeof window === 'undefined') return;
 

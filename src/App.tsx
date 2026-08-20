@@ -119,7 +119,7 @@ const App = () => {
               <Route path="/banners" element={<BannerQuoteFlow />} />
               <Route path="/signs" element={<SignageQuoteFlow />} />
               <Route path="/stickers-decals" element={<StickerQuoteFlow />} />
-              <Route path="/login" element={<LoginPlaceholder />} />
+              <Route path="/login" element={<LoginPlaceholder allowAccountSwitch />} />
               <Route
                 path="/jazzy/login"
                 element={(
