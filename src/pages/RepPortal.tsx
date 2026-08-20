@@ -800,11 +800,11 @@ const RepPortal = () => {
     setOfficeMessageStatus('Message saved and sent to SlapWrapz Quotes.');
   };
 
-  const saveRepUpsellIdea = async () => {
+  const saveRepUpsellIdea = async (filesOverride?: UploadedFile[]) => {
     if (!selectedQuote || savingRepUpsell) return;
     const title = repUpsellTitle.trim() || 'Upsell image idea';
     const message = repUpsellMessage.trim();
-    const imageFiles = repUpsellFiles.filter((file) => Boolean(file.url));
+    const imageFiles = (filesOverride ?? repUpsellFiles).filter((file) => Boolean(file.url));
     const imageFile = imageFiles[0];
 
     if (!imageFile?.url) {
@@ -861,6 +861,13 @@ const RepPortal = () => {
     }
 
     setOfficeMessageStatus('Upsell image idea saved and sent to SlapWrapz Quotes.');
+  };
+
+  const handleRepUpsellFilesUploaded = (files: UploadedFile[]) => {
+    setRepUpsellFiles(files);
+    if (files.some((file) => Boolean(file.url))) {
+      void saveRepUpsellIdea(files);
+    }
   };
 
   useEffect(() => {
@@ -2792,7 +2799,7 @@ const RepPortal = () => {
                       <Input value={repUpsellTitle} onChange={(event) => setRepUpsellTitle(event.target.value)} placeholder="Example: Replace the faded roadside sign" />
                       <Textarea value={repUpsellMessage} onChange={(event) => setRepUpsellMessage(event.target.value)} placeholder="Explain what you noticed and what could be offered." rows={3} />
                       <FileUpload
-                        onFilesUploaded={setRepUpsellFiles}
+                        onFilesUploaded={handleRepUpsellFilesUploaded}
                         quoteId={selectedQuote.quote_id || selectedQuote.id}
                         acceptedTypes="image/*"
                         maxFiles={25}
@@ -2802,7 +2809,7 @@ const RepPortal = () => {
                         additionalTags={['upsell_idea', 'office_dialogue']}
                         enforceMaxFilesError
                       />
-                      <p className="text-xs text-slate-600">Add up to 25 photos using one selection or several batches. When all photos are listed, use Save Upsell Image Idea.</p>
+                      <p className="text-xs text-slate-600">Add up to 25 photos using one selection or several batches. Uploaded photos save automatically.</p>
                       <Button
                         type="button"
                         onClick={() => void saveRepUpsellIdea()}

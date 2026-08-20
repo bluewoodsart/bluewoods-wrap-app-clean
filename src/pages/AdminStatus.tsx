@@ -1988,12 +1988,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       : 'Saved to this customer. Assign a rep when it is ready to hand off.');
   };
 
-  const saveUpsellImageIdea = async () => {
+  const saveUpsellImageIdea = async (filesOverride?: UploadedFileSummary[]) => {
     if (!selectedQuote || savingUpsellIdea) return;
 
     const title = upsellIdeaTitle.trim() || 'Upsell image idea';
     const message = upsellIdeaMessage.trim();
-    const imageFiles = upsellIdeaFiles.filter((file) => Boolean(file.url));
+    const imageFiles = (filesOverride ?? upsellIdeaFiles).filter((file) => Boolean(file.url));
     const imageFile = imageFiles[0];
 
     if (!imageFile?.url) {
@@ -2057,6 +2057,13 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setUpsellIdeaFiles([]);
     setShowUpsellComposer(false);
     setUpsellIdeaStatus(hasRep ? 'Image idea saved and the assigned rep was notified.' : 'Image idea saved. Assign a rep to notify them.');
+  };
+
+  const handleUpsellIdeaFilesUploaded = (files: UploadedFileSummary[]) => {
+    setUpsellIdeaFiles(files);
+    if (files.some((file) => Boolean(file.url))) {
+      void saveUpsellImageIdea(files);
+    }
   };
 
   const saveFollowUpTask = async () => {
@@ -4175,7 +4182,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             rows={3}
                           />
                           <FileUpload
-                            onFilesUploaded={setUpsellIdeaFiles}
+                            onFilesUploaded={handleUpsellIdeaFilesUploaded}
                             quoteId={selectedQuote.quote_id || selectedQuote.id}
                             acceptedTypes="image/*"
                             maxFiles={25}
@@ -4185,7 +4192,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             additionalTags={['upsell_idea', 'office_dialogue']}
                             enforceMaxFilesError
                           />
-                          <p className="text-xs text-slate-600">Add up to 25 photos using one selection or several batches. When all photos are listed, use Save Idea & Notify Rep.</p>
+                          <p className="text-xs text-slate-600">Add up to 25 photos using one selection or several batches. Uploaded photos save automatically.</p>
                           <Button
                             type="button"
                             onClick={() => void saveUpsellImageIdea()}
