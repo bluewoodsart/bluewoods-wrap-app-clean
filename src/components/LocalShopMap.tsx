@@ -23,6 +23,7 @@ interface Shop {
 
 interface ContactInfo {
   name: string;
+  companyName: string;
   email: string;
   phone: string;
   preferredContact: 'email' | 'text' | 'call';
@@ -74,6 +75,7 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
     quoteId: customerData?.quoteId,
     quoteType: customerData?.quoteType,
     intakeType: customerData?.intakeType || 'full_project',
+    companyName: customerData?.companyName,
     repSlug: customerData?.repSlug || getStoredRepSlug(),
     selectedService: customerData?.selectedService,
     partialWrapType: customerData?.partialWrapType,
@@ -133,7 +135,11 @@ const LocalShopMap: React.FC<LocalShopMapProps> = ({
   const handleContactSubmit = async (contactInfo: ContactInfo) => {
     setSubmitError('');
     const uploadedFiles = dedupeUploadedFiles(collectUploadedFiles());
-    const quoteDetails = buildQuoteDetails();
+    const baseQuoteDetails = buildQuoteDetails();
+    const quoteDetails = {
+      ...baseQuoteDetails,
+      companyName: contactInfo.companyName || baseQuoteDetails.companyName
+    };
     const repAttribution = getRepAttributionForSlug(quoteDetails.repSlug);
 
     const { error } = await supabase

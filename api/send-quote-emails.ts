@@ -58,6 +58,8 @@ interface ApiResponse {
 
 interface ContactInfo {
   name?: string;
+  companyName?: string;
+  businessName?: string;
   email?: string;
   phone?: string;
   preferredContact?: string;
@@ -480,6 +482,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const customerName = contactInfo?.name || 'there';
+  const companyName = (
+    getStringValue(contactInfo?.companyName) ||
+    getStringValue(contactInfo?.businessName) ||
+    getStringValue(quoteDetails.companyName) ||
+    getStringValue(quoteDetails.company_name) ||
+    getStringValue(quoteDetails.businessName) ||
+    getStringValue(quoteDetails.business_name)
+  );
   const repSlug = (
     getStringValue(quoteDetails.repSlug) ||
     getStringValue(quoteDetails.rep_slug)
@@ -584,6 +594,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const customerInfo = detailRows([
     ['Name', contactInfo?.name],
+    ['Company', companyName],
     ['Email', contactInfo?.email],
     ['Phone', contactInfo?.phone],
     ['Preferred Contact', contactInfo?.preferredContact]
@@ -652,6 +663,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     ? detailRows([
         ['Quote ID', quoteDetails.quoteId],
         ['Customer Name', contactInfo?.name],
+        ['Company', companyName],
         ['Customer Email', contactInfo?.email],
         ['Customer Phone', contactInfo?.phone],
         ['Request Type', 'Banner Quote']
@@ -659,6 +671,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     : detailRows([
         ['Quote ID', quoteDetails.quoteId],
         ['Customer Name', contactInfo?.name],
+        ['Company', companyName],
         ['Customer Email', contactInfo?.email],
         ['Customer Phone', contactInfo?.phone],
         ['Vehicle', vehicle.mainVehicle],
@@ -710,9 +723,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           text: isBannerRequest
             ? [
                 `New Banner Quote Request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.`,
+                companyName ? `Company: ${companyName}` : '',
                 ...bannerDetailText
-              ].join('\n')
-            : `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`
+              ].filter(Boolean).join('\n')
+            : [
+                `New SlapWrapz quote request from ${contactInfo?.name || 'Unknown'} (${customerEmail}), phone ${contactInfo?.phone || 'not provided'}.${manualVehicleText}`,
+                companyName ? `Company: ${companyName}` : ''
+              ].filter(Boolean).join('\n')
         })
       },
       {
@@ -742,22 +759,24 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
                 'URGENT: New Banner Quote Request assigned to you. Acknowledge and contact within five minutes.',
                 `Quote ID: ${formatSimpleValue(quoteDetails.quoteId) || 'not provided'}`,
                 `Customer: ${formatSimpleValue(contactInfo?.name) || 'not provided'}`,
+                companyName ? `Company: ${companyName}` : '',
                 `Email: ${customerEmail}`,
                 `Phone: ${formatSimpleValue(contactInfo?.phone) || 'not provided'}`,
                 ...bannerDetailText,
                 `Open lead: ${repPortalUrl}`
-              ].join('\n')
+              ].filter(Boolean).join('\n')
             : [
                 'URGENT: New SlapWrapz lead assigned to you. Acknowledge and contact within five minutes.',
                 `Quote ID: ${formatSimpleValue(quoteDetails.quoteId) || 'not provided'}`,
                 `Customer: ${formatSimpleValue(contactInfo?.name) || 'not provided'}`,
+                companyName ? `Company: ${companyName}` : '',
                 `Email: ${customerEmail}`,
                 `Phone: ${formatSimpleValue(contactInfo?.phone) || 'not provided'}`,
                 `Vehicle: ${vehicle.mainVehicle || 'not provided'}`,
                 `Service: ${formatSimpleValue(quoteDetails.selectedService) || 'not provided'}`,
                 `Budget: ${formatSimpleValue(quoteDetails.budget) || 'not provided'}`,
                 `Open lead: ${repPortalUrl}`
-              ].join('\n')
+              ].filter(Boolean).join('\n')
         })
       });
     }

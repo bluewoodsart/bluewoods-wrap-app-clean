@@ -248,6 +248,9 @@ const getSummaryValue = (quote: RepQuoteRow, keys: string | string[]) => {
   return undefined;
 };
 
+const getCompanyName = (quote: RepQuoteRow) =>
+  getSummaryValue(quote, ['companyName', 'company_name', 'businessName', 'business_name']);
+
 const getFiles = (quote: RepQuoteRow) => getJsonArray<FileSummary>(quote.file_summary);
 const getStatusEvents = (quote: RepQuoteRow) => getJsonArray<StatusEvent>(quote.status_events);
 const getFollowUpTasks = (quote: RepQuoteRow) => getJsonArray<FollowUpTask>(quote.follow_up_tasks);
@@ -2026,6 +2029,9 @@ const RepPortal = () => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-slate-950">{quote.customer_name}</p>
+                            {getCompanyName(quote) && (
+                              <p className="truncate text-xs font-semibold text-slate-700">{formatValue(getCompanyName(quote))}</p>
+                            )}
                             <p className="truncate text-xs text-slate-500">{getProjectTitle(quote)} - {getProductLabel(quote)}</p>
                             <p className="mt-1 line-clamp-2 text-xs text-slate-600">{getQuoteGroupMeta(quote)}</p>
                           </div>
@@ -2084,6 +2090,9 @@ const RepPortal = () => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-slate-950">{quote.customer_name}</p>
+                            {getCompanyName(quote) && (
+                              <p className="break-words text-sm font-semibold text-slate-800">{formatValue(getCompanyName(quote))}</p>
+                            )}
                             <p className="break-words text-xs text-slate-600">{quote.customer_email}</p>
                             <p className="text-xs text-slate-600">{quote.customer_phone || '-'}</p>
                           </div>
@@ -2143,6 +2152,9 @@ const RepPortal = () => {
                             <TableCell>
                               <div className="min-w-[13rem] space-y-1">
                                 <p className="font-medium text-slate-900">{quote.customer_name}</p>
+                                {getCompanyName(quote) && (
+                                  <p className="text-sm font-semibold text-slate-700">{formatValue(getCompanyName(quote))}</p>
+                                )}
                                 <p className="text-xs text-slate-500">{quote.customer_email}</p>
                                 <p className="text-xs text-slate-500">{quote.customer_phone || '-'}</p>
                               </div>
@@ -2354,6 +2366,7 @@ const RepPortal = () => {
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
                 <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <DetailField label="Name" value={selectedQuote.customer_name} />
+                  <DetailField label="Company" value={getCompanyName(selectedQuote)} />
                   <DetailField label="Email" value={selectedQuote.customer_email} />
                   <DetailField label="Phone" value={selectedQuote.customer_phone} />
                   <DetailField label="Preferred Contact" value={formatLabel(selectedQuote.preferred_contact)} />
@@ -2875,7 +2888,7 @@ const RepPortal = () => {
                 <h3 className="mb-3 text-sm font-semibold text-slate-950">Project</h3>
                 <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <DetailField label="Service" value={getSummaryValue(selectedQuote, ['selectedService', 'quoteType', 'intakeType'])} />
-                  <DetailField label="Company" value={getSummaryValue(selectedQuote, 'companyName')} />
+                  <DetailField label="Company" value={getCompanyName(selectedQuote)} />
                   <DetailField label="Vehicle Type" value={getSummaryValue(selectedQuote, 'vehicleType')} />
                   <DetailField label="Vehicle" value={getVehicleValue(selectedQuote)} />
                   <DetailField

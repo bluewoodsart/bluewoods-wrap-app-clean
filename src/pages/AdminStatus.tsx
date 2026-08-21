@@ -403,6 +403,9 @@ const getQuoteValue = (quote: QuoteRequestRow, keys: string | string[]) => {
   return undefined;
 };
 
+const getCompanyName = (quote: QuoteRequestRow) =>
+  getQuoteValue(quote, ['companyName', 'company_name', 'businessName', 'business_name']);
+
 const getProductType = (quote: QuoteRequestRow) => {
   const storedProductType = typeof quote.product_type === 'string' ? quote.product_type.trim() : '';
   const quoteDataProductType = getQuoteValue(quote, 'productType');
@@ -433,6 +436,7 @@ const getQuoteSearchText = (quote: QuoteRequestRow) =>
     quote.rep_slug,
     quote.rep_email,
     quote.assigned_rep_name,
+    getCompanyName(quote),
     getProductLabel(quote),
     quote.quote_data ? JSON.stringify(quote.quote_data) : ''
   ]
@@ -2709,6 +2713,9 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         <div className="flex min-w-0 items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="break-words font-bold text-slate-950">{quote.customer_name}</p>
+                            {getCompanyName(quote) && (
+                              <p className="break-words text-sm font-semibold text-slate-800">{formatValue(getCompanyName(quote))}</p>
+                            )}
                             <p className="break-all text-xs text-slate-600">{quote.customer_email}</p>
                             <p className="mt-1 break-all font-mono text-xs text-blue-700">{quote.quote_id || quote.id}</p>
                           </div>
@@ -2810,6 +2817,9 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         <TableCell>
                           <div className="min-w-[14rem] space-y-1">
                             <p className="font-medium text-slate-950">{quote.customer_name}</p>
+                            {getCompanyName(quote) && (
+                              <p className="text-sm font-semibold text-slate-700">{formatValue(getCompanyName(quote))}</p>
+                            )}
                             <p className="text-sm text-slate-600">{quote.customer_email}</p>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-xs text-slate-500">{formatDate(quote.created_at)}</span>
@@ -3049,6 +3059,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
                   <dl className="grid gap-4 md:grid-cols-3">
                     <DetailField label="Customer Name" value={activeQuote.customer_name} />
+                    <DetailField label="Company" value={getCompanyName(activeQuote)} />
                     <DetailField label="Email" value={activeQuote.customer_email} />
                     <DetailField label="Phone" value={activeQuote.customer_phone} />
                     <DetailField label="Preferred Contact" value={activeQuote.preferred_contact} />

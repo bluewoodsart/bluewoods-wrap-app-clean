@@ -54,6 +54,7 @@ export interface Customer {
 
 export interface CustomerData {
   quoteId?: string;
+  companyName?: string;
   vehicle: VehicleInfo;
   year?: string;
   make?: string;

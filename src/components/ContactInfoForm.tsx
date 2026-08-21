@@ -14,6 +14,7 @@ interface ContactInfoFormProps {
 
 interface ContactInfo {
   name: string;
+  companyName: string;
   email: string;
   phone: string;
   preferredContact: 'email' | 'text' | 'call';
@@ -22,6 +23,7 @@ interface ContactInfo {
 const ContactInfoForm: React.FC<ContactInfoFormProps> = ({ onSubmit, onBack, actionType }) => {
   const [formData, setFormData] = useState<ContactInfo>({
     name: '',
+    companyName: '',
     email: '',
     phone: '',
     preferredContact: actionType === 'email' ? 'email' : 'call'
@@ -104,6 +106,15 @@ const ContactInfoForm: React.FC<ContactInfoFormProps> = ({ onSubmit, onBack, act
                 className={errors.name ? 'border-red-500' : ''}
               />
               {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            </div>
+
+            <div>
+              <Label htmlFor="companyName">Company Name <span className="text-gray-500">(optional)</span></Label>
+              <Input
+                id="companyName"
+                value={formData.companyName}
+                onChange={(e) => handleInputChange('companyName', e.target.value)}
+              />
             </div>
 
             <div>

@@ -26,6 +26,7 @@ import { UploadedFile } from '@/types';
 
 interface ContactInfo {
   name: string;
+  companyName: string;
   email: string;
   phone: string;
   preferredContact: 'email' | 'text' | 'call';
@@ -78,6 +79,7 @@ const FullWrapQuoteFlow: React.FC = () => {
   const [quoteId] = useState(createQuoteId);
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
     name: '',
+    companyName: '',
     email: '',
     phone: '',
     preferredContact: 'email'
@@ -241,6 +243,7 @@ const FullWrapQuoteFlow: React.FC = () => {
       intakeType: 'full_wrap_quote',
       productType: 'wrap',
       selectedService: 'Full Vehicle Wrap Quote',
+      companyName: contactInfo.companyName,
       vehicle,
       coverageAreas: wrapDetails.coverageAreas,
       wrapType: wrapDetails.wrapType,
@@ -349,6 +352,15 @@ const FullWrapQuoteFlow: React.FC = () => {
                     id="full-wrap-name"
                     value={contactInfo.name}
                     onChange={(event) => updateContact('name', event.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="full-wrap-company">Company Name <span className="text-slate-500">(optional)</span></Label>
+                  <Input
+                    id="full-wrap-company"
+                    value={contactInfo.companyName}
+                    onChange={(event) => updateContact('companyName', event.target.value)}
                     className="mt-2"
                   />
                 </div>
