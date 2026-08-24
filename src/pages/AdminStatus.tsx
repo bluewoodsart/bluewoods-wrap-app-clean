@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
+import WesleyWingsProofGallery from '@/components/WesleyWingsProofGallery';
 import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
@@ -405,6 +406,16 @@ const getQuoteValue = (quote: QuoteRequestRow, keys: string | string[]) => {
 
 const getCompanyName = (quote: QuoteRequestRow) =>
   getQuoteValue(quote, ['companyName', 'company_name', 'businessName', 'business_name']);
+
+const isJeffMorrisWingsQuote = (quote: QuoteRequestRow) => {
+  const quoteId = (quote.quote_id || quote.id || '').toLowerCase();
+  const customerName = (quote.customer_name || '').toLowerCase();
+  const customerEmail = (quote.customer_email || '').toLowerCase();
+  const companyName = String(getCompanyName(quote) || '').toLowerCase();
+
+  return quoteId === 'sign_1785868618943_fbzm9dy83fs'
+    || (customerName === 'jeff morris' && (companyName.includes('wings') || customerEmail.includes('wingsthings')));
+};
 
 const getProductType = (quote: QuoteRequestRow) => {
   const storedProductType = typeof quote.product_type === 'string' ? quote.product_type.trim() : '';
@@ -3309,6 +3320,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
 
                 <section className="order-2">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer Proof Portal</h3>
+                  {isJeffMorrisWingsQuote(activeQuote) && (
+                    <div className="mb-4">
+                      <WesleyWingsProofGallery />
+                    </div>
+                  )}
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <div className="grid gap-3 md:grid-cols-3">
                       <div className="space-y-2">
