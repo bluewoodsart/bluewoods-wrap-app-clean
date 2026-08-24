@@ -5,7 +5,6 @@ import { BadgeCheck, LogOut, RefreshCw, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import MasterBuildHub from '@/components/admin/MasterBuildHub';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
 import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
 import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
@@ -232,35 +231,31 @@ const Admin = () => {
   const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
   const routeParams = new URLSearchParams(location.search);
   const requestedTab = routeParams.get('tab');
-  const activeTab = requestedTab === 'master-build'
-    ? 'master-build'
-    : routeParams.has('rep') || requestedTab === 'reps'
-      ? 'rep-onboarding'
-      : requestedTab === 'quotes'
-        ? 'quote-requests'
-        : requestedTab === 'pricing'
-          ? 'pricing-sandbox'
-          : requestedTab === 'video-reviews'
-            ? 'video-reviews'
-            : requestedTab === 'production'
-              ? 'production'
-              : 'staff-feed';
+  const activeTab = routeParams.has('rep') || requestedTab === 'reps'
+    ? 'rep-onboarding'
+    : requestedTab === 'quotes'
+      ? 'quote-requests'
+      : requestedTab === 'pricing'
+        ? 'pricing-sandbox'
+        : requestedTab === 'video-reviews'
+          ? 'video-reviews'
+          : requestedTab === 'production'
+            ? 'production'
+        : 'staff-feed';
 
   const changeAdminTab = (nextTab: string) => {
     const nextParams = new URLSearchParams(location.search);
-    const tabValue = nextTab === 'master-build'
-      ? 'master-build'
-      : nextTab === 'rep-onboarding'
-        ? 'reps'
-        : nextTab === 'quote-requests'
-          ? 'quotes'
-          : nextTab === 'pricing-sandbox'
-            ? 'pricing'
-            : nextTab === 'video-reviews'
-              ? 'video-reviews'
-              : nextTab === 'production'
-                ? 'production'
-                : 'social';
+    const tabValue = nextTab === 'rep-onboarding'
+      ? 'reps'
+      : nextTab === 'quote-requests'
+        ? 'quotes'
+        : nextTab === 'pricing-sandbox'
+          ? 'pricing'
+          : nextTab === 'video-reviews'
+            ? 'video-reviews'
+            : nextTab === 'production'
+              ? 'production'
+            : 'social';
     nextParams.set('tab', tabValue);
     if (nextTab !== 'rep-onboarding') {
       nextParams.delete('rep');
@@ -296,8 +291,7 @@ const Admin = () => {
       <div className="mx-auto min-w-0 max-w-7xl overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 md:px-8">
         <Tabs value={activeTab} onValueChange={changeAdminTab} className="space-y-5">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <TabsList className="flex h-auto w-full max-w-5xl overflow-x-auto">
-              <TabsTrigger value="master-build" className="min-h-11 min-w-max flex-1 px-3">Master Build</TabsTrigger>
+            <TabsList className="flex h-auto w-full max-w-3xl overflow-x-auto">
               <TabsTrigger value="staff-feed" className="min-h-11 min-w-max flex-1 px-3">Staff Feed</TabsTrigger>
               <TabsTrigger value="video-reviews" className="min-h-11 min-w-max flex-1 px-3">Video Instructions</TabsTrigger>
               <TabsTrigger value="quote-requests" className="min-h-11 min-w-max flex-1 px-3">Quote Requests</TabsTrigger>
@@ -317,10 +311,6 @@ const Admin = () => {
               {approvalsLoading ? 'Checking Approvals...' : pendingApprovalCount > 0 ? `Approvals · ${pendingApprovalCount} Pending` : 'Approvals · All Clear'}
             </button>
           </div>
-
-          <TabsContent value="master-build" className="mt-0">
-            <MasterBuildHub />
-          </TabsContent>
 
           <TabsContent value="staff-feed" className="mt-0">
             <StaffFeed />
