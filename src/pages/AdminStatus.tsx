@@ -249,6 +249,9 @@ const getDefaultCustomerActionMessage = () =>
   'We reviewed your wrap request and need a few more items to move your quote forward. Please reply to this email with the requested information or files.';
 
 const formatStatusLabel = (status: string) =>
+  status === 'approved'
+    ? 'Proof Approved'
+    :
   status
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -2914,9 +2917,15 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                                 ))}
                               </SelectContent>
                             </Select>
-                            <p className="max-w-[13rem] text-xs leading-snug text-slate-500">
-                              Use Follow-Up / Customer Action Requests for waiting-on-customer situations until status flow is upgraded.
-                            </p>
+                            {selectedStatus === 'approved' ? (
+                              <p className="max-w-[13rem] text-xs font-semibold leading-snug text-emerald-700">
+                                Green to prepare for print. Production remains on hold until staff releases it.
+                              </p>
+                            ) : (
+                              <p className="max-w-[13rem] text-xs leading-snug text-slate-500">
+                                Use Follow-Up / Customer Action Requests for waiting-on-customer situations.
+                              </p>
+                            )}
                             {isSaving && <p className="text-xs text-slate-500">Saving...</p>}
                           </div>
                         </TableCell>
