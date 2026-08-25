@@ -24,6 +24,17 @@ interface ContactInfo {
   preferredContact: 'email';
 }
 
+type BannerDesignStyle =
+  | 'auto'
+  | 'bold-retail'
+  | 'italian-deli'
+  | 'vintage-sign-painter'
+  | 'modern-clean'
+  | 'elegant'
+  | 'sports';
+
+type ResolvedBannerDesignStyle = Exclude<BannerDesignStyle, 'auto'>;
+
 interface BannerDetails {
   width: string;
   height: string;
@@ -38,6 +49,7 @@ interface BannerDetails {
   designNeeded: string;
   aiDesignPrompt: string;
   bannerText: string;
+  designStyle: BannerDesignStyle;
   brandColors: string;
   placementNotes: string;
   deadline: string;
@@ -51,12 +63,48 @@ interface PreviewStyle {
   background: string;
   text: string;
   accent: string;
+  secondary: string;
   alignment: TextAlignment;
   showBorder: boolean;
   showBusinessName: boolean;
   showContact: boolean;
+  showDecorations: boolean;
   uppercase: boolean;
+  designStyle: ResolvedBannerDesignStyle;
 }
+
+interface StyledLine {
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  fontStyle: 'normal' | 'italic';
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  letterSpacing: number;
+  shadow: boolean;
+  lineHeight: number;
+}
+
+const BANNER_STYLE_OPTIONS: Array<{ value: BannerDesignStyle; label: string }> = [
+  { value: 'auto', label: 'Auto — detect from the request' },
+  { value: 'italian-deli', label: 'Italian Deli / Restaurant' },
+  { value: 'vintage-sign-painter', label: 'Vintage Sign Painter' },
+  { value: 'bold-retail', label: 'Bold Retail / Grand Opening' },
+  { value: 'modern-clean', label: 'Modern Clean' },
+  { value: 'elegant', label: 'Elegant / Upscale' },
+  { value: 'sports', label: 'Sports / High Energy' }
+];
+
+const BANNER_STYLE_LABELS: Record<ResolvedBannerDesignStyle, string> = {
+  'bold-retail': 'Bold Retail',
+  'italian-deli': 'Italian Deli',
+  'vintage-sign-painter': 'Vintage Sign Painter',
+  'modern-clean': 'Modern Clean',
+  elegant: 'Elegant',
+  sports: 'Sports / High Energy'
+};
 
 const createQuoteId = () =>
   `banner_${Date.now()}_${Math.random().toString(36).substring(2)}`;
@@ -120,6 +168,16 @@ const normalizeColor = (value: string | undefined) => {
 const extractColors = (value: string) => {
   const matches = value.toLowerCase().match(new RegExp(COLOR_TOKEN, 'gi')) || [];
   return matches.map((match) => normalizeColor(match)).filter(Boolean);
+};
+
+const uniqueColors = (colors: string[]) => {
+  const seen = new Set<string>();
+  return colors.filter((color) => {
+    const normalized = color.toLowerCase();
+    if (seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
 };
 
 const findContextColor = (value: string, target: 'background' | 'text') => {
@@ -212,11 +270,61 @@ const wrapText = (value: string, maxChars: number, maxLines: number) => {
   return shortened;
 };
 
-const getPreviewStyle = (promptValue: string, brandColorsValue: string): PreviewStyle => {
+const resolveDesignStyle = (
+  requestedStyle: BannerDesignStyle,
+  promptValue: string,
+  businessName: string,
+  bannerText: string
+): ResolvedBannerDesignStyle => {
+  if (requestedStyle !== 'auto') return requestedStyle;
+
+  const prompt = promptValue.toLowerCase();
+  const context = `${businessName} ${bannerText}`.toLowerCase();
+
+  if (/\b(?:vintage|retro|old[- ]school|sign[- ]?painter|hand[- ]painted|hand[- ]lettered|classic roadside)\b/i.test(prompt)) {
+    return 'vintage-sign-painter';
+  }
+  if (/\b(?:italian|deli|sub shop|submarine|hoagie|pizzeria|pizza shop|restaurant style)\b/i.test(prompt)) {
+    return 'italian-deli';
+  }
+  if (/\b(?:luxury|elegant|upscale|refined|formal|boutique|hotel|wedding)\b/i.test(prompt)) {
+    return 'elegant';
+  }
+  if (/\b(?:sport|sports|athletic|racing|race|speed|high energy|team)\b/i.test(prompt)) {
+    return 'sports';
+  }
+  if (/\b(?:modern|minimal|minimalist|clean|corporate|contemporary|tech)\b/i.test(prompt)) {
+    return 'modern-clean';
+  }
+  if (/\b(?:bold|retail|grand opening|sale|attention grabbing|high impact)\b/i.test(prompt)) {
+    return 'bold-retail';
+  }
+
+  if (/\b(?:italian|philly|deli|subs?|hoagie|pizza|pizzeria|restaurant|food|bakery)\b/i.test(context)) {
+    return 'italian-deli';
+  }
+  if (/\b(?:sport|sports|athletic|racing|race|team|fitness|gym)\b/i.test(context)) {
+    return 'sports';
+  }
+  if (/\b(?:hotel|salon|spa|luxury|boutique|wedding)\b/i.test(context)) {
+    return 'elegant';
+  }
+
+  return 'bold-retail';
+};
+
+const getPreviewStyle = (
+  promptValue: string,
+  brandColorsValue: string,
+  requestedStyle: BannerDesignStyle,
+  businessName: string,
+  bannerText: string
+): PreviewStyle => {
   const prompt = promptValue.toLowerCase();
   const brandColors = brandColorsValue.toLowerCase();
   const combined = `${prompt} ${brandColors}`.trim();
   const listedBrandColors = extractColors(brandColors);
+  const promptColors = extractColors(prompt);
 
   const backgroundFromPrompt = findContextColor(prompt, 'background');
   const textFromPrompt = findContextColor(prompt, 'text');
@@ -237,6 +345,17 @@ const getPreviewStyle = (promptValue: string, brandColorsValue: string): Preview
     text = background.toLowerCase() === '#ffffff' ? '#111827' : '#ffffff';
   }
 
+  const paletteCandidates = uniqueColors([...listedBrandColors, ...promptColors]);
+  const accent = paletteCandidates.find(
+    (color) => color.toLowerCase() !== background.toLowerCase() && color.toLowerCase() !== text.toLowerCase()
+  ) || (background.toLowerCase() === '#ffffff' ? '#111827' : '#ffffff');
+  const secondary = paletteCandidates.find(
+    (color) =>
+      color.toLowerCase() !== background.toLowerCase() &&
+      color.toLowerCase() !== text.toLowerCase() &&
+      color.toLowerCase() !== accent.toLowerCase()
+  ) || text;
+
   let alignment: TextAlignment = 'center';
   if (/\b(?:left[- ]aligned|align(?:ed)?\s+left|left\s+alignment)\b/i.test(combined)) alignment = 'left';
   if (/\b(?:right[- ]aligned|align(?:ed)?\s+right|right\s+alignment)\b/i.test(combined)) alignment = 'right';
@@ -246,16 +365,20 @@ const getPreviewStyle = (promptValue: string, brandColorsValue: string): Preview
   const showBusinessName = !suppressExtras && /(?:include|show|add|display|use).{0,24}(?:business|company)\s+name/i.test(combined);
   const showContact = !suppressExtras && /(?:include|show|add|display|use).{0,24}(?:contact|phone|email|website)/i.test(combined);
   const showBorder = !/\b(?:no|without|remove)\s+(?:a\s+)?border\b/i.test(combined) && /\b(?:add|include|show|with|use)\s+(?:a\s+)?(?:thin\s+|thick\s+|simple\s+)?border\b/i.test(combined);
+  const showDecorations = !/\b(?:no|without|remove)\s+(?:extra\s+)?(?:graphics|decorations|accents|stripes|flourishes)\b|\bplain\s+text\s+only\b/i.test(combined);
 
   return {
     background,
     text,
-    accent: text,
+    accent,
+    secondary,
     alignment,
     showBorder,
     showBusinessName,
     showContact,
-    uppercase: /\b(?:all\s+caps|uppercase|upper-case)\b/i.test(combined)
+    showDecorations,
+    uppercase: /\b(?:all\s+caps|uppercase|upper-case)\b/i.test(combined),
+    designStyle: resolveDesignStyle(requestedStyle, promptValue, businessName, bannerText)
   };
 };
 
@@ -280,18 +403,228 @@ const getCanvasDimensions = (widthValue: number, heightValue: number) => {
   };
 };
 
-const getTextLayout = (textValue: string, canvasWidth: number, canvasHeight: number, ratio: number) => {
-  const maxChars = Math.max(10, Math.min(44, Math.round(ratio * 13)));
+const getBaseTextLayout = (textValue: string, canvasWidth: number, canvasHeight: number, ratio: number) => {
+  const maxChars = Math.max(10, Math.min(46, Math.round(ratio * 14)));
   const maxLines = ratio >= 4 ? 3 : ratio >= 1.5 ? 4 : 6;
   const lines = wrapText(textValue, maxChars, maxLines);
   const longestLineLength = Math.max(...lines.map((line) => line.length), 1);
   const horizontalFit = (canvasWidth * 0.84) / (longestLineLength * 0.58);
-  const verticalFit = (canvasHeight * 0.66) / (Math.max(lines.length, 1) * 1.12);
-  const fontSize = Math.max(42, Math.floor(Math.min(horizontalFit, verticalFit, canvasHeight * 0.48)));
-  const lineHeight = fontSize * 1.08;
-  const firstBaseline = canvasHeight / 2 - ((lines.length - 1) * lineHeight) / 2 + fontSize * 0.34;
+  const verticalFit = (canvasHeight * 0.65) / (Math.max(lines.length, 1) * 1.1);
+  const fontSize = Math.max(42, Math.floor(Math.min(horizontalFit, verticalFit, canvasHeight * 0.46)));
 
-  return { lines, fontSize, lineHeight, firstBaseline };
+  return { lines, fontSize };
+};
+
+const fitFontSize = (
+  text: string,
+  desiredSize: number,
+  canvasWidth: number,
+  characterWidthFactor: number
+) => {
+  const availableWidth = canvasWidth * 0.84;
+  const estimatedCharacters = Math.max(text.length, 1) * characterWidthFactor;
+  const widthFit = availableWidth / estimatedCharacters;
+  return Math.max(30, Math.floor(Math.min(desiredSize, widthFit)));
+};
+
+const getStyledLines = (
+  lines: string[],
+  baseFontSize: number,
+  canvasWidth: number,
+  style: PreviewStyle
+): StyledLine[] => {
+  const hasMultipleLines = lines.length > 1;
+
+  return lines.map((line, index) => {
+    const isLeadLine = hasMultipleLines && index === 0;
+    let fontFamily = 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif';
+    let multiplier = isLeadLine ? 0.72 : 1.04;
+    let fontWeight = 900;
+    let fontStyle: 'normal' | 'italic' = 'normal';
+    let fill = style.text;
+    let stroke = style.accent;
+    let strokeFraction = 0.015;
+    let letterSpacing = isLeadLine ? 2.5 : 1;
+    let shadow = true;
+    let characterWidthFactor = 0.55;
+    let lineHeightFactor = 1.04;
+
+    if (style.designStyle === 'italian-deli') {
+      if (isLeadLine) {
+        fontFamily = 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif';
+        multiplier = 0.58;
+        fontWeight = 800;
+        fill = style.accent;
+        stroke = 'none';
+        strokeFraction = 0;
+        letterSpacing = 6;
+        shadow = false;
+        characterWidthFactor = 0.54;
+        lineHeightFactor = 0.96;
+      } else {
+        fontFamily = '"Cooper Black", Georgia, "Times New Roman", serif';
+        multiplier = 1.03;
+        fontWeight = 900;
+        fontStyle = 'italic';
+        fill = style.text;
+        stroke = style.accent;
+        strokeFraction = 0.011;
+        letterSpacing = 0.5;
+        shadow = true;
+        characterWidthFactor = 0.62;
+        lineHeightFactor = 1.02;
+      }
+    }
+
+    if (style.designStyle === 'vintage-sign-painter') {
+      if (isLeadLine) {
+        fontFamily = '"Arial Narrow", Impact, sans-serif';
+        multiplier = 0.56;
+        fontWeight = 800;
+        fill = style.accent;
+        stroke = 'none';
+        strokeFraction = 0;
+        letterSpacing = 5;
+        shadow = false;
+        characterWidthFactor = 0.5;
+        lineHeightFactor = 0.96;
+      } else {
+        fontFamily = '"Brush Script MT", "Segoe Script", cursive';
+        multiplier = 1.12;
+        fontWeight = 700;
+        fill = style.text;
+        stroke = style.background;
+        strokeFraction = 0.01;
+        letterSpacing = 0;
+        shadow = true;
+        characterWidthFactor = 0.52;
+        lineHeightFactor = 1.08;
+      }
+    }
+
+    if (style.designStyle === 'modern-clean') {
+      fontFamily = '"Trebuchet MS", Arial, Helvetica, sans-serif';
+      multiplier = isLeadLine ? 0.68 : 1;
+      fontWeight = isLeadLine ? 700 : 800;
+      fill = isLeadLine ? style.accent : style.text;
+      stroke = 'none';
+      strokeFraction = 0;
+      letterSpacing = isLeadLine ? 4 : 0.4;
+      shadow = false;
+      characterWidthFactor = 0.56;
+      lineHeightFactor = 1.12;
+    }
+
+    if (style.designStyle === 'elegant') {
+      fontFamily = 'Georgia, "Times New Roman", serif';
+      multiplier = isLeadLine ? 0.54 : 0.98;
+      fontWeight = isLeadLine ? 600 : 700;
+      fontStyle = isLeadLine ? 'normal' : 'italic';
+      fill = isLeadLine ? style.accent : style.text;
+      stroke = 'none';
+      strokeFraction = 0;
+      letterSpacing = isLeadLine ? 5 : 1.2;
+      shadow = false;
+      characterWidthFactor = 0.59;
+      lineHeightFactor = 1.12;
+    }
+
+    if (style.designStyle === 'sports') {
+      fontFamily = 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif';
+      multiplier = isLeadLine ? 0.7 : 1.04;
+      fontWeight = 900;
+      fontStyle = 'italic';
+      fill = isLeadLine ? style.secondary : style.text;
+      stroke = style.accent;
+      strokeFraction = 0.015;
+      letterSpacing = isLeadLine ? 3 : 1.2;
+      shadow = true;
+      characterWidthFactor = 0.56;
+      lineHeightFactor = 1.02;
+    }
+
+    const fontSize = fitFontSize(line, baseFontSize * multiplier, canvasWidth, characterWidthFactor);
+
+    return {
+      text: line,
+      fontFamily,
+      fontSize,
+      fontWeight,
+      fontStyle,
+      fill,
+      stroke,
+      strokeWidth: strokeFraction > 0 ? Math.max(1, fontSize * strokeFraction) : 0,
+      letterSpacing,
+      shadow,
+      lineHeight: fontSize * lineHeightFactor
+    };
+  });
+};
+
+const getDecorationMarkup = (
+  style: PreviewStyle,
+  canvasWidth: number,
+  canvasHeight: number,
+  padding: number
+) => {
+  if (!style.showDecorations) return '';
+
+  if (style.designStyle === 'italian-deli') {
+    const wideStripe = Math.max(8, Math.round(canvasHeight * 0.022));
+    const narrowStripe = Math.max(5, Math.round(canvasHeight * 0.014));
+    const bottomWideY = canvasHeight - wideStripe;
+    const bottomNarrowY = bottomWideY - narrowStripe;
+    return `
+      <rect x="0" y="0" width="${canvasWidth}" height="${wideStripe}" fill="${style.secondary}"/>
+      <rect x="0" y="${wideStripe}" width="${canvasWidth}" height="${narrowStripe}" fill="${style.text}"/>
+      <rect x="0" y="${bottomNarrowY}" width="${canvasWidth}" height="${narrowStripe}" fill="${style.text}"/>
+      <rect x="0" y="${bottomWideY}" width="${canvasWidth}" height="${wideStripe}" fill="${style.secondary}"/>
+      <path d="M${padding} ${Math.round(canvasHeight * 0.79)} H${canvasWidth - padding}" stroke="${style.secondary}" stroke-width="${Math.max(5, Math.round(canvasHeight * 0.012))}" stroke-linecap="round"/>
+    `;
+  }
+
+  if (style.designStyle === 'vintage-sign-painter') {
+    const flourishYTop = Math.round(canvasHeight * 0.18);
+    const flourishYBottom = Math.round(canvasHeight * 0.82);
+    const center = canvasWidth / 2;
+    return `
+      <path d="M${padding} ${flourishYTop} C${Math.round(canvasWidth * 0.24)} ${flourishYTop - 18} ${Math.round(canvasWidth * 0.31)} ${flourishYTop + 18} ${center - 58} ${flourishYTop}" fill="none" stroke="${style.accent}" stroke-width="${Math.max(3, Math.round(canvasHeight * 0.008))}" stroke-linecap="round"/>
+      <circle cx="${center}" cy="${flourishYTop}" r="${Math.max(5, Math.round(canvasHeight * 0.012))}" fill="${style.secondary}"/>
+      <path d="M${center + 58} ${flourishYTop} C${Math.round(canvasWidth * 0.69)} ${flourishYTop + 18} ${Math.round(canvasWidth * 0.76)} ${flourishYTop - 18} ${canvasWidth - padding} ${flourishYTop}" fill="none" stroke="${style.accent}" stroke-width="${Math.max(3, Math.round(canvasHeight * 0.008))}" stroke-linecap="round"/>
+      <path d="M${Math.round(canvasWidth * 0.23)} ${flourishYBottom} Q${center} ${flourishYBottom + 30} ${Math.round(canvasWidth * 0.77)} ${flourishYBottom}" fill="none" stroke="${style.secondary}" stroke-width="${Math.max(4, Math.round(canvasHeight * 0.009))}" stroke-linecap="round"/>
+    `;
+  }
+
+  if (style.designStyle === 'modern-clean') {
+    const barWidth = Math.max(12, Math.round(canvasWidth * 0.012));
+    return `
+      <rect x="${padding}" y="${Math.round(canvasHeight * 0.2)}" width="${barWidth}" height="${Math.round(canvasHeight * 0.6)}" rx="${barWidth / 2}" fill="${style.secondary}"/>
+      <rect x="${padding + barWidth + 12}" y="${Math.round(canvasHeight * 0.2)}" width="${Math.max(5, Math.round(barWidth * 0.42))}" height="${Math.round(canvasHeight * 0.6)}" rx="3" fill="${style.text}" opacity="0.28"/>
+    `;
+  }
+
+  if (style.designStyle === 'elegant') {
+    return `
+      <line x1="${padding}" y1="${Math.round(canvasHeight * 0.18)}" x2="${canvasWidth - padding}" y2="${Math.round(canvasHeight * 0.18)}" stroke="${style.accent}" stroke-width="${Math.max(2, Math.round(canvasHeight * 0.005))}"/>
+      <line x1="${padding}" y1="${Math.round(canvasHeight * 0.82)}" x2="${canvasWidth - padding}" y2="${Math.round(canvasHeight * 0.82)}" stroke="${style.accent}" stroke-width="${Math.max(2, Math.round(canvasHeight * 0.005))}"/>
+      <circle cx="${canvasWidth / 2}" cy="${Math.round(canvasHeight * 0.18)}" r="${Math.max(5, Math.round(canvasHeight * 0.012))}" fill="${style.secondary}"/>
+      <circle cx="${canvasWidth / 2}" cy="${Math.round(canvasHeight * 0.82)}" r="${Math.max(5, Math.round(canvasHeight * 0.012))}" fill="${style.secondary}"/>
+    `;
+  }
+
+  if (style.designStyle === 'sports') {
+    return `
+      <polygon points="0,0 ${Math.round(canvasWidth * 0.26)},0 ${Math.round(canvasWidth * 0.12)},${canvasHeight}" fill="${style.accent}" opacity="0.08"/>
+      <polygon points="${Math.round(canvasWidth * 0.82)},0 ${canvasWidth},0 ${canvasWidth},${canvasHeight} ${Math.round(canvasWidth * 0.68)},${canvasHeight}" fill="${style.secondary}" opacity="0.12"/>
+      <path d="M${Math.round(canvasWidth * 0.72)} ${Math.round(canvasHeight * 0.22)} L${canvasWidth - padding} ${Math.round(canvasHeight * 0.22)}" stroke="${style.secondary}" stroke-width="${Math.max(7, Math.round(canvasHeight * 0.018))}" stroke-linecap="round"/>
+      <path d="M${Math.round(canvasWidth * 0.68)} ${Math.round(canvasHeight * 0.28)} L${canvasWidth - padding} ${Math.round(canvasHeight * 0.28)}" stroke="${style.text}" stroke-width="${Math.max(4, Math.round(canvasHeight * 0.011))}" stroke-linecap="round" opacity="0.7"/>
+    `;
+  }
+
+  return `
+    <polygon points="0,0 ${Math.round(canvasWidth * 0.16)},0 0,${Math.round(canvasHeight * 0.44)}" fill="${style.accent}" opacity="0.09"/>
+    <polygon points="${canvasWidth},${canvasHeight} ${Math.round(canvasWidth * 0.84)},${canvasHeight} ${canvasWidth},${Math.round(canvasHeight * 0.56)}" fill="${style.secondary}" opacity="0.1"/>
+  `;
 };
 
 const BannerQuoteFlow: React.FC = () => {
@@ -318,6 +651,7 @@ const BannerQuoteFlow: React.FC = () => {
     designNeeded: '',
     aiDesignPrompt: '',
     bannerText: '',
+    designStyle: 'auto',
     brandColors: '',
     placementNotes: '',
     deadline: '',
@@ -330,6 +664,7 @@ const BannerQuoteFlow: React.FC = () => {
   const [designPreviewSvg, setDesignPreviewSvg] = useState('');
   const [designPreviewSaved, setDesignPreviewSaved] = useState(false);
   const [generatedProofFile, setGeneratedProofFile] = useState<UploadedFile | null>(null);
+  const [generatedStyleLabel, setGeneratedStyleLabel] = useState('');
   const [isGeneratingDesign, setIsGeneratingDesign] = useState(false);
   const [isSavingDesignPreview, setIsSavingDesignPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -392,12 +727,19 @@ const BannerQuoteFlow: React.FC = () => {
     setGeneratedProofFile(null);
 
     window.setTimeout(() => {
-      const style = getPreviewStyle(banner.aiDesignPrompt, banner.brandColors);
+      const style = getPreviewStyle(
+        banner.aiDesignPrompt,
+        banner.brandColors,
+        banner.designStyle,
+        contactInfo.businessName,
+        exactText
+      );
       const widthValue = parsePositiveNumber(banner.width);
       const heightValue = parsePositiveNumber(banner.height);
       const canvas = getCanvasDimensions(widthValue, heightValue);
       const visibleText = style.uppercase ? exactText.toUpperCase() : exactText;
-      const layout = getTextLayout(visibleText, canvas.width, canvas.height, canvas.ratio);
+      const baseLayout = getBaseTextLayout(visibleText, canvas.width, canvas.height, canvas.ratio);
+      const styledLines = getStyledLines(baseLayout.lines, baseLayout.fontSize, canvas.width, style);
       const padding = Math.max(36, Math.round(canvas.width * 0.055));
       const textX = style.alignment === 'left'
         ? padding
@@ -409,23 +751,41 @@ const BannerQuoteFlow: React.FC = () => {
         : style.alignment === 'right'
           ? 'end'
           : 'middle';
+      const totalTextHeight = styledLines.reduce((total, line) => total + line.lineHeight, 0);
+      let lineTop = canvas.height / 2 - totalTextHeight / 2;
+      const titleMarkup = styledLines
+        .map((line) => {
+          const baseline = lineTop + line.fontSize * 0.82;
+          lineTop += line.lineHeight;
+          const strokeAttributes = line.strokeWidth > 0 && line.stroke !== 'none'
+            ? `stroke="${line.stroke}" stroke-width="${line.strokeWidth}" paint-order="stroke fill"`
+            : '';
+          const shadowAttribute = line.shadow ? 'filter="url(#textShadow)"' : '';
+          return `<text x="${textX}" y="${baseline}" text-anchor="${textAnchor}" font-family="${line.fontFamily}" font-size="${line.fontSize}" font-weight="${line.fontWeight}" font-style="${line.fontStyle}" letter-spacing="${line.letterSpacing}" fill="${line.fill}" ${strokeAttributes} ${shadowAttribute}>${escapeSvgText(line.text)}</text>`;
+        })
+        .join('');
       const businessName = contactInfo.businessName.trim();
       const contactLine = contactInfo.phone.trim() || contactInfo.email.trim();
       const businessMarkup = style.showBusinessName && businessName
-        ? `<text x="${textX}" y="${Math.round(canvas.height * 0.12)}" text-anchor="${textAnchor}" font-family="Arial, Helvetica, sans-serif" font-size="${Math.max(24, Math.round(canvas.height * 0.065))}" font-weight="700" fill="${style.text}">${escapeSvgText(businessName)}</text>`
+        ? `<text x="${textX}" y="${Math.round(canvas.height * 0.11)}" text-anchor="${textAnchor}" font-family="Arial, Helvetica, sans-serif" font-size="${Math.max(24, Math.round(canvas.height * 0.06))}" font-weight="700" fill="${style.accent}">${escapeSvgText(businessName)}</text>`
         : '';
       const contactMarkup = style.showContact && contactLine
-        ? `<text x="${textX}" y="${Math.round(canvas.height * 0.91)}" text-anchor="${textAnchor}" font-family="Arial, Helvetica, sans-serif" font-size="${Math.max(22, Math.round(canvas.height * 0.055))}" font-weight="700" fill="${style.text}">${escapeSvgText(contactLine)}</text>`
+        ? `<text x="${textX}" y="${Math.round(canvas.height * 0.92)}" text-anchor="${textAnchor}" font-family="Arial, Helvetica, sans-serif" font-size="${Math.max(22, Math.round(canvas.height * 0.052))}" font-weight="700" fill="${style.accent}">${escapeSvgText(contactLine)}</text>`
         : '';
-      const titleMarkup = layout.lines
-        .map((line, index) => `<text x="${textX}" y="${layout.firstBaseline + index * layout.lineHeight}" text-anchor="${textAnchor}" font-family="Arial, Helvetica, sans-serif" font-size="${layout.fontSize}" font-weight="900" fill="${style.text}">${escapeSvgText(line)}</text>`)
-        .join('');
       const borderMarkup = style.showBorder
         ? `<rect x="${Math.round(padding * 0.55)}" y="${Math.round(padding * 0.55)}" width="${canvas.width - Math.round(padding * 1.1)}" height="${canvas.height - Math.round(padding * 1.1)}" rx="${Math.max(8, Math.round(canvas.height * 0.025))}" fill="none" stroke="${style.accent}" stroke-width="${Math.max(5, Math.round(canvas.height * 0.012))}"/>`
         : '';
+      const decorationMarkup = getDecorationMarkup(style, canvas.width, canvas.height, padding);
+      const shadowOffset = Math.max(3, Math.round(canvas.height * 0.012));
       const svg = `
         <svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">
+          <defs>
+            <filter id="textShadow" x="-20%" y="-20%" width="150%" height="150%">
+              <feDropShadow dx="${shadowOffset}" dy="${shadowOffset}" stdDeviation="${Math.max(1.5, shadowOffset * 0.32)}" flood-color="${style.accent}" flood-opacity="0.32"/>
+            </filter>
+          </defs>
           <rect width="${canvas.width}" height="${canvas.height}" fill="${style.background}"/>
+          ${decorationMarkup}
           ${borderMarkup}
           ${businessMarkup}
           ${titleMarkup}
@@ -433,6 +793,7 @@ const BannerQuoteFlow: React.FC = () => {
         </svg>
       `;
 
+      setGeneratedStyleLabel(BANNER_STYLE_LABELS[style.designStyle]);
       setDesignPreviewSvg(svg);
       setDesignPreviewUrl(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
       setIsGeneratingDesign(false);
@@ -499,6 +860,7 @@ const BannerQuoteFlow: React.FC = () => {
   const editDesignPrompt = () => {
     setDesignPreviewSaved(false);
     setGeneratedProofFile(null);
+    setGeneratedStyleLabel('');
     setDesignPreviewUrl('');
     setDesignPreviewSvg('');
     setUploadedFiles((current) => current.filter((file) => !file.tags?.includes('ai_generated_proof')));
@@ -571,6 +933,7 @@ const BannerQuoteFlow: React.FC = () => {
       uploadedFileCount: allUploadedFiles.length,
       banner: {
         ...banner,
+        generatedStyleLabel,
         aiDesignPreviewSaved: designPreviewSaved,
         aiDesignPreviewUrl: designPreviewSaved ? (generatedProofFile?.url || designPreviewUrl) : '',
         aiDesignPreviewType: designPreviewUrl ? 'instant_banner_preview' : ''
@@ -862,10 +1225,32 @@ const BannerQuoteFlow: React.FC = () => {
                   onChange={(event) => updateBanner('aiDesignPrompt', event.target.value)}
                   className="mt-2"
                   rows={5}
-                  placeholder="Example: White background, red letters, centered, as large as possible. No logo, business name, border, contact information, or BWB branding."
+                  placeholder="Example: White background, red letters, centered, as large as possible. Use a vintage Italian deli sign-painter style. No logo, business name, border, contact information, or BWB branding."
                 />
                 <p className="mt-2 text-sm text-slate-500">
                   Describe colors, alignment, size, style, and anything that should be included or removed.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="banner-design-style">Design Style</Label>
+                <Select
+                  value={banner.designStyle}
+                  onValueChange={(value) => updateBanner('designStyle', value)}
+                >
+                  <SelectTrigger id="banner-design-style" className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BANNER_STYLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-2 text-sm text-slate-500">
+                  Auto reads the instructions, business name, and wording. Choose a preset when you want a stronger visual direction.
                 </p>
               </div>
 
@@ -876,7 +1261,7 @@ const BannerQuoteFlow: React.FC = () => {
                   value={banner.brandColors}
                   onChange={(event) => updateBanner('brandColors', event.target.value)}
                   className="mt-2"
-                  placeholder="Example: red text, white background"
+                  placeholder="Example: red, white, black, and green"
                 />
               </div>
 
@@ -885,7 +1270,7 @@ const BannerQuoteFlow: React.FC = () => {
                   <div>
                     <h3 className="font-semibold text-slate-950">Banner Proof Draft</h3>
                     <p className="text-sm text-slate-600">
-                      Generates a clean banner using the exact banner text, size ratio, colors, and layout instructions.
+                      Generates a styled banner using the exact text, size ratio, colors, typography, and selected design direction.
                     </p>
                   </div>
                   <Button
@@ -918,6 +1303,11 @@ const BannerQuoteFlow: React.FC = () => {
                       <span className="rounded-full bg-white px-3 py-1 shadow-sm">
                         {banner.width || '?'} × {banner.height || '?'} {banner.unit}
                       </span>
+                      {generatedStyleLabel && (
+                        <span className="rounded-full bg-white px-3 py-1 shadow-sm">
+                          {generatedStyleLabel} style
+                        </span>
+                      )}
                       <span className="rounded-full bg-white px-3 py-1 shadow-sm">
                         Exact copy only
                       </span>
