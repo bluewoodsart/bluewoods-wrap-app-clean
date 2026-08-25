@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import VoiceDictationButton from '@/components/ui/voice-dictation-button';
 import FileUpload from './FileUpload';
 import { supabase } from '@/lib/supabase';
 import { getRepAwareBackTarget, getStoredRepSlug } from '@/lib/repTracking';
@@ -672,7 +673,18 @@ const BannerQuoteFlow: React.FC = () => {
                 </RadioGroup>
               </div>
               <div>
-                <Label htmlFor="banner-ai-prompt">AI Design Prompt</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="banner-ai-prompt">AI Design Prompt</Label>
+                  <VoiceDictationButton
+                    fieldName="AI Design Prompt"
+                    compact
+                    onTranscript={(transcript) => {
+                      const currentPrompt = banner.aiDesignPrompt.trimEnd();
+                      updateBanner('aiDesignPrompt', `${currentPrompt}${currentPrompt ? ' ' : ''}${transcript.trim()}`);
+                      window.requestAnimationFrame(() => aiPromptRef.current?.focus());
+                    }}
+                  />
+                </div>
                 <Textarea
                   ref={aiPromptRef}
                   id="banner-ai-prompt"
