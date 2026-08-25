@@ -281,11 +281,11 @@ const resolveDesignStyle = (
   const prompt = promptValue.toLowerCase();
   const context = `${businessName} ${bannerText}`.toLowerCase();
 
-  if (/\b(?:vintage|retro|old[- ]school|sign[- ]?painter|hand[- ]painted|hand[- ]lettered|classic roadside)\b/i.test(prompt)) {
-    return 'vintage-sign-painter';
-  }
   if (/\b(?:italian|deli|sub shop|submarine|hoagie|pizzeria|pizza shop|restaurant style)\b/i.test(prompt)) {
     return 'italian-deli';
+  }
+  if (/\b(?:vintage|retro|old[- ]school|sign[- ]?painter|hand[- ]painted|hand[- ]lettered|classic roadside)\b/i.test(prompt)) {
+    return 'vintage-sign-painter';
   }
   if (/\b(?:luxury|elegant|upscale|refined|formal|boutique|hotel|wedding)\b/i.test(prompt)) {
     return 'elegant';
@@ -761,7 +761,7 @@ const BannerQuoteFlow: React.FC = () => {
             ? `stroke="${line.stroke}" stroke-width="${line.strokeWidth}" paint-order="stroke fill"`
             : '';
           const shadowAttribute = line.shadow ? 'filter="url(#textShadow)"' : '';
-          return `<text x="${textX}" y="${baseline}" text-anchor="${textAnchor}" font-family="${line.fontFamily}" font-size="${line.fontSize}" font-weight="${line.fontWeight}" font-style="${line.fontStyle}" letter-spacing="${line.letterSpacing}" fill="${line.fill}" ${strokeAttributes} ${shadowAttribute}>${escapeSvgText(line.text)}</text>`;
+          return `<text x="${textX}" y="${baseline}" text-anchor="${textAnchor}" font-family="${escapeSvgText(line.fontFamily)}" font-size="${line.fontSize}" font-weight="${line.fontWeight}" font-style="${line.fontStyle}" letter-spacing="${line.letterSpacing}" fill="${line.fill}" ${strokeAttributes} ${shadowAttribute}>${escapeSvgText(line.text)}</text>`;
         })
         .join('');
       const businessName = contactInfo.businessName.trim();
