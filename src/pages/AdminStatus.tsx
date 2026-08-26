@@ -948,6 +948,9 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [noteMessage, setNoteMessage] = useState('');
   const [noteWarning, setNoteWarning] = useState('');
   const [noteError, setNoteError] = useState('');
+  const [pdfRecipientEmail, setPdfRecipientEmail] = useState('');
+  const [pdfSendMessage, setPdfSendMessage] = useState('');
+  const [sendingPdf, setSendingPdf] = useState(false);
   const [showUpsellComposer, setShowUpsellComposer] = useState(false);
   const [upsellIdeaTitle, setUpsellIdeaTitle] = useState('');
   const [upsellIdeaMessage, setUpsellIdeaMessage] = useState('');
@@ -1933,9 +1936,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const sendAdminPdfProposal = async (file: { url: string; name?: string }) => {
     const quote = selectedQuoteDetail || selectedQuote;
     if (!quote) return;
-    const recipientEmail = window.prompt('Send this PDF to:', quote.customer_email)?.trim();
+    const recipientEmail = (pdfRecipientEmail || quote.customer_email).trim();
     if (!recipientEmail) return;
 
+    setSendingPdf(true);
+    setPdfSendMessage(`Sending to ${recipientEmail}…`);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
@@ -1953,9 +1958,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || 'The PDF email could not be sent');
-      window.alert(`PDF sent to ${recipientEmail}.`);
+      setPdfSendMessage(`PDF sent to ${recipientEmail}.`);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'The PDF email could not be sent');
+      setPdfSendMessage(error instanceof Error ? error.message : 'The PDF email could not be sent');
+    } finally {
+      setSendingPdf(false);
     }
   };
 
@@ -4386,17 +4393,28 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                                       Make a Quote
                                     </Button>
                                     {upsellImages.filter((image) => image.name?.toLowerCase().endsWith('.pdf') || image.url?.toLowerCase().includes('.pdf')).map((pdf) => (
-                                      <Button
-                                        key={`${pdf.url}-send`}
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        className="min-h-14 w-full touch-manipulation whitespace-normal border-emerald-600 bg-emerald-50 px-4 text-base font-bold text-emerald-800 hover:bg-emerald-100 sm:w-auto"
-                                        onClick={() => void sendAdminPdfProposal({ url: pdf.url, name: pdf.name })}
-                                      >
-                                        <Mail className="mr-2 h-4 w-4" />
-                                        Send PDF to Customer
-                                      </Button>
+                                      <div key={`${pdf.url}-send`} className="flex w-full flex-col gap-2 sm:w-auto">
+                                        <Input
+                                          type="email"
+                                          aria-label="PDF recipient email"
+                                          value={pdfRecipientEmail}
+                                          placeholder={(selectedQuoteDetail || selectedQuote)?.customer_email || 'customer@example.com'}
+                                          onChange={(event) => setPdfRecipientEmail(event.target.value)}
+                                          className="min-h-12 bg-white sm:min-w-72"
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={sendingPdf}
+                                          className="min-h-14 w-full touch-manipulation whitespace-normal border-emerald-600 bg-emerald-50 px-4 text-base font-bold text-emerald-800 hover:bg-emerald-100"
+                                          onClick={() => void sendAdminPdfProposal({ url: pdf.url, name: pdf.name })}
+                                        >
+                                          <Mail className="mr-2 h-4 w-4" />
+                                          {sendingPdf ? 'Sending PDF…' : 'Send PDF to Customer'}
+                                        </Button>
+                                        {pdfSendMessage && <p className="text-xs font-semibold text-emerald-800" role="status">{pdfSendMessage}</p>}
+                                      </div>
                                     ))}
                                     {upsellImages.map((image, index) => (
                                       <a
