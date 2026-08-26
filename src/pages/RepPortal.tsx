@@ -452,6 +452,9 @@ const coverDirectionFollowUpPrompt = `Would you like to add anything else?
 
 You can send another note, another idea, a photo direction, a color direction, or a correction to the first message.`;
 
+const isPdfAttachment = (file: { name?: string; url?: string }) =>
+  file.name?.toLowerCase().endsWith('.pdf') || file.url?.toLowerCase().includes('.pdf');
+
 const getIdeaStatusClassName = (status: string, isFeatured: boolean) => {
   if (isFeatured) return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200';
   if (status === 'built') return 'bg-blue-100 text-blue-800 ring-1 ring-blue-200';
@@ -2787,7 +2790,20 @@ const RepPortal = () => {
                           <div className="space-y-3">
                             {upsellImages.length > 0 && (
                               <div className="grid gap-2 sm:grid-cols-2">
-                                {upsellImages.map((image, index) => (
+                                {upsellImages.map((image, index) => isPdfAttachment(image) ? (
+                                  <a
+                                    key={`${image.url}-${index}`}
+                                    href={image.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex min-h-36 touch-manipulation flex-col items-center justify-center rounded-md border border-amber-300 bg-white p-5 text-center text-slate-900 active:bg-amber-50"
+                                    aria-label={`Open PDF ${image.name || upsellIdea.title}`}
+                                  >
+                                    <FileText className="h-12 w-12 text-red-700" />
+                                    <span className="mt-3 break-all text-sm font-bold">{image.name || 'Proposal.pdf'}</span>
+                                    <span className="mt-2 inline-flex items-center text-sm font-semibold text-amber-800">Open PDF <ExternalLink className="ml-1 h-4 w-4" /></span>
+                                  </a>
+                                ) : (
                                   <button
                                     key={`${image.url}-${index}`}
                                     type="button"
@@ -2795,14 +2811,8 @@ const RepPortal = () => {
                                     onClick={() => setUpsellImagePreview({ url: image.url, name: image.name, title: upsellIdea.title })}
                                     aria-label={`Open ${image.name || upsellIdea.title} larger`}
                                   >
-                                    <img
-                                      src={image.url}
-                                      alt={image.name || upsellIdea.title}
-                                      className="max-h-80 w-full object-contain transition duration-150 group-hover:scale-[1.01]"
-                                    />
-                                    <span className="absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-90 shadow-sm">
-                                      <Maximize2 className="h-4 w-4" />
-                                    </span>
+                                    <img src={image.url} alt={image.name || upsellIdea.title} className="max-h-80 w-full object-contain transition duration-150 group-hover:scale-[1.01]" />
+                                    <span className="absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-90 shadow-sm"><Maximize2 className="h-4 w-4" /></span>
                                   </button>
                                 ))}
                               </div>
@@ -2814,20 +2824,20 @@ const RepPortal = () => {
                                 <Button
                                   type="button"
                                   size="sm"
-                                  className="min-h-12 touch-manipulation bg-amber-500 font-bold text-amber-950 hover:bg-amber-400"
+                                  className="min-h-12 w-full touch-manipulation bg-amber-500 font-bold text-amber-950 hover:bg-amber-400 sm:w-auto"
                                   onClick={() => startQuoteFromUpsell(upsellIdea)}
                                   onTouchEnd={(event) => runMobileTouchAction(event, () => startQuoteFromUpsell(upsellIdea))}
                                 >
                                   <Calculator className="mr-2 h-4 w-4" />
                                   Make a Quote
                                 </Button>
-                                {upsellImages.filter((image) => image.url && image.name?.toLowerCase().endsWith('.pdf')).map((pdf) => (
+                                {upsellImages.filter((image) => image.url && isPdfAttachment(image)).map((pdf) => (
                                   <Button
                                     key={`${pdf.url}-send`}
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    className="min-h-12 touch-manipulation border-emerald-600 bg-emerald-50 font-bold text-emerald-800 hover:bg-emerald-100"
+                                    className="min-h-14 w-full touch-manipulation whitespace-normal border-emerald-600 bg-emerald-50 px-4 text-base font-bold text-emerald-800 hover:bg-emerald-100 sm:w-auto"
                                     disabled={Boolean(sendingPdfUrl)}
                                     onClick={() => void sendPdfProposal({ url: pdf.url, name: pdf.name })}
                                   >
@@ -2843,7 +2853,7 @@ const RepPortal = () => {
                                     rel="noreferrer"
                                     className="inline-flex items-center text-xs font-semibold text-amber-800 underline"
                                   >
-                                    Open image {index + 1} <ExternalLink className="ml-1 h-3 w-3" />
+                                    {isPdfAttachment(image) ? 'Open PDF' : `Open image ${index + 1}`} <ExternalLink className="ml-1 h-3 w-3" />
                                   </a>
                                 ))}
                               </div>
