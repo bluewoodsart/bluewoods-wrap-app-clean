@@ -1,0 +1,67 @@
+name: Patch Compassion Story Layout
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/patch-compassion-story.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-story:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Compassion Ministries story section
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('public/compassion-bluefund/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          old_grid_css = '.opening-grid,.story-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}'
+          new_grid_css = old_grid_css + '.story-grid{align-items:start}.story-media{display:flex;flex-direction:column;gap:16px}.story-media .quote{min-height:0;padding:27px 32px;font-size:21px}.story-video{position:relative;overflow:hidden;aspect-ratio:16/9;border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#123d23,#1b6636);box-shadow:var(--shadow)}.story-video iframe,.story-video video{display:block;width:100%;height:100%;border:0}.story-video-placeholder{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.14),transparent 34%),linear-gradient(145deg,#153b24,#0f2718)}.story-play{width:72px;height:72px;border:0;border-radius:50%;background:var(--red);display:grid;place-items:center;box-shadow:0 16px 36px rgba(0,0,0,.3)}.story-play:before{content:"";margin-left:5px;border-left:20px solid #fff;border-top:13px solid transparent;border-bottom:13px solid transparent}.story-copy{align-self:start;padding-top:1px}'
+
+          old_mobile_css = '.social-copy{padding:22px}.social-link{align-self:stretch}}'
+          new_mobile_css = '.social-copy{padding:22px}.social-link{align-self:stretch}.story-media{gap:12px}.story-media .quote{padding:23px;font-size:19px}.story-video{border-radius:18px}}'
+
+          old_story = '<section class="section" id="story"><div class="wrap story-grid"><div class="quote">“We don’t just feed people. We build community, restore dignity, and remind every person that they are seen, valued, and never alone.”</div><div><div class="kicker">Our story</div><h2>It Started in Front of a Garage.</h2><p class="intro">Compassion Ministries was born during the COVID pandemic, when Dr. Diana Galloway and her family began serving a few families in need. What started in front of a garage grew into a ministry that has provided hundreds of thousands of pounds of food throughout the community.</p><p class="intro">Every distribution is about more than groceries. It is about dignity, connection, compassion, and letting people know that someone cares.</p></div></div></section>'
+          new_story = '<section class="section" id="story"><div class="wrap story-grid"><div class="story-media"><div class="quote">“We don’t just feed people. We build community, restore dignity, and remind every person that they are seen, valued, and never alone.”</div><div class="story-video" aria-label="Compassion Ministries story video"><div class="story-video-placeholder"><span class="story-play" aria-hidden="true"></span></div></div></div><div class="story-copy"><div class="kicker">Our story</div><h2>It Started in Front of a Garage.</h2><p class="intro">Compassion Ministries was born during the COVID pandemic, when Dr. Diana Galloway and her family began serving a few families in need. What started in front of a garage grew into a ministry that has provided hundreds of thousands of pounds of food throughout the community.</p><p class="intro">Every distribution is about more than groceries. It is about dignity, connection, compassion, and letting people know that someone cares.</p></div></div></section>'
+
+          replacements = [
+              (old_grid_css, new_grid_css, 'story layout CSS'),
+              (old_mobile_css, new_mobile_css, 'mobile story CSS'),
+              (old_story, new_story, 'story section HTML'),
+          ]
+
+          for old, new, label in replacements:
+              if new in text:
+                  continue
+              if old not in text:
+                  raise SystemExit(f'Could not find expected {label}.')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit updated front end
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes were needed."
+            exit 0
+          fi
+          git config user.name "bluewoodsart"
+          git config user.email "153660767+bluewoodsart@users.noreply.github.com"
+          git add public/compassion-bluefund/index.html
+          git commit -m "Add story video space to Compassion front end"
+          git push
