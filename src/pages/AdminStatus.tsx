@@ -4394,6 +4394,13 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                                     </Button>
                                     {upsellImages.filter((image) => image.name?.toLowerCase().endsWith('.pdf') || image.url?.toLowerCase().includes('.pdf')).map((pdf) => (
                                       <div key={`${pdf.url}-send`} className="flex w-full flex-col gap-2 sm:w-auto">
+                                        <a
+                                          href={`/api/download-pdf?url=${encodeURIComponent(pdf.url)}&name=${encodeURIComponent(pdf.name || 'SlapWrapz-Proposal.pdf')}`}
+                                          className="inline-flex min-h-14 w-full touch-manipulation items-center justify-center rounded-md border border-blue-600 bg-blue-50 px-4 text-base font-bold text-blue-800 hover:bg-blue-100"
+                                        >
+                                          <Download className="mr-2 h-4 w-4" />
+                                          Download / Share PDF
+                                        </a>
                                         <Input
                                           type="email"
                                           aria-label="PDF recipient email"

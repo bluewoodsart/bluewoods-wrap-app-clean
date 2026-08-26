@@ -455,6 +455,9 @@ You can send another note, another idea, a photo direction, a color direction, o
 const isPdfAttachment = (file: { name?: string; url?: string }) =>
   file.name?.toLowerCase().endsWith('.pdf') || file.url?.toLowerCase().includes('.pdf');
 
+const getPdfDownloadUrl = (file: { name?: string; url: string }) =>
+  `/api/download-pdf?url=${encodeURIComponent(file.url)}&name=${encodeURIComponent(file.name || 'SlapWrapz-Proposal.pdf')}`;
+
 const getIdeaStatusClassName = (status: string, isFeatured: boolean) => {
   if (isFeatured) return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200';
   if (status === 'built') return 'bg-blue-100 text-blue-800 ring-1 ring-blue-200';
@@ -2832,18 +2835,26 @@ const RepPortal = () => {
                                   Make a Quote
                                 </Button>
                                 {upsellImages.filter((image) => image.url && isPdfAttachment(image)).map((pdf) => (
-                                  <Button
-                                    key={`${pdf.url}-send`}
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="min-h-14 w-full touch-manipulation whitespace-normal border-emerald-600 bg-emerald-50 px-4 text-base font-bold text-emerald-800 hover:bg-emerald-100 sm:w-auto"
-                                    disabled={Boolean(sendingPdfUrl)}
-                                    onClick={() => void sendPdfProposal({ url: pdf.url, name: pdf.name })}
-                                  >
-                                    <Mail className="mr-2 h-4 w-4" />
-                                    {sendingPdfUrl === pdf.url ? 'Sending PDF…' : 'Send PDF to Customer'}
-                                  </Button>
+                                  <div key={`${pdf.url}-actions`} className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                                    <a
+                                      href={getPdfDownloadUrl({ url: pdf.url, name: pdf.name })}
+                                      className="inline-flex min-h-14 w-full touch-manipulation items-center justify-center rounded-md border border-blue-600 bg-blue-50 px-4 text-base font-bold text-blue-800 hover:bg-blue-100 sm:w-auto"
+                                    >
+                                      <Download className="mr-2 h-4 w-4" />
+                                      Download / Share PDF
+                                    </a>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="min-h-14 w-full touch-manipulation whitespace-normal border-emerald-600 bg-emerald-50 px-4 text-base font-bold text-emerald-800 hover:bg-emerald-100 sm:w-auto"
+                                      disabled={Boolean(sendingPdfUrl)}
+                                      onClick={() => void sendPdfProposal({ url: pdf.url, name: pdf.name })}
+                                    >
+                                      <Mail className="mr-2 h-4 w-4" />
+                                      {sendingPdfUrl === pdf.url ? 'Sending PDF…' : 'Send PDF to Customer'}
+                                    </Button>
+                                  </div>
                                 ))}
                                 {upsellImages.map((image, index) => (
                                   <a
