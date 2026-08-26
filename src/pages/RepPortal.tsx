@@ -488,6 +488,8 @@ const RepPortal = () => {
   const [repUpsellFiles, setRepUpsellFiles] = useState<UploadedFile[]>([]);
   const [savingRepUpsell, setSavingRepUpsell] = useState(false);
   const [upsellImagePreview, setUpsellImagePreview] = useState<{ url: string; name?: string; title: string } | null>(null);
+  const [sendingPdfUrl, setSendingPdfUrl] = useState<string | null>(null);
+  const [pdfSendStatus, setPdfSendStatus] = useState<Record<string, { type: 'success' | 'error'; message: string }>>({});
   const [quoteContinuationOpen, setQuoteContinuationOpen] = useState(false);
   const [quoteBuildUpsellIdea, setQuoteBuildUpsellIdea] = useState<UpsellImageIdea | null>(null);
   const [quotePreparationNotes, setQuotePreparationNotes] = useState('');
@@ -658,6 +660,33 @@ const RepPortal = () => {
     window.requestAnimationFrame(() => {
       quoteContinuationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+  };
+
+  const sendPdfProposal = async (file: { url: string; name?: string }) => {
+    if (!selectedQuote || !session?.access_token || sendingPdfUrl) return;
+    setSendingPdfUrl(file.url);
+    setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'success', message: `Sending to ${selectedQuote.customer_email}…` } }));
+
+    try {
+      const response = await fetch('/api/send-pdf-proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          customerEmail: selectedQuote.customer_email,
+          customerName: selectedQuote.customer_name,
+          quoteId: selectedQuote.quote_id || selectedQuote.id,
+          fileUrl: file.url,
+          fileName: file.name || 'SlapWrapz-Proposal.pdf'
+        })
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'The PDF email could not be sent');
+      setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'success', message: `PDF sent to ${selectedQuote.customer_email}.` } }));
+    } catch (sendError) {
+      setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'error', message: sendError instanceof Error ? sendError.message : 'The PDF email could not be sent' } }));
+    } finally {
+      setSendingPdfUrl(null);
+    }
   };
 
   const returnToCustomerDetails = () => {
@@ -2790,6 +2819,20 @@ const RepPortal = () => {
                                   <Calculator className="mr-2 h-4 w-4" />
                                   Make a Quote
                                 </Button>
+                                {upsellImages.filter((image) => image.url && image.name?.toLowerCase().endsWith('.pdf')).map((pdf) => (
+                                  <Button
+                                    key={`${pdf.url}-send`}
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="min-h-12 touch-manipulation border-emerald-600 bg-emerald-50 font-bold text-emerald-800 hover:bg-emerald-100"
+                                    disabled={Boolean(sendingPdfUrl)}
+                                    onClick={() => void sendPdfProposal({ url: pdf.url, name: pdf.name })}
+                                  >
+                                    <Mail className="mr-2 h-4 w-4" />
+                                    {sendingPdfUrl === pdf.url ? 'Sending PDF…' : 'Send PDF to Customer'}
+                                  </Button>
+                                ))}
                                 {upsellImages.map((image, index) => (
                                   <a
                                     key={`${image.url}-link-${index}`}
@@ -2802,6 +2845,11 @@ const RepPortal = () => {
                                   </a>
                                 ))}
                               </div>
+                              {upsellImages.map((image) => pdfSendStatus[image.url] ? (
+                                <p key={`${image.url}-status`} className={`mt-2 text-xs font-semibold ${pdfSendStatus[image.url].type === 'error' ? 'text-red-700' : 'text-emerald-700'}`} role="status">
+                                  {pdfSendStatus[image.url].message}
+                                </p>
+                              ) : null)}
                             </div>
                           </div>
                         ) : (
