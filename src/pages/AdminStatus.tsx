@@ -1,5 +1,5 @@
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Calculator, CheckCircle2, Copy, Download, ExternalLink, Eye, ImagePlus, Maximize2, MessageSquare, Phone, RefreshCw, Search, Send, Trash2, Upload, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Calculator, CheckCircle2, Copy, Download, ExternalLink, Eye, ImagePlus, Mail, Maximize2, MessageSquare, Phone, RefreshCw, Search, Send, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1928,6 +1928,35 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     window.requestAnimationFrame(() => {
       adminQuoteContinuationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+  };
+
+  const sendAdminPdfProposal = async (file: { url: string; name?: string }) => {
+    const quote = selectedQuoteDetail || selectedQuote;
+    if (!quote) return;
+    const recipientEmail = window.prompt('Send this PDF to:', quote.customer_email)?.trim();
+    if (!recipientEmail) return;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Please sign in again before sending.');
+      const response = await fetch('/api/send-pdf-proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          customerEmail: recipientEmail,
+          customerName: quote.customer_name,
+          quoteId: quote.quote_id || quote.id,
+          fileUrl: file.url,
+          fileName: file.name || 'SlapWrapz-Proposal.pdf'
+        })
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'The PDF email could not be sent');
+      window.alert(`PDF sent to ${recipientEmail}.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'The PDF email could not be sent');
+    }
   };
 
   const closeAdminQuoteBuild = () => {
@@ -4356,6 +4385,19 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                                       <Calculator className="mr-2 h-4 w-4" />
                                       Make a Quote
                                     </Button>
+                                    {upsellImages.filter((image) => image.name?.toLowerCase().endsWith('.pdf') || image.url?.toLowerCase().includes('.pdf')).map((pdf) => (
+                                      <Button
+                                        key={`${pdf.url}-send`}
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="min-h-14 w-full touch-manipulation whitespace-normal border-emerald-600 bg-emerald-50 px-4 text-base font-bold text-emerald-800 hover:bg-emerald-100 sm:w-auto"
+                                        onClick={() => void sendAdminPdfProposal({ url: pdf.url, name: pdf.name })}
+                                      >
+                                        <Mail className="mr-2 h-4 w-4" />
+                                        Send PDF to Customer
+                                      </Button>
+                                    ))}
                                     {upsellImages.map((image, index) => (
                                       <a
                                         key={`${image.url}-link-${index}`}
