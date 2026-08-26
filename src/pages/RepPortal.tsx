@@ -664,15 +664,17 @@ const RepPortal = () => {
 
   const sendPdfProposal = async (file: { url: string; name?: string }) => {
     if (!selectedQuote || !session?.access_token || sendingPdfUrl) return;
+    const recipientEmail = window.prompt('Send this PDF to:', selectedQuote.customer_email)?.trim();
+    if (!recipientEmail) return;
     setSendingPdfUrl(file.url);
-    setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'success', message: `Sending to ${selectedQuote.customer_email}…` } }));
+    setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'success', message: `Sending to ${recipientEmail}…` } }));
 
     try {
       const response = await fetch('/api/send-pdf-proposal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({
-          customerEmail: selectedQuote.customer_email,
+          customerEmail: recipientEmail,
           customerName: selectedQuote.customer_name,
           quoteId: selectedQuote.quote_id || selectedQuote.id,
           fileUrl: file.url,
@@ -681,7 +683,7 @@ const RepPortal = () => {
       });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || 'The PDF email could not be sent');
-      setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'success', message: `PDF sent to ${selectedQuote.customer_email}.` } }));
+      setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'success', message: `PDF sent to ${recipientEmail}.` } }));
     } catch (sendError) {
       setPdfSendStatus((current) => ({ ...current, [file.url]: { type: 'error', message: sendError instanceof Error ? sendError.message : 'The PDF email could not be sent' } }));
     } finally {
