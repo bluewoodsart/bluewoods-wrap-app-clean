@@ -24,6 +24,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
 import WesleyWingsProofGallery from '@/components/WesleyWingsProofGallery';
+import CustomerInformationEditor from '@/components/admin/CustomerInformationEditor';
 import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
@@ -3101,7 +3102,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             <DialogContent className="admin-quote-dialog max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6">
               <DialogHeader className="min-w-0 text-left">
                 <DialogTitle className="break-words pr-8 leading-snug">{activeQuote.quote_id || activeQuote.customer_name}</DialogTitle>
-                <DialogDescription>Read-only quote request details</DialogDescription>
+                <DialogDescription>Quote request details</DialogDescription>
               </DialogHeader>
 
               <div className="flex min-w-0 flex-col gap-6">
@@ -3112,7 +3113,30 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                 )}
 
                 <section ref={adminQuoteDetailsSectionRef} className="order-1">
-                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Customer</h3>
+                  <CustomerInformationEditor
+        quote={activeQuote}
+        currentAdminRole={currentAdminRole}
+        onSaved={(updatedCustomer) => {
+          setSelectedQuote((currentQuote) =>
+            currentQuote?.id === activeQuote.id
+              ? { ...currentQuote, ...updatedCustomer }
+              : currentQuote
+          );
+          setSelectedQuoteDetail((currentQuote) =>
+            currentQuote?.id === activeQuote.id
+              ? { ...currentQuote, ...updatedCustomer }
+              : currentQuote
+          );
+          setQuotes((currentQuotes) =>
+            currentQuotes.map((quote) =>
+              quote.id === activeQuote.id
+                ? { ...quote, ...updatedCustomer }
+                : quote
+            )
+          );
+          void loadStatusEvents(activeQuote.id);
+        }}
+      />
                   <dl className="grid gap-4 md:grid-cols-3">
                     <DetailField label="Customer Name" value={activeQuote.customer_name} />
                     <DetailField label="Company" value={getCompanyName(activeQuote)} />
