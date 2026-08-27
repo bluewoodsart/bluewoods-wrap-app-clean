@@ -18,7 +18,7 @@ start = admin_text.find(start_marker)
 if start == -1:
     raise RuntimeError('CustomerInformationEditor JSX block was not found.')
 
-end_marker = '                />'
+end_marker = '\n      />'
 end = admin_text.find(end_marker, start)
 if end == -1:
     raise RuntimeError('CustomerInformationEditor JSX closing marker was not found.')
