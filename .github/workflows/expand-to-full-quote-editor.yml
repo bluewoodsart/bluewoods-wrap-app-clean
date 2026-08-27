@@ -6,6 +6,7 @@ on:
       - feature/customer-information-editing
     paths:
       - .github/workflows/expand-to-full-quote-editor.yml
+      - scripts/expand_quote_editor.py
 
 permissions:
   contents: write
