@@ -96,15 +96,8 @@ jobs:
               '              The link field remains a review draft until client approval. The secure intake below is the central place for clients to send original video files or hosted-video links to Blue Woods Brands.',
               'story video intake explanation'
           )
-          text_card_anchor = '''            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Text preserved on the front end</p>'''
-          intake_and_text_card = '''            <ClientVideoIntakeControl
-              publicProof={publicProof}
-              clientSlug="compassion-ministries"
-              clientName="Compassion Ministries of Georgia"
-            />
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Text preserved on the front end</p>'''
+          text_card_anchor = '            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">\n              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Text preserved on the front end</p>'
+          intake_and_text_card = '            <ClientVideoIntakeControl\n              publicProof={publicProof}\n              clientSlug="compassion-ministries"\n              clientName="Compassion Ministries of Georgia"\n            />\n            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">\n              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Text preserved on the front end</p>'
           workspace = replace_once(
               workspace,
               text_card_anchor,
