@@ -11,6 +11,7 @@ import ThankYou from "./pages/ThankYou";
 import AdminStatus from "./pages/AdminStatus";
 import Admin from "./pages/Admin";
 import CompassionBackendProof from "./pages/CompassionBackendProof";
+import ClientVideoUpload from "./pages/ClientVideoUpload";
 import RepPortal from "./pages/RepPortal";
 import FullProject from "./pages/FullProject";
 import UploadAssets from "./pages/UploadAssets";
@@ -122,6 +123,7 @@ const App = () => {
               <Route path="/signs" element={<SignageQuoteFlow />} />
               <Route path="/stickers-decals" element={<StickerQuoteFlow />} />
               <Route path="/compassion-backend-proof" element={<CompassionBackendProof />} />
+              <Route path="/client-video-upload/:token" element={<ClientVideoUpload />} />
               <Route path="/login" element={<LoginPlaceholder allowAccountSwitch />} />
               <Route path="/logout" element={<Logout />} />
               <Route

@@ -476,3 +476,23 @@ A portal evolution pass is complete only when:
 - the proof is visible to the user;
 - the user has a clear approval decision;
 - the next change remains queued rather than bundled into the current pass.
+
+
+## Reusable Module: Story Video Control
+
+The first approved portal extension is a centralized story-video and raw-footage intake module.
+
+Required behavior:
+
+- keep support for YouTube and other hosted video links;
+- provide a secure direct-upload path for original video files;
+- accept MP4, MOV, M4V, WEBM, MPEG, and MPG within the configured storage limit;
+- store uploaded files privately, never in a public bucket;
+- identify the client, uploader, title, notes, source type, status, and submission date;
+- place received videos in the protected client workspace for BWB review, editing, approval, and distribution;
+- give each client an unguessable, revocable, expiring upload link;
+- keep the public backend proof demonstrational while the real files remain visible only to approved BWB admins;
+- preserve the existing video-link field when direct upload is added;
+- treat receiving footage, editing footage, approving footage, and publishing footage as separate workflow stages.
+
+The purpose is to make each BWB client portal the single place where source videos are delivered, instead of scattering footage across text messages, email threads, social messages, and unrelated file folders.

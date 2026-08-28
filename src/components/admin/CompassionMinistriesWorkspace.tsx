@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ClientVideoIntakeControl from '@/components/admin/ClientVideoIntakeControl';
 
 type SectionId =
   | 'dashboard'
@@ -229,7 +230,7 @@ const getYouTubeEmbedUrl = (value: string) => {
   return '';
 };
 
-const CompassionMinistriesWorkspace = () => {
+const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: boolean }) => {
   const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
   const [storyVideoUrl, setStoryVideoUrl] = useState(getStoredVideoUrl);
   const [savedStoryVideoUrl, setSavedStoryVideoUrl] = useState(getStoredVideoUrl);
@@ -360,7 +361,7 @@ const CompassionMinistriesWorkspace = () => {
                   <div className="text-center">
                     <PlayCircle className="mx-auto h-14 w-14 text-red-500" />
                     <p className="mt-3 text-sm font-black">Video space is ready</p>
-                    <p className="mt-1 text-xs text-slate-300">Add the YouTube URL in Website & SEO.</p>
+                    <p className="mt-1 text-xs text-slate-300">Add a video link or send raw footage in Website & SEO.</p>
                   </div>
                 </div>
               )}
@@ -578,13 +579,13 @@ const CompassionMinistriesWorkspace = () => {
           </CardHeader>
           <CardContent className="space-y-4 p-5">
             <div>
-              <label htmlFor="compassion-story-video" className="text-xs font-black uppercase tracking-[0.12em] text-slate-600">YouTube video URL</label>
+              <label htmlFor="compassion-story-video" className="text-xs font-black uppercase tracking-[0.12em] text-slate-600">Video link — YouTube or another video site</label>
               <input
                 id="compassion-story-video"
                 type="url"
                 value={storyVideoUrl}
                 onChange={(event) => setStoryVideoUrl(event.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
+                placeholder="https://youtube.com/... or another video site"
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
@@ -604,8 +605,13 @@ const CompassionMinistriesWorkspace = () => {
             </div>
             {storySaveMessage && <p className="text-sm font-semibold text-emerald-700">{storySaveMessage}</p>}
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-              Generation 1 stores this URL as an internal browser draft. Publishing the URL directly into the live page will be connected after the client approval and database workflow are added.
+              The link field remains a review draft until client approval. The secure intake below is the central place for clients to send original video files or hosted-video links to Blue Woods Brands.
             </div>
+            <ClientVideoIntakeControl
+              publicProof={publicProof}
+              clientSlug="compassion-ministries"
+              clientName="Compassion Ministries of Georgia"
+            />
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Text preserved on the front end</p>
               <p className="mt-2 text-sm font-bold text-slate-950">“We don’t just feed people. We build community, restore dignity, and remind every person that they are seen, valued, and never alone.”</p>

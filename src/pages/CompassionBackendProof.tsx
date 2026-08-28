@@ -34,7 +34,7 @@ const CompassionBackendProof = () => {
             Buttons, task checks, and the story-video field are demonstration controls. Any drafts entered here remain only in the visitor’s browser.
           </p>
         </div>
-        <CompassionMinistriesWorkspace />
+        <CompassionMinistriesWorkspace publicProof />
       </div>
     </div>
   );
