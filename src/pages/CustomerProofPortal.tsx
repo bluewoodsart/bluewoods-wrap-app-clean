@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, CreditCard, FileText, RefreshCw, Send } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, FileText, Maximize2, RefreshCw, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 
@@ -15,6 +16,34 @@ interface ProofOption {
   label: string;
   sort_order: number;
   image_url: string;
+}
+
+interface ProofImage {
+  id: string;
+  image_url: string;
+  original_filename: string | null;
+  sort_order: number;
+}
+
+interface ProofFeedback {
+  id: string;
+  proof_image_id: string | null;
+  image_url: string | null;
+  original_filename: string | null;
+  message: string;
+  created_at: string;
+}
+
+interface ApprovedProposal {
+  invoice_token: string;
+  invoice_status: 'approved';
+  invoice_data: {
+    lineItems?: Array<{ quantity?: number; rate?: number }>;
+    depositPercent?: number;
+    projectDescription?: string;
+  };
+  order_number: string;
+  approved_at: string | null;
 }
 
 interface ProofPortalDetails {
@@ -54,6 +83,10 @@ const getProofOptions = (details: ProofPortalDetails | null) => {
   }
 };
 
+const formatMoney = (value: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+    .format(Number.isFinite(value) ? value : 0);
+
 const CustomerProofPortal = () => {
   const { token = '' } = useParams();
   const [details, setDetails] = useState<ProofPortalDetails | null>(null);
@@ -65,6 +98,11 @@ const CustomerProofPortal = () => {
   const [selectedOptionId, setSelectedOptionId] = useState('');
   const [selectionMessage, setSelectionMessage] = useState('');
   const [finalApproval, setFinalApproval] = useState(false);
+  const [proofImages, setProofImages] = useState<ProofImage[]>([]);
+  const [selectedProofImageId, setSelectedProofImageId] = useState('');
+  const [proofFeedback, setProofFeedback] = useState<ProofFeedback[]>([]);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
+  const [approvedProposal, setApprovedProposal] = useState<ApprovedProposal | null>(null);
 
   const loadProof = async () => {
     setLoading(true);
@@ -91,7 +129,49 @@ const CustomerProofPortal = () => {
     }
 
     setDetails(nextDetails);
-    setRevisionMessage(nextDetails.revision_message || '');
+    const { data: proofImageData, error: proofImagesError } = await supabase
+      .rpc('get_customer_proof_images_public', {
+        p_token: token
+      });
+
+    if (proofImagesError) {
+      console.error('Customer proof image set load failed:', proofImagesError);
+      setProofImages([]);
+    } else {
+      const nextProofImages = Array.isArray(proofImageData) ? proofImageData as ProofImage[] : [];
+      setProofImages(nextProofImages);
+      setSelectedProofImageId((currentId) =>
+        nextProofImages.some((proofImage) => proofImage.id === currentId)
+          ? currentId
+          : nextProofImages[0]?.id || ''
+      );
+    }
+
+    const { data: proofFeedbackData, error: proofFeedbackError } = await supabase
+      .rpc('get_customer_proof_feedback_public', {
+        p_token: token
+      });
+
+    if (proofFeedbackError) {
+      console.error('Customer proof feedback history load failed:', proofFeedbackError);
+      setProofFeedback([]);
+    } else {
+      setProofFeedback(Array.isArray(proofFeedbackData) ? proofFeedbackData as ProofFeedback[] : []);
+    }
+
+    const { data: proposalData, error: proposalError } = await supabase
+      .rpc('get_approved_quote_invoice_for_proof_public_v1', {
+        p_token: token
+      });
+
+    if (proposalError) {
+      console.error('Approved proposal load failed:', proposalError);
+      setApprovedProposal(null);
+    } else {
+      setApprovedProposal((proposalData?.[0] as ApprovedProposal | undefined) || null);
+    }
+
+    setRevisionMessage('');
     setSelectedOptionId(nextDetails.selected_customer_proof_option_id || '');
     setSelectionMessage(nextDetails.customer_proof_selection_message || '');
     setFinalApproval(false);
@@ -115,12 +195,22 @@ const CustomerProofPortal = () => {
     setError('');
     setMessage(decision === 'approved' ? 'Saving approval...' : 'Sending revision request...');
 
-    const { error: actionError } = await supabase
-      .rpc('submit_customer_proof_action_public', {
-        p_token: token,
-        p_action: decision,
-        p_revision_message: decision === 'changes_requested' ? trimmedRevisionMessage : null
-      });
+    const selectedImageSupportsFeedback =
+      decision === 'changes_requested'
+      && selectedProofImage
+      && selectedProofImage.id !== 'legacy-current-proof';
+
+    const { error: actionError } = selectedImageSupportsFeedback
+      ? await supabase.rpc('submit_customer_proof_image_feedback_public', {
+          p_token: token,
+          p_proof_image_id: selectedProofImage.id,
+          p_revision_message: trimmedRevisionMessage
+        })
+      : await supabase.rpc('submit_customer_proof_action_public', {
+          p_token: token,
+          p_action: decision,
+          p_revision_message: decision === 'changes_requested' ? trimmedRevisionMessage : null
+        });
 
     setSaving(false);
 
@@ -131,7 +221,12 @@ const CustomerProofPortal = () => {
       return;
     }
 
-    setMessage(decision === 'approved' ? 'Proof approved. Thank you.' : 'Revision request sent. Thank you.');
+    setRevisionMessage('');
+    setMessage(
+      decision === 'approved'
+        ? 'Proof approved. Thank you.'
+        : `Change request saved for ${selectedProofImage?.original_filename || 'the selected proof image'}.`
+    );
     await loadProof();
   };
 
@@ -171,6 +266,24 @@ const CustomerProofPortal = () => {
   const proofOptions = getProofOptions(details);
   const selectedOption = proofOptions.find((option) => option.id === details?.selected_customer_proof_option_id);
   const selectedPreviewOption = proofOptions.find((option) => option.id === selectedOptionId) || proofOptions[0] || null;
+  const currentProofImages: ProofImage[] = proofImages.length > 0
+    ? proofImages
+    : details?.proof_image_url
+      ? [{ id: 'legacy-current-proof', image_url: details.proof_image_url, original_filename: null, sort_order: 0 }]
+      : [];
+  const selectedProofImage =
+    currentProofImages.find((proofImage) => proofImage.id === selectedProofImageId)
+    || currentProofImages[0]
+    || null;
+  const proposalTotal = (approvedProposal?.invoice_data.lineItems || []).reduce(
+    (sum, item) => sum + Math.max(Number(item.quantity) || 0, 0) * Math.max(Number(item.rate) || 0, 0),
+    0
+  );
+  const proposalDepositPercent = Math.min(
+    Math.max(Number(approvedProposal?.invoice_data.depositPercent) || 0, 0),
+    100
+  );
+  const proposalDeposit = proposalTotal * proposalDepositPercent / 100;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 md:py-10">
@@ -376,14 +489,62 @@ const CustomerProofPortal = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                {details?.proof_image_url ? (
-                  <a href={details.proof_image_url} target="_blank" rel="noreferrer" className="block bg-white">
-                    <img
-                      src={details.proof_image_url}
-                      alt="Current proof"
-                      className="max-h-[72vh] w-full object-contain"
-                    />
-                  </a>
+                {selectedProofImage ? (
+                  <div className="bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setImagePreview({
+                        src: selectedProofImage.image_url,
+                        alt: selectedProofImage.original_filename || 'Current proof'
+                      })}
+                      className="relative block w-full cursor-zoom-in bg-white"
+                    >
+                      <img
+                        src={selectedProofImage.image_url}
+                        alt={selectedProofImage.original_filename || 'Current proof'}
+                        className="max-h-[72vh] w-full object-contain"
+                      />
+                      <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/80 p-2 text-white"><Maximize2 className="h-5 w-5" /></span>
+                    </button>
+                    {currentProofImages.length > 1 && (
+                      <div className="border-t border-slate-200 p-3">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                          {currentProofImages.length} proof images — review every view
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                          {currentProofImages.map((proofImage, proofImageIndex) => {
+                            const isCurrent = proofImage.id === selectedProofImage.id;
+                            return (
+                              <button
+                                key={proofImage.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProofImageId(proofImage.id);
+                                  setRevisionMessage('');
+                                  setError('');
+                                  setMessage('');
+                                }}
+                                className={`overflow-hidden rounded-md border bg-white text-left transition ${
+                                  isCurrent
+                                    ? 'border-blue-600 ring-2 ring-blue-100'
+                                    : 'border-slate-200 hover:border-blue-300'
+                                }`}
+                              >
+                                <img
+                                  src={proofImage.image_url}
+                                  alt={proofImage.original_filename || `Proof image ${proofImageIndex + 1}`}
+                                  className="h-24 w-full bg-slate-100 object-contain"
+                                />
+                                <span className="block truncate px-2 py-1.5 text-xs text-slate-700">
+                                  {proofImage.original_filename || `View ${proofImageIndex + 1}`}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex min-h-[22rem] items-center justify-center bg-slate-100 px-6 text-center text-sm text-slate-600">
                     The proof image has not been posted yet.
@@ -398,6 +559,11 @@ const CustomerProofPortal = () => {
                   <CardTitle className="text-lg">Job Phase</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {selectedProofImage && (
+                    <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                      Comment applies to: <span className="font-medium">{selectedProofImage.original_filename || 'selected proof image'}</span>
+                    </div>
+                  )}
                   <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800">
                     {formatPhase(details?.customer_phase ?? null)}
                   </div>
@@ -424,7 +590,7 @@ const CustomerProofPortal = () => {
                 <CardContent className="space-y-3">
                   <Button
                     className="w-full"
-                    disabled={saving || !details?.proof_image_url}
+                    disabled={saving || currentProofImages.length === 0}
                     onClick={() => submitDecision('approved')}
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -444,12 +610,25 @@ const CustomerProofPortal = () => {
                   <Button
                     className="w-full"
                     variant="outline"
-                    disabled={saving || !details?.proof_image_url || !revisionMessage.trim()}
+                    disabled={saving || !selectedProofImage || !revisionMessage.trim()}
                     onClick={() => submitDecision('changes_requested')}
                   >
                     <Send className="mr-2 h-4 w-4" />
                     {saving ? 'Sending...' : 'Request Changes'}
                   </Button>
+                  {proofFeedback.length > 0 && (
+                    <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-600">Submitted change requests</p>
+                      {proofFeedback.map((feedback) => (
+                        <div key={feedback.id} className="rounded-md border border-slate-200 bg-white p-2.5">
+                          <p className="text-xs font-medium text-slate-700">
+                            {feedback.original_filename || 'Proof image'}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{feedback.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {message && (
                     <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                       {message}
@@ -485,7 +664,52 @@ const CustomerProofPortal = () => {
             </div>
           </div>
         )}
+
+        {!loading && details?.valid && (
+          <Card className="border-blue-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="h-5 w-5 text-blue-700" />
+                Proposal / Invoice
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {approvedProposal ? (
+                <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-950">
+                      {approvedProposal.invoice_data.projectDescription || `Proposal ${approvedProposal.order_number}`}
+                    </p>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-700">
+                      <span>Total: <strong>{formatMoney(proposalTotal)}</strong></span>
+                      {proposalDepositPercent > 0 && (
+                        <span>{proposalDepositPercent}% deposit: <strong>{formatMoney(proposalDeposit)}</strong></span>
+                      )}
+                    </div>
+                  </div>
+                  <Button asChild>
+                    <a href={`/invoice/${approvedProposal.invoice_token}`}>
+                      Review Official Proposal
+                    </a>
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  Proposal pricing has not been approved yet. It will appear here after SlapWrapz completes and approves the invoice.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
+      <Dialog open={Boolean(imagePreview)} onOpenChange={(open) => !open && setImagePreview(null)}>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto bg-slate-950 p-2 sm:p-4">
+          <DialogTitle className="sr-only">{imagePreview?.alt || 'Proof image preview'}</DialogTitle>
+          <DialogDescription className="sr-only">Close this preview to return to the proof at the same position.</DialogDescription>
+          <Button type="button" size="icon" variant="secondary" className="absolute right-3 top-3 z-10" onClick={() => setImagePreview(null)} aria-label="Close image preview"><X className="h-5 w-5" /></Button>
+          {imagePreview && <img src={imagePreview.src} alt={imagePreview.alt} className="max-h-[calc(100dvh-3rem)] w-full object-contain" />}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
