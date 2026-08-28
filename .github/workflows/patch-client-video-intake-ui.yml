@@ -1,0 +1,154 @@
+name: Patch Client Video Intake UI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/patch-client-video-intake-ui.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Connect client video intake UI
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if new in text:
+                  return text
+              if old not in text:
+                  raise SystemExit(f'Could not find expected {label}.')
+              return text.replace(old, new, 1)
+
+          app_path = Path('src/App.tsx')
+          app = app_path.read_text(encoding='utf-8')
+          app = replace_once(
+              app,
+              'import CompassionBackendProof from "./pages/CompassionBackendProof";\n',
+              'import CompassionBackendProof from "./pages/CompassionBackendProof";\nimport ClientVideoUpload from "./pages/ClientVideoUpload";\n',
+              'ClientVideoUpload import location'
+          )
+          app = replace_once(
+              app,
+              '              <Route path="/compassion-backend-proof" element={<CompassionBackendProof />} />\n',
+              '              <Route path="/compassion-backend-proof" element={<CompassionBackendProof />} />\n              <Route path="/client-video-upload/:token" element={<ClientVideoUpload />} />\n',
+              'client video upload route location'
+          )
+          app_path.write_text(app, encoding='utf-8')
+
+          proof_path = Path('src/pages/CompassionBackendProof.tsx')
+          proof = proof_path.read_text(encoding='utf-8')
+          proof = replace_once(
+              proof,
+              '        <CompassionMinistriesWorkspace />',
+              '        <CompassionMinistriesWorkspace publicProof />',
+              'public proof workspace props'
+          )
+          proof_path.write_text(proof, encoding='utf-8')
+
+          workspace_path = Path('src/components/admin/CompassionMinistriesWorkspace.tsx')
+          workspace = workspace_path.read_text(encoding='utf-8')
+          workspace = replace_once(
+              workspace,
+              "import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';\n",
+              "import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';\nimport ClientVideoIntakeControl from '@/components/admin/ClientVideoIntakeControl';\n",
+              'ClientVideoIntakeControl import location'
+          )
+          workspace = replace_once(
+              workspace,
+              'const CompassionMinistriesWorkspace = () => {',
+              'const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: boolean }) => {',
+              'workspace component signature'
+          )
+          workspace = replace_once(
+              workspace,
+              '>YouTube video URL</label>',
+              '>Video link — YouTube or another video site</label>',
+              'story video link label'
+          )
+          workspace = replace_once(
+              workspace,
+              'placeholder="https://www.youtube.com/watch?v=..."',
+              'placeholder="https://youtube.com/... or another video site"',
+              'story video link placeholder'
+          )
+          workspace = replace_once(
+              workspace,
+              'Add the YouTube URL in Website & SEO.',
+              'Add a video link or send raw footage in Website & SEO.',
+              'dashboard story video instruction'
+          )
+          old_intake_location = '''            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              Generation 1 stores this URL as an internal browser draft. Publishing the URL directly into the live page will be connected after the client approval and database workflow are added.
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">'''
+          new_intake_location = '''            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              The link field remains a review draft until client approval. The secure intake below is the central place for clients to send original video files or hosted-video links to Blue Woods Brands.
+            </div>
+            <ClientVideoIntakeControl
+              publicProof={publicProof}
+              clientSlug="compassion-ministries"
+              clientName="Compassion Ministries of Georgia"
+            />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">'''
+          workspace = replace_once(
+              workspace,
+              old_intake_location,
+              new_intake_location,
+              'story video intake insertion point'
+          )
+          workspace_path.write_text(workspace, encoding='utf-8')
+
+          skill_path = Path('skills/bwb-portal-evolution/SKILL.md')
+          skill = skill_path.read_text(encoding='utf-8')
+          module_heading = '## Reusable Module: Story Video Control'
+          if module_heading not in skill:
+              skill += '''
+
+## Reusable Module: Story Video Control
+
+The first approved portal extension is a centralized story-video and raw-footage intake module.
+
+Required behavior:
+
+- keep support for YouTube and other hosted video links;
+- provide a secure direct-upload path for original video files;
+- accept MP4, MOV, M4V, WEBM, MPEG, and MPG within the configured storage limit;
+- store uploaded files privately, never in a public bucket;
+- identify the client, uploader, title, notes, source type, status, and submission date;
+- place received videos in the protected client workspace for BWB review, editing, approval, and distribution;
+- give each client an unguessable, revocable, expiring upload link;
+- keep the public backend proof demonstrational while the real files remain visible only to approved BWB admins;
+- preserve the existing video-link field when direct upload is added;
+- treat receiving footage, editing footage, approving footage, and publishing footage as separate workflow stages.
+
+The purpose is to make each BWB client portal the single place where source videos are delivered, instead of scattering footage across text messages, email threads, social messages, and unrelated file folders.
+'''
+          skill_path.write_text(skill, encoding='utf-8')
+          PY
+
+      - name: Commit connected workflow and remove one-time patch
+        shell: bash
+        run: |
+          rm -f .github/workflows/patch-client-video-intake-ui.yml
+          if git diff --quiet; then
+            echo "No changes were needed."
+            exit 0
+          fi
+          git config user.name "bluewoodsart"
+          git config user.email "153660767+bluewoodsart@users.noreply.github.com"
+          git add src/App.tsx src/pages/CompassionBackendProof.tsx src/components/admin/CompassionMinistriesWorkspace.tsx skills/bwb-portal-evolution/SKILL.md .github/workflows/patch-client-video-intake-ui.yml
+          git commit -m "Connect secure client video intake to Compassion workspace"
+          git push
