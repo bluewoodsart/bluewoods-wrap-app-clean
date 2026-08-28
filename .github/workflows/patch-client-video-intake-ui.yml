@@ -90,24 +90,26 @@ jobs:
               'Add a video link or send raw footage in Website & SEO.',
               'dashboard story video instruction'
           )
-          old_intake_location = '''            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-              Generation 1 stores this URL as an internal browser draft. Publishing the URL directly into the live page will be connected after the client approval and database workflow are added.
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">'''
-          new_intake_location = '''            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-              The link field remains a review draft until client approval. The secure intake below is the central place for clients to send original video files or hosted-video links to Blue Woods Brands.
-            </div>
-            <ClientVideoIntakeControl
+          workspace = replace_once(
+              workspace,
+              '              Generation 1 stores this URL as an internal browser draft. Publishing the URL directly into the live page will be connected after the client approval and database workflow are added.',
+              '              The link field remains a review draft until client approval. The secure intake below is the central place for clients to send original video files or hosted-video links to Blue Woods Brands.',
+              'story video intake explanation'
+          )
+          text_card_anchor = '''            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Text preserved on the front end</p>'''
+          intake_and_text_card = '''            <ClientVideoIntakeControl
               publicProof={publicProof}
               clientSlug="compassion-ministries"
               clientName="Compassion Ministries of Georgia"
             />
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">'''
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Text preserved on the front end</p>'''
           workspace = replace_once(
               workspace,
-              old_intake_location,
-              new_intake_location,
-              'story video intake insertion point'
+              text_card_anchor,
+              intake_and_text_card,
+              'text-preserved card insertion point'
           )
           workspace_path.write_text(workspace, encoding='utf-8')
 
