@@ -400,6 +400,26 @@ May contain:
 
 Never use a public proof as a shortcut around authentication.
 
+## CRM Quote Record Editing Standard
+
+When an authorized owner or staff user opens a quote inside the protected CRM, **Edit Quote** means editing the existing CRM record—not creating a new quote and not limiting the correction to customer contact information.
+
+The editor must:
+
+- prefill the customer and product-specific quote fields already saved on the record;
+- save changes back to the same `quote_requests.id`;
+- preserve the quote/order number, product type, uploads, proofs, payments, rep assignment, status, approvals, and production controls unless one of those is changed through its own separate workflow;
+- preserve unknown and future `quote_data` keys;
+- refresh the open record and CRM list after save;
+- record an audit event;
+- remain restricted to authenticated owner/staff roles.
+
+Use the detailed implementation module:
+
+```text
+skills/bwb-portal-evolution/modules/quote-record-editing.md
+```
+
 ## Data and Integration Gates
 
 Do not connect these merely because the UI exists:
