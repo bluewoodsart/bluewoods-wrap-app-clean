@@ -24,6 +24,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
 import WesleyWingsProofGallery from '@/components/WesleyWingsProofGallery';
+import { CustomerContactEditor, type SavedCustomerContact } from '@/components/admin/CustomerContactEditor';
 import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
@@ -3101,7 +3102,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             <DialogContent className="admin-quote-dialog max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overscroll-contain overflow-y-auto overflow-x-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-full sm:p-6">
               <DialogHeader className="min-w-0 text-left">
                 <DialogTitle className="break-words pr-8 leading-snug">{activeQuote.quote_id || activeQuote.customer_name}</DialogTitle>
-                <DialogDescription>Read-only quote request details</DialogDescription>
+                <DialogDescription>Quote request details and editable customer account information</DialogDescription>
               </DialogHeader>
 
               <div className="flex min-w-0 flex-col gap-6">
@@ -3160,6 +3161,23 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                       </Button>
                     )}
                   </div>
+                  <CustomerContactEditor
+                    quoteRequestId={activeQuote.id}
+                    customerName={activeQuote.customer_name}
+                    companyName={String(getCompanyName(activeQuote) || '')}
+                    email={activeQuote.customer_email}
+                    phone={activeQuote.customer_phone}
+                    preferredContact={activeQuote.preferred_contact}
+                    quoteData={activeQuote.quote_data}
+                    onSaved={(saved: SavedCustomerContact) => {
+                      const applySavedCustomer = (quote: QuoteRequestRow | null) => quote && quote.id === activeQuote.id
+                        ? { ...quote, ...saved }
+                        : quote;
+                      setSelectedQuote((quote) => applySavedCustomer(quote));
+                      setSelectedQuoteDetail((quote) => applySavedCustomer(quote));
+                      setQuotes((current) => current.map((quote) => quote.id === activeQuote.id ? { ...quote, ...saved } : quote));
+                    }}
+                  />
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <button
                       type="button"
