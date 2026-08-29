@@ -1,49 +1,44 @@
-# Blue Woods Marketing Workspace — Design QA
+# Blue Woods SEO Execution Board — Design QA
 
-- Source visual truth: `C:\Users\Designer\AppData\Local\Temp\codex-clipboard-4befee3d-55fe-4db2-bf00-61edbd5a3dd7.png`
-- Implementation screenshot: `C:\Users\Designer\Documents\Codex\2026-08-28\files-mentioned-by-the-user-codex\work\auth-fix\implementation-bwb-marketing.png`
-- Mobile screenshot: `C:\Users\Designer\Documents\Codex\2026-08-28\files-mentioned-by-the-user-codex\work\auth-fix\implementation-bwb-marketing-mobile.png`
-- Combined comparison: `C:\Users\Designer\Documents\Codex\2026-08-28\files-mentioned-by-the-user-codex\work\auth-fix\design-qa-comparison.png`
-- Desktop viewport: 1300 × 1135 CSS px at device scale factor 1
-- Source pixels: 1301 × 1134
-- Implementation pixels: 1300 × 1135
-- Mobile viewport: 390 × 844 CSS px; full-page implementation capture: 375 × 2350 px
-- State: Blue Woods owner Marketing workspace with Marketing & Branding selected
-- Density normalization: source and desktop implementation were compared at effectively 1:1 density; the one-pixel source variance is non-material.
+- Source visual truth: `C:\Users\Designer\AppData\Local\Temp\codex-clipboard-d0a859b1-d228-4930-b868-14041ef4a4ba.png`
+- Live implementation screenshot: `C:\Users\Designer\Documents\Codex\2026-08-28\files-mentioned-by-the-user-codex\work\auth-fix\implementation-bwb-seo-board.png`
+- Combined comparison: `C:\Users\Designer\Documents\Codex\2026-08-28\files-mentioned-by-the-user-codex\work\auth-fix\design-qa-seo-comparison.png`
+- Source state: authenticated Blue Woods owner workspace with Websites & SEO selected
+- Implementation state: the same workspace with the new shared Fayetteville SEO execution board
 
 ## Findings
 
 No actionable P0, P1, or P2 visual differences remain.
 
-- Fonts and typography: The implementation preserves the source hierarchy, heavy display headings, compact uppercase eyebrows, small navigation labels, and readable body leading. Text wraps cleanly at desktop and mobile sizes.
-- Spacing and layout rhythm: The rounded hero, left workspace navigation, two-column content region, card gaps, padding, borders, and status-row rhythm match the reference structure. The implementation expands to the available viewport because the source browser capture appears zoomed; proportions remain equivalent.
-- Colors and visual tokens: Compassion Ministries' emerald/red client palette is intentionally replaced by the Blue Woods owner palette of slate/cyan. Existing neutral cards and semantic status colors remain consistent with the source design system.
-- Image quality and asset fidelity: The reference contains no photographic or illustration assets in the compared workspace region. Existing icon-library icons are retained; no placeholder imagery, CSS drawings, or recreated logos are present.
-- Copy and content: All Compassion Ministries names, grand-opening information, nonprofit functions, and client asset labels are removed from the owner Marketing workspace. The replacement copy is Blue Woods Brands and SlapWrapz company information. The Compassion workspace itself is not modified.
-
-The source includes the surrounding authenticated Admin shell while the local visual-QA route isolates the workspace component. This is an intentional capture normalization: the production route mounts the new component inside the existing unchanged Admin shell.
-
-Focused-region comparison was not needed because the full-view side-by-side comparison kept navigation, headings, status labels, card copy, spacing, and borders readable at the captured resolution.
+- The Admin shell, owner hero, BWB sidebar, typography, borders, spacing, radii, and cyan/slate palette remain consistent with the supplied screen.
+- The four placeholder SEO cards were intentionally replaced with a goal panel, four summary cards, progress/verification meters, and expandable action phases.
+- The board preserves the existing content width and vertical workspace rhythm. Long action copy wraps without horizontal overflow.
+- Status colors are semantic and consistent: blue for implemented, green for verified, violet for verification instructions, and amber for the next action.
+- Existing Lucide icons are used throughout; no placeholder imagery or handcrafted icon assets were introduced.
 
 ## Interaction Evidence
 
-- Clicked Dashboard and confirmed the `Blue Woods Brands Dashboard` view.
-- Clicked Marketing & Branding and confirmed the `Blue Woods Marketing & Branding` view.
-- Verified the mobile layout at 390 px with no horizontal document overflow.
-- Checked browser console after the successful preview reload; no new application errors were produced.
+- Opened the live production Admin route and selected Websites & SEO.
+- Confirmed all 30 planned actions render across four collapsible phases.
+- Checked an Implemented action and confirmed the summary changed from 0/30 to 1/30.
+- Confirmed Tested & verified remained disabled until Implemented was checked.
+- Checked Tested & verified and confirmed the verification summary changed to 1.
+- Reset the test action and confirmed both counts returned to 0 and the verification control locked again.
+- Confirmed the shared Supabase row persisted the reset state and no plan item was left falsely complete.
 
 ## Comparison History
 
-- First comparison: no P0/P1/P2 issues found. The product-context and palette differences are the requested separation, not design drift.
-- No visual fix iteration was required after the first rendered comparison.
+- First comparison: the requested expansion fits the original visual system; no blocking visual defect was found.
+- No visual fix iteration was required after the live comparison.
 
 ## Implementation Checklist
 
-- [x] Owner Marketing route is separate from Clients.
-- [x] BWB workspace preserves the Compassion workspace layout language.
-- [x] Client-specific Compassion data is absent from BWB Marketing.
-- [x] Compassion Ministries remains its own client workspace.
-- [x] Desktop and mobile navigation states work.
+- [x] Goal and target query are visible.
+- [x] Actions can be checked off one at a time.
+- [x] Verification is tracked separately from implementation.
+- [x] Evidence/results can be recorded for each action.
+- [x] Progress is shared across authorized owner/staff accounts.
+- [x] Live production interaction and persistence were verified.
 
 ## Follow-up Polish
 
