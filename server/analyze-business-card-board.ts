@@ -33,8 +33,7 @@ const leadSchema = {
   required: ['leads']
 };
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+export async function analyzeBusinessCardBoard(req: any, res: any) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;

@@ -1,4 +1,5 @@
 import { request } from 'node:https';
+import { analyzeBusinessCardBoard } from '../server/analyze-business-card-board';
 
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = process.env.SLAPWRAPZ_FROM_EMAIL?.trim() || 'SlapWrapz Admin <quotes@slapwrapz.com>';
@@ -76,6 +77,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const mode = typeof req.body === 'string' ? JSON.parse(req.body)?.mode : (req.body as { mode?: string } | null)?.mode;
+  if (mode === 'business-card-board') return analyzeBusinessCardBoard(req, res);
 
   const apiKey = process.env.RESEND_API_KEY;
   const supabaseUrl = process.env.VITE_SUPABASE_URL?.replace(/\/$/, '');

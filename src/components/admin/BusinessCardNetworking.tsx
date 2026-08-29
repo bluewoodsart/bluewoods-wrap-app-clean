@@ -202,9 +202,9 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
     const { data: signed, error: signError } = await supabase.storage.from('business-card-networking').createSignedUrl(imagePath, 900);
     if (signError || !signed?.signedUrl) { setAnalyzing(false); setMessage(''); setError(signError?.message || 'Could not prepare the board for analysis.'); return; }
     const { data: { session } } = await supabase.auth.getSession();
-    const response = await fetch('/api/analyze-business-card-board', {
+    const response = await fetch('/api/send-video-instruction-notification', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-      body: JSON.stringify({ imageUrl: signed.signedUrl })
+      body: JSON.stringify({ mode: 'business-card-board', imageUrl: signed.signedUrl })
     });
     const result = await response.json();
     if (!response.ok) { setAnalyzing(false); setMessage(''); setError(result.error || 'The board could not be analyzed.'); return; }
