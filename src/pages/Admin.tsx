@@ -387,7 +387,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="owner-marketing" className="mt-0">
-            <BlueWoodsMarketingWorkspace />
+            <BlueWoodsMarketingWorkspace adminUserId={adminUser.id} />
           </TabsContent>
 
           <TabsContent value="staff-feed" className="mt-0">

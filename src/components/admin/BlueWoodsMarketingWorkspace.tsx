@@ -19,6 +19,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import SeoExecutionBoard from '@/components/admin/SeoExecutionBoard';
 
 type SectionId =
   | 'overview'
@@ -155,7 +156,7 @@ const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: stri
   }
 };
 
-const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing' }: { initialSection?: SectionId }) => {
+const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId }: { initialSection?: SectionId; adminUserId: string }) => {
   const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
 
   const renderMarketing = () => (
@@ -207,6 +208,14 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing' }: { initial
   const renderSection = () => {
     if (activeSection === 'marketing') return renderMarketing();
     const section = workspaceSections[activeSection];
+    if (activeSection === 'website-seo') {
+      return (
+        <div className="space-y-5">
+          <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <SeoExecutionBoard adminUserId={adminUserId} />
+        </div>
+      );
+    }
     return (
       <div className="space-y-5">
         <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
