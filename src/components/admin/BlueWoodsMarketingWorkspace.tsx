@@ -20,12 +20,14 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import SeoExecutionBoard from '@/components/admin/SeoExecutionBoard';
+import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
 
 type SectionId =
   | 'overview'
   | 'brands'
   | 'website-seo'
   | 'social-media'
+  | 'content-calendar'
   | 'marketing'
   | 'lead-campaigns'
   | 'content'
@@ -48,6 +50,7 @@ const navigation: NavigationItem[] = [
   { id: 'brands', label: 'Brand Portfolio', icon: BriefcaseBusiness },
   { id: 'website-seo', label: 'Websites & SEO', icon: Search },
   { id: 'social-media', label: 'Social Media', icon: Share2 },
+  { id: 'content-calendar', label: 'Content Calendar', icon: CalendarDays },
   { id: 'marketing', label: 'Marketing & Branding', icon: Megaphone },
   { id: 'lead-campaigns', label: 'Lead Campaigns', icon: BadgeCheck },
   { id: 'content', label: 'Content Production', icon: Sparkles },
@@ -110,7 +113,13 @@ const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: stri
     eyebrow: 'Owned channels',
     title: 'Social Media',
     description: 'Organize Blue Woods and SlapWrapz social channels, content priorities, publishing status, and campaign links.',
-    items: ['Facebook and Instagram', 'TikTok and short-form video', 'YouTube and project stories', 'Content calendar']
+    items: []
+  },
+  'content-calendar': {
+    eyebrow: 'Publishing rhythm',
+    title: 'Content Calendar',
+    description: 'Plan what Blue Woods and SlapWrapz will publish, where it will go, who owns it, and when it should be reviewed.',
+    items: ['Calendar view', 'Draft and approval queue', 'Scheduled posts', 'Published content history']
   },
   'lead-campaigns': {
     eyebrow: 'Demand generation',
@@ -213,6 +222,14 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
           <SeoExecutionBoard adminUserId={adminUserId} />
+        </div>
+      );
+    }
+    if (activeSection === 'social-media') {
+      return (
+        <div className="space-y-5">
+          <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <SocialChannelDirectory adminUserId={adminUserId} />
         </div>
       );
     }
