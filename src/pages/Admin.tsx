@@ -127,7 +127,10 @@ const Admin = () => {
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(() => {
-      void loadAdminUser();
+      // Supabase calls made before this callback returns can deadlock auth-js.
+      window.setTimeout(() => {
+        void loadAdminUser();
+      }, 0);
     });
 
     return () => {

@@ -1007,7 +1007,10 @@ const RepPortal = () => {
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(() => {
-      void loadPortal();
+      // Supabase calls made before this callback returns can deadlock auth-js.
+      window.setTimeout(() => {
+        void loadPortal();
+      }, 0);
     });
 
     return () => {

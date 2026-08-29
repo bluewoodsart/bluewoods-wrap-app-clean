@@ -94,10 +94,10 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
     setLoading(true);
 
     try {
-      const { error: loginError } = await withTimeout(supabase.auth.signInWithPassword({
+      const { error: loginError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password
-      }), 15000, 'The login service took too long to respond. Check your connection and try again.');
+      });
 
       if (loginError) { setError(loginError.message); return; }
       clearClientForceLogout();
