@@ -36,9 +36,10 @@ const leadSchema = {
 export async function analyzeBusinessCardBoard(req: any, res: any) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-  const openAiKey = process.env.OPENAI_API_KEY;
+  const directOpenAiKey = process.env.OPENAI_API_KEY;
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
   if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'Server database configuration is missing.' });
-  if (!openAiKey) return res.status(503).json({ error: 'Card-board analysis is ready, but OPENAI_API_KEY has not been configured in Vercel.' });
+  if (!directOpenAiKey && !gatewayToken) return res.status(503).json({ error: 'AI analysis authentication is unavailable.' });
 
   const bearer = req.headers.authorization?.replace(/^Bearer\s+/i, '');
   if (!bearer) return res.status(401).json({ error: 'Sign in as a BWB administrator.' });
@@ -51,11 +52,11 @@ export async function analyzeBusinessCardBoard(req: any, res: any) {
   const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl : '';
   if (!imageUrl.startsWith('https://')) return res.status(400).json({ error: 'A secure signed image URL is required.' });
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
+  const response = await fetch(gatewayToken ? 'https://ai-gateway.vercel.sh/v1/responses' : 'https://api.openai.com/v1/responses', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${openAiKey}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${gatewayToken || directOpenAiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'gpt-5-mini',
+      model: gatewayToken ? 'openai/gpt-5-mini' : 'gpt-5-mini',
       tools: [{ type: 'web_search' }],
       input: [{ role: 'user', content: [
         { type: 'input_text', text: 'Extract every distinct business card visible in this board photo. Create one lead per card. Transcribe only what is legible. Use web search only when business identity is sufficiently specific, and return official profile URLs—not guesses. Never invent phone numbers, emails, names, websites, or social profiles. Use null when uncertain. Put uncertainty and duplicate warnings in review_notes. Confidence must reflect the weakest important identity/contact field.' },
