@@ -344,7 +344,7 @@ const Admin = () => {
             <TabsList className="flex h-auto w-full max-w-5xl overflow-x-auto">
               <TabsTrigger value="clients" className="min-h-11 min-w-max flex-1 px-3">Clients</TabsTrigger>
               <TabsTrigger value="staff-feed" className="min-h-11 min-w-max flex-1 px-3">Staff Feed</TabsTrigger>
-              <TabsTrigger value="video-reviews" className="min-h-11 min-w-max flex-1 px-3">Video Instructions</TabsTrigger>
+              {/* Video Instructions is archived: its direct route and records remain available for restoration. */}
               <TabsTrigger value="quote-requests" className="min-h-11 min-w-max flex-1 px-3">Quote Requests</TabsTrigger>
               <TabsTrigger value="rep-onboarding" className="min-h-11 min-w-max flex-1 px-3">Reps</TabsTrigger>
               <TabsTrigger value="production" className="min-h-11 min-w-max flex-1 px-3">Production</TabsTrigger>
