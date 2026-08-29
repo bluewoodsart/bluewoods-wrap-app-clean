@@ -12,7 +12,8 @@ import {
   Search,
   Sparkles,
   Upload,
-  Video
+  Video,
+  WandSparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +45,18 @@ interface NetworkingLead {
   status: LeadStatus;
   verification_status: VerificationStatus;
   episode_name: string | null;
+  social_profiles?: Record<string, string | null>;
+  extraction_confidence?: number | null;
+  extraction_notes?: string | null;
+  batch_id?: string | null;
+  card_index?: number | null;
   created_at: string;
+}
+
+interface ExtractedLead {
+  business_name: string | null; contact_name: string | null; phone: string | null; email: string | null;
+  website: string | null; business_category: string | null; product_summary: string | null;
+  social_profiles: Record<string, string | null>; confidence: number; review_notes: string;
 }
 
 interface LeadDraft {
@@ -90,6 +102,7 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
   const [previewUrl, setPreviewUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -178,6 +191,49 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
     await loadLeads();
   };
 
+  const analyzeBoard = async () => {
+    if (!cardFile || analyzing) { setError('Upload the group photograph first.'); return; }
+    setAnalyzing(true); setError(''); setMessage('Uploading the board securely, then reading every visible card...');
+    const safeName = cardFile.name.replace(/[^a-zA-Z0-9._-]/g, '-').toLowerCase();
+    const imagePath = `${adminUserId}/boards/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from('business-card-networking')
+      .upload(imagePath, cardFile, { contentType: cardFile.type, upsert: false });
+    if (uploadError) { setAnalyzing(false); setMessage(''); setError(`Board image could not be uploaded: ${uploadError.message}`); return; }
+    const { data: signed, error: signError } = await supabase.storage.from('business-card-networking').createSignedUrl(imagePath, 900);
+    if (signError || !signed?.signedUrl) { setAnalyzing(false); setMessage(''); setError(signError?.message || 'Could not prepare the board for analysis.'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch('/api/analyze-business-card-board', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify({ imageUrl: signed.signedUrl })
+    });
+    const result = await response.json();
+    if (!response.ok) { setAnalyzing(false); setMessage(''); setError(result.error || 'The board could not be analyzed.'); return; }
+    const extracted = (result.leads || []) as ExtractedLead[];
+    const usable = extracted.filter((lead) => lead.business_name?.trim());
+    if (!usable.length) { setAnalyzing(false); setMessage(''); setError('No business names were legible. Retake the photo closer or in smaller groups.'); return; }
+    const batchId = crypto.randomUUID();
+    const rows = usable.map((lead, index) => {
+      const socialLinks = Object.values(lead.social_profiles || {}).filter(Boolean).join('\n') || null;
+      return {
+        business_name: lead.business_name!.trim(), contact_name: lead.contact_name, phone: lead.phone, email: lead.email,
+        website: lead.website, social_links: socialLinks, social_profiles: lead.social_profiles || {},
+        business_category: lead.business_category, product_summary: lead.product_summary,
+        where_met: cleanNullable(draft.whereMet), date_met: draft.dateMet || null,
+        notes: cleanNullable(draft.notes), episode_name: cleanNullable(draft.episodeName),
+        tiktok_opportunity: Boolean(lead.social_profiles?.tiktok), can_ship: null,
+        card_image_path: imagePath, original_file_name: cardFile.name,
+        created_by_admin_user_id: adminUserId, verification_status: 'needs_review', status: 'discovered',
+        extraction_confidence: Math.max(0, Math.min(1, lead.confidence || 0)), extraction_notes: lead.review_notes || null,
+        batch_id: batchId, card_index: index + 1
+      };
+    });
+    const { error: insertError } = await supabase.from('business_network_leads').insert(rows);
+    if (insertError) { setAnalyzing(false); setMessage(''); setError(insertError.message); return; }
+    setAnalyzing(false); setCardFile(null); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl('');
+    setMessage(`${rows.length} contacts were added to the review queue. Verify each one before outreach.`);
+    await loadLeads();
+  };
+
   const updateLead = async (id: string, patch: Partial<NetworkingLead>) => {
     setError('');
     const { error: updateError } = await supabase
@@ -227,9 +283,11 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
           <CardHeader><CardTitle className="flex items-center gap-2"><Camera className="h-5 w-5 text-cyan-700" />Add a networking lead</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-center transition hover:border-cyan-600 hover:bg-cyan-50">
-              {previewUrl ? <img src={previewUrl} alt="Selected business card" className="mx-auto max-h-48 rounded-xl object-contain" /> : <><Upload className="mx-auto h-7 w-7 text-slate-500" /><p className="mt-2 text-sm font-black">Photograph or upload one card</p><p className="mt-1 text-xs text-slate-500">JPG, PNG, WEBP, HEIC · 15 MB maximum</p></>}
+              {previewUrl ? <img src={previewUrl} alt="Selected business card or card board" className="mx-auto max-h-48 rounded-xl object-contain" /> : <><Upload className="mx-auto h-7 w-7 text-slate-500" /><p className="mt-2 text-sm font-black">Upload one card or a whole card board</p><p className="mt-1 text-xs text-slate-500">JPG, PNG, WEBP, HEIC · 15 MB maximum</p></>}
               <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => chooseCard(event.target.files?.[0] ?? null)} />
             </label>
+            {cardFile && <Button type="button" onClick={() => void analyzeBoard()} disabled={analyzing} className="w-full bg-violet-700 text-white hover:bg-violet-800">{analyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}{analyzing ? 'Reading Every Card...' : 'Analyze Whole Board Into Leads'}</Button>}
+            <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-wide text-slate-400"><span className="h-px flex-1 bg-slate-200" />or enter one card<span className="h-px flex-1 bg-slate-200" /></div>
             <div><Label>Business name *</Label><Input className="mt-1" value={draft.businessName} onChange={(e) => setDraft({ ...draft, businessName: e.target.value })} placeholder="Verify this from the card" /></div>
             <div className="grid gap-3 sm:grid-cols-2"><div><Label>Contact person</Label><Input className="mt-1" value={draft.contactName} onChange={(e) => setDraft({ ...draft, contactName: e.target.value })} /></div><div><Label>Category</Label><Input className="mt-1" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} placeholder="Food, beauty, auto..." /></div></div>
             <div className="grid gap-3 sm:grid-cols-2"><div><Label>Phone</Label><Input className="mt-1" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></div><div><Label>Email</Label><Input className="mt-1" type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></div></div>
@@ -253,11 +311,13 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
               <article key={lead.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_190px]">
                 <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black text-slate-950">{lead.business_name}</h3><span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${lead.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>{lead.verification_status === 'verified' ? 'Verified lead' : 'Needs review'}</span>{lead.tiktok_opportunity && <span className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2.5 py-1 text-[10px] font-black uppercase text-cyan-900"><Sparkles className="h-3 w-3" />TikTok opportunity</span>}</div>
                   <p className="mt-1 text-sm font-semibold text-slate-700">{lead.contact_name || 'Contact not verified'}{lead.business_category ? ` · ${lead.business_category}` : ''}</p>
+                  {lead.extraction_confidence != null && <p className={`mt-2 text-xs font-black ${lead.extraction_confidence >= .8 ? 'text-emerald-700' : lead.extraction_confidence >= .55 ? 'text-amber-700' : 'text-red-700'}`}>{Math.round(lead.extraction_confidence * 100)}% extraction confidence · verify before contact</p>}
                   {lead.product_summary && <p className="mt-3 text-sm leading-6 text-slate-600">{lead.product_summary}</p>}
+                  {lead.extraction_notes && <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{lead.extraction_notes}</p>}
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">{lead.where_met && <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"><MapPin className="h-3 w-3" />{lead.where_met}</span>}{lead.can_ship !== null && <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"><PackageCheck className="h-3 w-3" />{lead.can_ship ? 'Can ship' : 'Local only'}</span>}{lead.episode_name && <span className="rounded-full bg-violet-100 px-2.5 py-1 text-violet-800">{lead.episode_name}</span>}</div>
                   <div className="mt-4 flex flex-wrap gap-2">{lead.card_image_path && <Button size="sm" variant="outline" onClick={() => void openCard(lead.card_image_path!)}><ExternalLink className="mr-2 h-3.5 w-3.5" />View original card</Button>}{lead.verification_status !== 'verified' && <Button size="sm" onClick={() => void updateLead(lead.id, { verification_status: 'verified' })} className="bg-emerald-700 text-white hover:bg-emerald-800"><CheckCircle2 className="mr-2 h-3.5 w-3.5" />Approve as CRM lead</Button>}</div>
                 </div>
-                <div><Label>Status</Label><select value={lead.status} onChange={(e) => void updateLead(lead.id, { status: e.target.value as LeadStatus })} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold">{statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><p className="mt-3 text-xs leading-5 text-slate-500">Added {new Date(lead.created_at).toLocaleDateString()}</p>{lead.phone && <a className="mt-2 block text-xs font-bold text-blue-700" href={`tel:${lead.phone}`}>{lead.phone}</a>}{lead.email && <a className="mt-1 block break-all text-xs font-bold text-blue-700" href={`mailto:${lead.email}`}>{lead.email}</a>}</div>
+                <div><Label>Status</Label><select value={lead.status} onChange={(e) => void updateLead(lead.id, { status: e.target.value as LeadStatus })} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold">{statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><p className="mt-3 text-xs leading-5 text-slate-500">Added {new Date(lead.created_at).toLocaleDateString()}</p>{lead.phone && <a className="mt-2 block text-xs font-bold text-blue-700" href={`tel:${lead.phone}`}>{lead.phone}</a>}{lead.email && <a className="mt-1 block break-all text-xs font-bold text-blue-700" href={`mailto:${lead.email}`}>{lead.email}</a>}{lead.website && <a className="mt-1 block break-all text-xs font-bold text-blue-700" href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noreferrer">Website</a>}{Object.entries(lead.social_profiles || {}).filter(([, url]) => url).map(([network, url]) => <a key={network} className="mt-1 block break-all text-xs font-bold capitalize text-violet-700" href={url!} target="_blank" rel="noreferrer">{network}</a>)}</div>
               </article>
             ))}</div>}
           </CardContent>
