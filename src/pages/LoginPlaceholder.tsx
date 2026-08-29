@@ -20,6 +20,15 @@ interface LoginPlaceholderProps {
   allowAccountSwitch?: boolean;
 }
 
+const withTimeout = async <T,>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+  try { return await Promise.race([promise, timeout]); }
+  finally { if (timeoutId) clearTimeout(timeoutId); }
+};
+
 const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
   defaultRedirect = '/admin',
   brandName = 'SlapWrapz',
@@ -44,10 +53,13 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
   const shouldAllowAccountSwitch = allowAccountSwitch && explicitAccountSwitch;
 
   const getPostLoginRedirect = async () => {
-    const { data } = await supabase.rpc('get_current_admin_user');
-    const activeAdminUser = data?.[0] as { role?: string } | undefined;
-
-    return getRoleSafePostLoginRedirect(redirectPath, activeAdminUser?.role, defaultRedirect);
+    try {
+      const { data } = await withTimeout(supabase.rpc('get_current_admin_user'), 6000, 'Role check timed out.');
+      const activeAdminUser = data?.[0] as { role?: string } | undefined;
+      return getRoleSafePostLoginRedirect(redirectPath, activeAdminUser?.role, defaultRedirect);
+    } catch {
+      return getSafeInternalRedirect(redirectPath, defaultRedirect);
+    }
   };
 
   useEffect(() => {
@@ -81,20 +93,20 @@ const LoginPlaceholder: React.FC<LoginPlaceholderProps> = ({
     setError('');
     setLoading(true);
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password
-    });
+    try {
+      const { error: loginError } = await withTimeout(supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password
+      }), 15000, 'The login service took too long to respond. Check your connection and try again.');
 
-    setLoading(false);
-
-    if (loginError) {
-      setError(loginError.message);
-      return;
+      if (loginError) { setError(loginError.message); return; }
+      clearClientForceLogout();
+      navigate(await getPostLoginRedirect(), { replace: true });
+    } catch (loginFailure) {
+      setError(loginFailure instanceof Error ? loginFailure.message : 'Login could not be completed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    clearClientForceLogout();
-    navigate(await getPostLoginRedirect(), { replace: true });
   };
 
   if (checkingSession) {
