@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CompassionMinistriesWorkspace from '@/components/admin/CompassionMinistriesWorkspace';
+import BlueWoodsMarketingWorkspace from '@/components/admin/BlueWoodsMarketingWorkspace';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
 import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
 import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
@@ -236,8 +237,9 @@ const Admin = () => {
   const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
   const routeParams = new URLSearchParams(location.search);
   const requestedTab = routeParams.get('tab');
-  const clientSection = routeParams.get('section') === 'marketing' ? 'marketing' : 'dashboard';
-  const activeTab = requestedTab === 'clients'
+  const activeTab = requestedTab === 'marketing'
+    ? 'owner-marketing'
+    : requestedTab === 'clients'
     ? 'clients'
     : routeParams.has('rep') || requestedTab === 'reps'
       ? 'rep-onboarding'
@@ -255,7 +257,9 @@ const Admin = () => {
 
   const changeAdminTab = (nextTab: string) => {
     const nextParams = new URLSearchParams(location.search);
-    const tabValue = nextTab === 'clients'
+    const tabValue = nextTab === 'owner-marketing'
+      ? 'marketing'
+      : nextTab === 'clients'
       ? 'clients'
       : nextTab === 'rep-onboarding'
         ? 'reps'
@@ -271,7 +275,7 @@ const Admin = () => {
                   ? 'networking'
                 : 'social';
     nextParams.set('tab', tabValue);
-    if (nextTab !== 'clients') nextParams.delete('section');
+    nextParams.delete('section');
     if (nextTab !== 'rep-onboarding') {
       nextParams.delete('rep');
       nextParams.delete('approvals');
@@ -318,7 +322,7 @@ const Admin = () => {
               <Button variant="outline" asChild className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
                 <Link to="/"><ExternalLink className="mr-2 h-4 w-4" />Main Website</Link>
               </Button>
-              <Button variant="outline" onClick={() => openOwnerDestination('clients', 'marketing')} className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
+              <Button variant="outline" onClick={() => openOwnerDestination('marketing')} className={`justify-start border-white/20 hover:bg-white hover:text-slate-950 ${activeTab === 'owner-marketing' ? 'bg-white text-slate-950' : 'bg-white/10 text-white'}`}>
                 <Megaphone className="mr-2 h-4 w-4" />Marketing
               </Button>
               <Button variant="outline" onClick={() => openOwnerDestination('networking')} className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
@@ -361,7 +365,11 @@ const Admin = () => {
           </div>
 
           <TabsContent value="clients" className="mt-0">
-            <CompassionMinistriesWorkspace initialSection={clientSection} />
+            <CompassionMinistriesWorkspace initialSection="dashboard" />
+          </TabsContent>
+
+          <TabsContent value="owner-marketing" className="mt-0">
+            <BlueWoodsMarketingWorkspace />
           </TabsContent>
 
           <TabsContent value="staff-feed" className="mt-0">
