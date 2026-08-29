@@ -86,6 +86,8 @@ interface SponsorProspect {
 const PUBLIC_FRONT_END = '/compassion-bluefund/';
 const CURRENT_WEBSITE = 'https://compassionfoodpantry.org/';
 const STORAGE_VIDEO_URL = 'bwb-compassion-story-video-url';
+const STORAGE_PUBLISHED_VIDEO_URL = 'bwb-compassion-published-story-video-url';
+const STORAGE_PUBLISHED_VIDEO_AT = 'bwb-compassion-published-story-video-at';
 const STORAGE_TASKS = 'bwb-compassion-backend-tasks';
 
 const navigation: NavigationItem[] = [
@@ -253,6 +255,16 @@ const getStoredVideoUrl = () => {
   return window.localStorage.getItem(STORAGE_VIDEO_URL) ?? '';
 };
 
+const getPublishedVideoUrl = () => {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(STORAGE_PUBLISHED_VIDEO_URL) ?? '';
+};
+
+const getPublishedVideoAt = () => {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(STORAGE_PUBLISHED_VIDEO_AT) ?? '';
+};
+
 const getStoredTasks = (): Record<string, boolean> => {
   if (typeof window === 'undefined') return {};
   try {
@@ -286,6 +298,8 @@ const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: 
   const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
   const [storyVideoUrl, setStoryVideoUrl] = useState(getStoredVideoUrl);
   const [savedStoryVideoUrl, setSavedStoryVideoUrl] = useState(getStoredVideoUrl);
+  const [publishedStoryVideoUrl, setPublishedStoryVideoUrl] = useState(getPublishedVideoUrl);
+  const [publishedStoryVideoAt, setPublishedStoryVideoAt] = useState(getPublishedVideoAt);
   const [storySaveMessage, setStorySaveMessage] = useState('');
   const [taskState, setTaskState] = useState<Record<string, boolean>>(getStoredTasks);
   const [selectedProspectId, setSelectedProspectId] = useState<string | null>(null);
@@ -304,6 +318,22 @@ const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: 
     setSavedStoryVideoUrl(cleanUrl);
     setStorySaveMessage(cleanUrl ? 'Story video draft saved in this browser.' : 'Story video draft cleared.');
     window.setTimeout(() => setStorySaveMessage(''), 3000);
+  };
+
+  const publishStoryVideo = () => {
+    if (!savedStoryVideoUrl || !getYouTubeEmbedUrl(savedStoryVideoUrl)) {
+      setStorySaveMessage('Save a valid YouTube link before publishing.');
+      return;
+    }
+    if (!window.confirm('Publish this approved story video to the public front-end proof?')) return;
+
+    const publishedAt = new Date().toISOString();
+    window.localStorage.setItem(STORAGE_PUBLISHED_VIDEO_URL, savedStoryVideoUrl);
+    window.localStorage.setItem(STORAGE_PUBLISHED_VIDEO_AT, publishedAt);
+    setPublishedStoryVideoUrl(savedStoryVideoUrl);
+    setPublishedStoryVideoAt(publishedAt);
+    setStorySaveMessage('Story video published to the public front-end proof in this browser.');
+    window.setTimeout(() => setStorySaveMessage(''), 5000);
   };
 
   const toggleTask = (taskId: string) => {
@@ -668,7 +698,10 @@ const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: 
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-red-700">Our Story section</p>
                 <CardTitle className="mt-1">Story Video Control</CardTitle>
               </div>
-              <StatusPill label={savedStoryVideoUrl ? 'Draft Saved' : 'Waiting for Video'} tone={savedStoryVideoUrl ? 'progress' : 'waiting'} />
+              <StatusPill
+                label={publishedStoryVideoUrl === savedStoryVideoUrl && publishedStoryVideoUrl ? 'Published' : savedStoryVideoUrl ? 'Draft Saved' : 'Waiting for Video'}
+                tone={publishedStoryVideoUrl === savedStoryVideoUrl && publishedStoryVideoUrl ? 'live' : savedStoryVideoUrl ? 'progress' : 'waiting'}
+              />
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
@@ -696,10 +729,25 @@ const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: 
                   </a>
                 </Button>
               )}
+              {savedStoryVideoUrl && (
+                <Button onClick={publishStoryVideo} className="bg-red-700 text-white hover:bg-red-800">
+                  <Globe2 className="mr-2 h-4 w-4" />
+                  Publish to Front End
+                </Button>
+              )}
             </div>
             {storySaveMessage && <p className="text-sm font-semibold text-emerald-700">{storySaveMessage}</p>}
+            {publishedStoryVideoUrl && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                <p className="font-black">Published to the public front-end proof</p>
+                <p className="mt-1">{publishedStoryVideoAt ? new Date(publishedStoryVideoAt).toLocaleString() : 'Published'}</p>
+                <Button onClick={openFrontEnd} variant="link" className="mt-1 h-auto p-0 text-emerald-800">
+                  View published page
+                </Button>
+              </div>
+            )}
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-              The link field remains a review draft until client approval. The secure intake below is the central place for clients to send original video files or hosted-video links to Blue Woods Brands.
+              Save Draft keeps the link under review. Publish to Front End requires confirmation and updates the public proof in this browser. This remains a browser-based demonstration until database-backed publishing is connected.
             </div>
             <ClientVideoIntakeControl
               publicProof={publicProof}
