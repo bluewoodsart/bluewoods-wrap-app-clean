@@ -1,5 +1,5 @@
 import { request } from 'node:https';
-import { analyzeBusinessCardBoard } from '../server/analyze-business-card-board';
+import { analyzeBusinessCardBoard } from '../server/analyze-business-card-board.js';
 
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = process.env.SLAPWRAPZ_FROM_EMAIL?.trim() || 'SlapWrapz Admin <quotes@slapwrapz.com>';
