@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   CircleDollarSign,
   ClipboardCheck,
   ExternalLink,
@@ -17,6 +18,7 @@ import {
   LayoutDashboard,
   ListChecks,
   MapPin,
+  Mail,
   Megaphone,
   Package,
   PlayCircle,
@@ -26,7 +28,8 @@ import {
   Share2,
   ShieldCheck,
   Users,
-  Video
+  Video,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,6 +65,22 @@ interface TaskItem {
   owner: string;
   due: string;
   area: string;
+}
+
+interface SponsorProspect {
+  id: string;
+  name: string;
+  organization: string;
+  title: string;
+  relationshipType: string;
+  status: string;
+  opportunity: string;
+  whyFit: string;
+  email: string;
+  verification: string;
+  sources: string[];
+  nextAction: string;
+  privacy: string;
 }
 
 const PUBLIC_FRONT_END = '/compassion-bluefund/';
@@ -142,6 +161,39 @@ const taskItems: TaskItem[] = [
     owner: 'Dr. Diana',
     due: 'Ongoing',
     area: 'Partners'
+  }
+];
+
+const sponsorProspects: SponsorProspect[] = [
+  {
+    id: 'yessyka-santana',
+    name: 'Yessyka Santana',
+    organization: 'Sandy Creek High School',
+    title: 'Spanish Teacher · Chick-fil-A Leader Academy Co-Sponsor',
+    relationshipType: 'School connector',
+    status: 'Research only',
+    opportunity: 'Connect a student-led school-spirit fundraiser using magnets, stickers, posters, and approved high-school packages to support the food pantry.',
+    whyFit: 'The Leader Academy focuses on service and community impact, making her a strong potential bridge to students and school leadership. Interest has not been confirmed.',
+    email: 'santana.yessyka@fcboe.org',
+    verification: 'Professional role verified from Fayette County Public Schools sources on August 28, 2026.',
+    sources: ['Sandy Creek High School World Languages Department', 'Fayette County Public Schools Leader Academy service story'],
+    nextAction: 'Prepare a one-page concept for Dr. Diana’s approval before any outreach.',
+    privacy: 'Keep private. Do not identify her publicly as a sponsor, supporter, or attendee without direct confirmation and permission.'
+  },
+  {
+    id: 'kelly-gallman',
+    name: 'Kelly Gallman',
+    organization: 'Sandy Creek High School',
+    title: 'Visual & Performing Arts Department Chair · Chick-fil-A Leader Academy Co-Sponsor',
+    relationshipType: 'School and creative connector',
+    status: 'Research only',
+    opportunity: 'Explore a school-approved creative fundraiser and student participation around magnets, stickers, posters, and pantry support.',
+    whyFit: 'Her current arts leadership and Leader Academy service role make her a potential creative and community-service connector. Interest has not been confirmed.',
+    email: 'gallman.kelly@fcboe.org',
+    verification: 'Professional role verified from Fayette County Public Schools sources on August 28, 2026.',
+    sources: ['Sandy Creek High School Visual and Performing Arts Department', 'Fayette County Public Schools Leader Academy service story'],
+    nextAction: 'Hold for Dr. Diana’s approval, then decide whether outreach should begin with one or both school contacts.',
+    privacy: 'Keep private. Do not identify her publicly as a sponsor, supporter, or attendee without direct confirmation and permission.'
   }
 ];
 
@@ -236,8 +288,10 @@ const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: 
   const [savedStoryVideoUrl, setSavedStoryVideoUrl] = useState(getStoredVideoUrl);
   const [storySaveMessage, setStorySaveMessage] = useState('');
   const [taskState, setTaskState] = useState<Record<string, boolean>>(getStoredTasks);
+  const [selectedProspectId, setSelectedProspectId] = useState<string | null>(null);
 
   const completedTasks = taskItems.filter((task) => taskState[task.id]).length;
+  const selectedProspect = sponsorProspects.find((prospect) => prospect.id === selectedProspectId) ?? null;
   const youtubeEmbedUrl = useMemo(() => getYouTubeEmbedUrl(savedStoryVideoUrl), [savedStoryVideoUrl]);
 
   const openFrontEnd = () => {
@@ -419,6 +473,46 @@ const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: 
           </CardContent>
         </Card>
       </div>
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-200">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-red-700">Private research</p>
+          <CardTitle className="mt-1">Potential sponsors & community connectors</CardTitle>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Research profiles are internal working records. Opening a dossier does not mark anyone as contacted, interested, or confirmed.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 p-4 md:grid-cols-2">
+          {sponsorProspects.map((prospect) => (
+            <button key={prospect.id} type="button" onClick={() => setSelectedProspectId(prospect.id)} className="group flex min-h-36 w-full items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-white hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200" aria-label={`Open private dossier for ${prospect.name}`}>
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2"><span className="text-lg font-black text-slate-950">{prospect.name}</span><StatusPill label={prospect.status} tone="planned" /></span>
+                <span className="mt-2 block text-sm font-bold text-slate-700">{prospect.organization}</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">{prospect.title}</span>
+                <span className="mt-3 inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-800">{prospect.relationshipType}</span>
+              </span>
+              <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-emerald-700" />
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+      {selectedProspect && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45" role="presentation" onMouseDown={() => setSelectedProspectId(null)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="sponsor-dossier-title" className="h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-emerald-950 p-5 text-white sm:p-6">
+              <div><p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-200">Private prospect dossier</p><h3 id="sponsor-dossier-title" className="mt-2 text-2xl font-black">{selectedProspect.name}</h3><p className="mt-1 text-sm text-emerald-100">{selectedProspect.organization}</p></div>
+              <button type="button" onClick={() => setSelectedProspectId(null)} className="rounded-xl border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white hover:text-emerald-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300" aria-label="Close sponsor dossier"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-5 p-5 sm:p-6">
+              <div className="flex flex-wrap gap-2"><StatusPill label={selectedProspect.status} tone="planned" /><span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-800">{selectedProspect.relationshipType}</span></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.13em] text-slate-500">Verified professional role</p><p className="mt-2 font-bold text-slate-950">{selectedProspect.title}</p><p className="mt-2 text-sm leading-6 text-slate-600">{selectedProspect.verification}</p></div>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-black uppercase tracking-[0.13em] text-emerald-800">Opportunity</p><p className="mt-2 text-sm leading-6 text-emerald-950">{selectedProspect.opportunity}</p></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.13em] text-slate-500">Why this may fit</p><p className="mt-2 text-sm leading-6 text-slate-700">{selectedProspect.whyFit}</p></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.13em] text-slate-500">Verified professional contact</p><a href={`mailto:${selectedProspect.email}`} className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-blue-700 hover:underline"><Mail className="h-4 w-4" />{selectedProspect.email}</a><p className="mt-2 text-xs text-slate-500">No personal Facebook profile has been verified.</p></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.13em] text-slate-500">Research sources</p><ul className="mt-2 space-y-2">{selectedProspect.sources.map((source) => (<li key={source} className="flex items-start gap-2 text-sm text-slate-700"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />{source}</li>))}</ul></div>
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><p className="text-xs font-black uppercase tracking-[0.13em] text-blue-800">Next action</p><p className="mt-2 text-sm font-bold leading-6 text-blue-950">{selectedProspect.nextAction}</p></div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><p className="text-xs font-black uppercase tracking-[0.13em] text-amber-800">Privacy and publication safeguard</p><p className="mt-2 text-sm leading-6 text-amber-950">{selectedProspect.privacy}</p></div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 
