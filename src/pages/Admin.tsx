@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { BadgeCheck, LogOut, RefreshCw, ShieldAlert } from 'lucide-react';
+import { BadgeCheck, BriefcaseBusiness, ExternalLink, LogOut, Megaphone, Network, RefreshCw, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -233,6 +233,7 @@ const Admin = () => {
   const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
   const routeParams = new URLSearchParams(location.search);
   const requestedTab = routeParams.get('tab');
+  const clientSection = routeParams.get('section') === 'marketing' ? 'marketing' : 'dashboard';
   const activeTab = requestedTab === 'clients'
     ? 'clients'
     : routeParams.has('rep') || requestedTab === 'reps'
@@ -267,6 +268,7 @@ const Admin = () => {
                   ? 'networking'
                 : 'social';
     nextParams.set('tab', tabValue);
+    if (nextTab !== 'clients') nextParams.delete('section');
     if (nextTab !== 'rep-onboarding') {
       nextParams.delete('rep');
       nextParams.delete('approvals');
@@ -279,6 +281,13 @@ const Admin = () => {
     nextParams.set('tab', 'reps');
     nextParams.set('approvals', '1');
     nextParams.delete('rep');
+    navigate({ pathname: '/admin', search: `?${nextParams.toString()}` });
+  };
+
+  const openOwnerDestination = (tab: string, section?: string) => {
+    const nextParams = new URLSearchParams();
+    nextParams.set('tab', tab);
+    if (section) nextParams.set('section', section);
     navigate({ pathname: '/admin', search: `?${nextParams.toString()}` });
   };
 
@@ -298,6 +307,30 @@ const Admin = () => {
           </Button>
         </div>
       </div>
+      {adminUser.role === 'owner_admin' && (
+        <div className="border-b border-slate-800 bg-slate-950 px-4 py-3 text-white md:px-8">
+          <div className="mx-auto max-w-7xl">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">Owner Command Center</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              <Button variant="outline" asChild className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
+                <Link to="/"><ExternalLink className="mr-2 h-4 w-4" />Main Website</Link>
+              </Button>
+              <Button variant="outline" onClick={() => openOwnerDestination('clients', 'marketing')} className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
+                <Megaphone className="mr-2 h-4 w-4" />Marketing
+              </Button>
+              <Button variant="outline" onClick={() => openOwnerDestination('networking')} className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
+                <Network className="mr-2 h-4 w-4" />Networking
+              </Button>
+              <Button variant="outline" onClick={() => openOwnerDestination('clients')} className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
+                <BriefcaseBusiness className="mr-2 h-4 w-4" />Clients
+              </Button>
+              <Button variant="outline" onClick={() => openOwnerDestination('quotes')} className="col-span-2 justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950 sm:col-span-1">
+                <BadgeCheck className="mr-2 h-4 w-4" />Quotes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mx-auto min-w-0 max-w-7xl overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 md:px-8">
         <Tabs value={activeTab} onValueChange={changeAdminTab} className="space-y-5">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -325,7 +358,7 @@ const Admin = () => {
           </div>
 
           <TabsContent value="clients" className="mt-0">
-            <CompassionMinistriesWorkspace />
+            <CompassionMinistriesWorkspace initialSection={clientSection} />
           </TabsContent>
 
           <TabsContent value="staff-feed" className="mt-0">

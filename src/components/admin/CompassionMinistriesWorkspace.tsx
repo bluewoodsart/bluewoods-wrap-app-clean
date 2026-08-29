@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertCircle,
@@ -294,8 +294,8 @@ const getYouTubeEmbedUrl = (value: string) => {
   return '';
 };
 
-const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: boolean }) => {
-  const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
+const CompassionMinistriesWorkspace = ({ publicProof = false, initialSection = 'dashboard' }: { publicProof?: boolean; initialSection?: SectionId }) => {
+  const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
   const [storyVideoUrl, setStoryVideoUrl] = useState(getStoredVideoUrl);
   const [savedStoryVideoUrl, setSavedStoryVideoUrl] = useState(getStoredVideoUrl);
   const [publishedStoryVideoUrl, setPublishedStoryVideoUrl] = useState(getPublishedVideoUrl);
@@ -303,6 +303,8 @@ const CompassionMinistriesWorkspace = ({ publicProof = false }: { publicProof?: 
   const [storySaveMessage, setStorySaveMessage] = useState('');
   const [taskState, setTaskState] = useState<Record<string, boolean>>(getStoredTasks);
   const [selectedProspectId, setSelectedProspectId] = useState<string | null>(null);
+
+  useEffect(() => { setActiveSection(initialSection); }, [initialSection]);
 
   const completedTasks = taskItems.filter((task) => taskState[task.id]).length;
   const selectedProspect = sponsorProspects.find((prospect) => prospect.id === selectedProspectId) ?? null;
