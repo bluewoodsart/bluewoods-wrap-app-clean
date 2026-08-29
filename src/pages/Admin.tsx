@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CompassionMinistriesWorkspace from '@/components/admin/CompassionMinistriesWorkspace';
 import BlueWoodsMarketingWorkspace from '@/components/admin/BlueWoodsMarketingWorkspace';
+import ClientCrmDirectory from '@/components/admin/ClientCrmDirectory';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
 import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
 import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
@@ -237,6 +238,7 @@ const Admin = () => {
   const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
   const routeParams = new URLSearchParams(location.search);
   const requestedTab = routeParams.get('tab');
+  const selectedClientWorkspace = routeParams.get('client');
   const activeTab = requestedTab === 'marketing'
     ? 'owner-marketing'
     : requestedTab === 'clients'
@@ -276,6 +278,7 @@ const Admin = () => {
                 : 'social';
     nextParams.set('tab', tabValue);
     nextParams.delete('section');
+    if (nextTab !== 'clients') nextParams.delete('client');
     if (nextTab !== 'rep-onboarding') {
       nextParams.delete('rep');
       nextParams.delete('approvals');
@@ -296,6 +299,14 @@ const Admin = () => {
     nextParams.set('tab', tab);
     if (section) nextParams.set('section', section);
     navigate({ pathname: '/admin', search: `?${nextParams.toString()}` });
+  };
+
+  const openCompassionWorkspace = () => {
+    navigate({ pathname: '/admin', search: '?tab=clients&client=compassion-ministries' });
+  };
+
+  const openClientCrm = () => {
+    navigate({ pathname: '/admin', search: '?tab=clients' });
   };
 
   return (
@@ -365,7 +376,14 @@ const Admin = () => {
           </div>
 
           <TabsContent value="clients" className="mt-0">
-            <CompassionMinistriesWorkspace initialSection="dashboard" />
+            {selectedClientWorkspace === 'compassion-ministries' ? (
+              <div className="space-y-4">
+                <Button variant="outline" onClick={openClientCrm}>Back to Client CRM</Button>
+                <CompassionMinistriesWorkspace initialSection="dashboard" />
+              </div>
+            ) : (
+              <ClientCrmDirectory onOpenCompassionWorkspace={openCompassionWorkspace} />
+            )}
           </TabsContent>
 
           <TabsContent value="owner-marketing" className="mt-0">
