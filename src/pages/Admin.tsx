@@ -13,6 +13,7 @@ import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard'
 import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
 import ProductionHub from '@/components/admin/ProductionHub';
 import BusinessCardNetworking from '@/components/admin/BusinessCardNetworking';
+import WhatsAppSalesInbox from '@/components/admin/WhatsAppSalesInbox';
 import StaffFeed from '@/components/StaffFeed';
 import { supabase } from '@/lib/supabase';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
@@ -255,6 +256,8 @@ const Admin = () => {
               ? 'production'
               : requestedTab === 'networking'
                 ? 'networking'
+              : requestedTab === 'whatsapp'
+                ? 'whatsapp'
               : 'staff-feed';
 
   const changeAdminTab = (nextTab: string) => {
@@ -275,6 +278,8 @@ const Admin = () => {
                 ? 'production'
                 : nextTab === 'networking'
                   ? 'networking'
+                : nextTab === 'whatsapp'
+                  ? 'whatsapp'
                 : 'social';
     nextParams.set('tab', tabValue);
     nextParams.delete('section');
@@ -360,6 +365,7 @@ const Admin = () => {
               <TabsTrigger value="rep-onboarding" className="min-h-11 min-w-max flex-1 px-3">Reps</TabsTrigger>
               <TabsTrigger value="production" className="min-h-11 min-w-max flex-1 px-3">Production</TabsTrigger>
               <TabsTrigger value="networking" className="min-h-11 min-w-max flex-1 px-3">Networking</TabsTrigger>
+              <TabsTrigger value="whatsapp" className="min-h-11 min-w-max flex-1 px-3">WhatsApp</TabsTrigger>
               {canViewPricingSandbox && (
                 <TabsTrigger value="pricing-sandbox" className="min-h-11 min-w-max flex-1 px-3">Pricing Sandbox</TabsTrigger>
               )}
@@ -412,6 +418,10 @@ const Admin = () => {
 
           <TabsContent value="networking" className="mt-0">
             <BusinessCardNetworking adminUserId={adminUser.id} />
+          </TabsContent>
+
+          <TabsContent value="whatsapp" className="mt-0">
+            <WhatsAppSalesInbox />
           </TabsContent>
 
           {canViewPricingSandbox && (
