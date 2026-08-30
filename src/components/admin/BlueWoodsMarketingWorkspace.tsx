@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ListChecks,
   Megaphone,
+  Mic2,
   Network,
   Search,
   Settings,
@@ -21,12 +22,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import SeoExecutionBoard from '@/components/admin/SeoExecutionBoard';
 import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
+import PodcastCentral from '@/components/admin/PodcastCentral';
 
 type SectionId =
   | 'overview'
   | 'brands'
   | 'website-seo'
   | 'social-media'
+  | 'podcasts'
   | 'content-calendar'
   | 'marketing'
   | 'lead-campaigns'
@@ -50,6 +53,7 @@ const navigation: NavigationItem[] = [
   { id: 'brands', label: 'Brand Portfolio', icon: BriefcaseBusiness },
   { id: 'website-seo', label: 'Websites & SEO', icon: Search },
   { id: 'social-media', label: 'Social Media', icon: Share2 },
+  { id: 'podcasts', label: 'Podcast Central', icon: Mic2 },
   { id: 'content-calendar', label: 'Content Calendar', icon: CalendarDays },
   { id: 'marketing', label: 'Marketing & Branding', icon: Megaphone },
   { id: 'lead-campaigns', label: 'Lead Campaigns', icon: BadgeCheck },
@@ -113,6 +117,12 @@ const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: stri
     eyebrow: 'Owned channels',
     title: 'Social Media',
     description: 'Organize Blue Woods and SlapWrapz social channels, content priorities, publishing status, and campaign links.',
+    items: []
+  },
+  podcasts: {
+    eyebrow: 'Broadcast network',
+    title: 'Podcast Central',
+    description: 'Build Blue Woods podcast brands, recurring series, episodes, production workflows, channel connections, assets, distribution, and analytics in one place.',
     items: []
   },
   'content-calendar': {
@@ -211,6 +221,24 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
           </CardContent>
         </Card>
       </div>
+      <Card className="overflow-hidden border-amber-300 bg-amber-50/50 shadow-sm">
+        <CardContent className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-900">Connected growth initiative</span>
+              <StatusPill label="Developing" tone="progress" />
+            </div>
+            <h3 className="mt-3 text-2xl font-black text-slate-950">Neighborhood Domination Plan</h3>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">Build trust and visibility neighborhood by neighborhood, then connect the attention to Blue Woods, SlapWrapz, service companies, DJ West, and The Breakout.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {['Geofencing', 'Field signs', 'Trusted call concierge', 'Gated-community access', 'Service-company network', 'Podcast and local stories'].map((item) => (
+                <span key={item} className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800">{item}</span>
+              ))}
+            </div>
+          </div>
+          <Button variant="outline" onClick={() => setActiveSection('podcasts')} className="border-amber-300 bg-white hover:bg-amber-100"><Mic2 className="mr-2 h-4 w-4" />Open connected podcast ideas</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 
@@ -230,6 +258,14 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
           <SocialChannelDirectory adminUserId={adminUserId} />
+        </div>
+      );
+    }
+    if (activeSection === 'podcasts') {
+      return (
+        <div className="space-y-5">
+          <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <PodcastCentral adminUserId={adminUserId} onOpenSocial={() => setActiveSection('social-media')} onOpenCalendar={() => setActiveSection('content-calendar')} />
         </div>
       );
     }
