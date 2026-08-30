@@ -193,14 +193,22 @@ const Partners = () => {
       relationship: 'Technology and marketplace partner',
       collaboration: 'Building the Facebook Marketplace app together.',
       nextStep: 'Define the shared marketplace workflow and first working release.',
-      href: null
+      href: 'https://ladealerschoice.com/',
+      websiteLabel: 'Open www.LADealerServices.com',
+      previewHref: 'https://atomic-advertising-five.vercel.app/',
+      previewImage: '/la-dealers-choice-reveal-v3.gif',
+      previewAlt: 'Animated LA Dealers Choice lead-capture front end over the Los Angeles skyline'
     },
     {
       name: 'ElectricLaw.org',
       relationship: 'Strategic partner',
       collaboration: 'Partner workspace for the Electric Law initiative.',
       nextStep: 'Document the collaboration scope, contacts, assets, and next milestone.',
-      href: 'https://electriclaw.org/'
+      href: 'https://electriclaw.org/',
+      websiteLabel: 'Open ElectricLaw.org',
+      previewHref: 'https://electriclaw-tribal-nations.bluewoodsart.chatgpt.site/',
+      previewImage: '/electriclaw-lawgiver.png',
+      previewAlt: 'ElectricLaw Tribal Nations lead-capture front end featuring The Lawgiver'
     }
   ];
 
@@ -219,6 +227,26 @@ const Partners = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-5">
+            <a
+              href={partner.previewHref}
+              target="_blank"
+              rel="noreferrer"
+              className="group relative block aspect-[16/10] overflow-hidden rounded-2xl border border-slate-300 bg-slate-950 shadow-inner"
+              aria-label={`Open the ${partner.name} lead-capture front end`}
+            >
+              <img
+                src={partner.previewImage}
+                alt={partner.previewAlt}
+                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+              />
+              <span className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-3 rounded-xl border border-white/20 bg-slate-950/90 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
+                <span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-cyan-300">Lead-capture front end</span>
+                  <span className="mt-0.5 block text-sm font-black">View the experience we built</span>
+                </span>
+                <ExternalLink className="h-5 w-5 shrink-0 text-cyan-300" />
+              </span>
+            </a>
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-slate-500">Relationship</p>
               <p className="mt-1 font-bold text-slate-950">{partner.relationship}</p>
@@ -231,11 +259,9 @@ const Partners = () => {
               <p className="text-xs font-black uppercase tracking-wide text-slate-500">Next milestone</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-800">{partner.nextStep}</p>
             </div>
-            {partner.href && (
-              <Button variant="outline" asChild className="w-full">
-                <a href={partner.href} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Open {partner.name}</a>
-              </Button>
-            )}
+            <Button variant="outline" asChild className="w-full">
+              <a href={partner.href} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />{partner.websiteLabel}</a>
+            </Button>
           </CardContent>
         </Card>
       ))}
