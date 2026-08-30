@@ -390,11 +390,25 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
               <StatusPill label="Developing" tone="progress" />
             </div>
             <h3 className="mt-3 text-2xl font-black text-slate-950">Neighborhood Domination Plan</h3>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">Build trust and visibility neighborhood by neighborhood, then connect the attention to Blue Woods, SlapWrapz, service companies, DJ West, and The Breakout.</p>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">Build trust and visibility neighborhood by neighborhood, then connect the attention to Blue Woods, SlapWrapz, service companies, DJ West, and The Breakout. Plumbing is the proving ground; once its lead system is perfected, this becomes the standard territory model for other service categories.</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {['Geofencing', 'Field signs', 'Trusted call concierge', 'Gated-community access', 'Service-company network', 'Podcast and local stories'].map((item) => (
+              {['Plumbing lead pilot', 'Geofencing', 'Field signs', 'Trusted call concierge', 'Gated-community access', 'Service-company network', 'Podcast and local stories'].map((item) => (
                 <span key={item} className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800">{item}</span>
               ))}
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-amber-300 bg-white p-4">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-800">Territory capacity rule</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-800">Each neighborhood may have no more than three service providers in a category. Capacity stays intentionally scarce so participating companies receive meaningful opportunity.</p>
+              </div>
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-800">Premium exclusivity option</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-800">A company capable of serving the whole neighborhood may take the category exclusively by paying the combined value of all three provider positions.</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-800">Marketing idea · carry forward</p>
+              <p className="mt-2 text-sm leading-6 text-slate-800">Perfect lead quality, routing, response standards, tracking, and provider economics with plumbing first. Then package the verified playbook as the default model for every Blue Woods territory—without overcrowding any neighborhood with competing providers.</p>
             </div>
           </div>
           <Button variant="outline" onClick={() => setActiveSection('podcasts')} className="border-amber-300 bg-white hover:bg-amber-100"><Mic2 className="mr-2 h-4 w-4" />Open connected podcast ideas</Button>

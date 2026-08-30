@@ -42,7 +42,7 @@ const WhatsAppSalesInbox = () => {
     if (!pending || !draft.trim()) return;
     setSending(true); setMessage('');
     const { data: sessionData } = await supabase.auth.getSession();
-    const response = await fetch('/api/whatsapp-send-approved', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionData.session?.access_token || ''}` }, body: JSON.stringify({ approvalId: pending.id, body: draft.trim() }) });
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-sales?action=send`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionData.session?.access_token || ''}` }, body: JSON.stringify({ approvalId: pending.id, body: draft.trim() }) });
     const result = await response.json();
     setSending(false);
     if (!response.ok) { setMessage(result.error || 'Message was not sent.'); return; }
