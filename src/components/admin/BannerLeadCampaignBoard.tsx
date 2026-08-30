@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ExternalLink, QrCode, RefreshCw, UserRoundCheck, Users } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ExternalLink, QrCode, RefreshCw, Save, UserRoundCheck, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +34,8 @@ interface CampaignPayload {
     public_path: string;
     starts_at: string | null;
     ends_at: string | null;
+    content: Record<string, unknown>;
+    seo: Record<string, unknown>;
   } | null;
   leads: BannerLead[];
   orderIntents: OrderIntent[];
@@ -53,10 +55,20 @@ const formatDate = (value: string) =>
 
 const formatStatus = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 
+const localDateTime = (value: string | null | undefined) => value ? new Date(value).toISOString().slice(0, 16) : '';
+
+const localeRecord = (campaign: CampaignPayload['campaign'], locale: 'en' | 'es') => {
+  const content = campaign?.content || {};
+  const locales = (content.locales || {}) as Record<string, Record<string, unknown>>;
+  return locales[locale] || {};
+};
+
 const BannerLeadCampaignBoard = () => {
   const [data, setData] = useState<CampaignPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +92,49 @@ const BannerLeadCampaignBoard = () => {
   const leads = data?.leads ?? [];
   const davidLeads = useMemo(() => leads.filter((lead) => lead.rep_slug === 'david'), [leads]);
   const spanishLeads = useMemo(() => leads.filter((lead) => lead.quote_data?.locale === 'es'), [leads]);
+  const campaign = data?.campaign ?? null;
+  const english = localeRecord(campaign, 'en');
+  const spanish = localeRecord(campaign, 'es');
+
+  const saveCampaign = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!campaign) return;
+    const form = new FormData(event.currentTarget);
+    const content = campaign.content || {};
+    const locales = (content.locales || {}) as Record<string, Record<string, unknown>>;
+    setSaving(true);
+    setSaveMessage('');
+    const { error: saveError } = await supabase.rpc('update_banner_campaign_admin', {
+      p_slug: 'labor-day',
+      p_updates: {
+        status: form.get('status'),
+        startsAt: form.get('startsAt') || null,
+        endsAt: form.get('endsAt') || null,
+        offerCode: form.get('offerCode'),
+        content: {
+          ...content,
+          locales: {
+            ...locales,
+            en: { ...(locales.en || {}), headline: form.get('headlineEn'), lead: form.get('leadEn'), cta: form.get('ctaEn') },
+            es: { ...(locales.es || {}), headline: form.get('headlineEs'), lead: form.get('leadEs'), cta: form.get('ctaEs') }
+          }
+        },
+        seo: {
+          ...(campaign.seo || {}),
+          title: form.get('seoTitle'),
+          description: form.get('seoDescription'),
+          canonicalPath: '/banners/labor-day'
+        }
+      }
+    });
+    setSaving(false);
+    if (saveError) {
+      setSaveMessage(saveError.message);
+      return;
+    }
+    setSaveMessage('Campaign saved. The English and Spanish customer page now use this content.');
+    await load();
+  };
 
   return (
     <div className="space-y-5">
@@ -151,6 +206,65 @@ const BannerLeadCampaignBoard = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {campaign && (
+        <Card className="border-cyan-200 shadow-sm">
+          <CardHeader className="border-b border-slate-200">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-700">Seasonal template controls</p>
+            <CardTitle>Change the campaign from BWB Marketing</CardTitle>
+            <p className="text-sm text-slate-500">These fields drive the live English and Spanish `/banners/labor-day` page. Pricing and checkout stay in owner commerce controls.</p>
+          </CardHeader>
+          <CardContent className="p-5">
+            <form key={`${campaign.status}-${campaign.starts_at}-${campaign.ends_at}`} onSubmit={saveCampaign} className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <label className="text-xs font-black uppercase tracking-wide text-slate-600">Status
+                  <select name="status" defaultValue={campaign.status} className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm normal-case">
+                    <option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="live">Live</option><option value="paused">Paused</option><option value="ended">Ended</option>
+                  </select>
+                </label>
+                <label className="text-xs font-black uppercase tracking-wide text-slate-600">Offer code
+                  <input name="offerCode" defaultValue={campaign.offer_code || ''} className="mt-2 h-11 w-full rounded-md border border-slate-300 px-3 text-sm normal-case" />
+                </label>
+                <label className="text-xs font-black uppercase tracking-wide text-slate-600">Starts
+                  <input name="startsAt" type="datetime-local" defaultValue={localDateTime(campaign.starts_at)} className="mt-2 h-11 w-full rounded-md border border-slate-300 px-3 text-sm normal-case" />
+                </label>
+                <label className="text-xs font-black uppercase tracking-wide text-slate-600">Ends
+                  <input name="endsAt" type="datetime-local" defaultValue={localDateTime(campaign.ends_at)} className="mt-2 h-11 w-full rounded-md border border-slate-300 px-3 text-sm normal-case" />
+                </label>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                {[
+                  { code: 'En', label: 'English', values: english },
+                  { code: 'Es', label: 'Español', values: spanish }
+                ].map(({ code, label, values }) => (
+                  <fieldset key={code} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <legend className="px-2 text-xs font-black uppercase tracking-[0.14em] text-slate-700">{label}</legend>
+                    <div className="space-y-3">
+                      <label className="block text-sm font-bold">Headline<input name={`headline${code}`} defaultValue={String(values.headline || '')} className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
+                      <label className="block text-sm font-bold">Lead message<textarea name={`lead${code}`} defaultValue={String(values.lead || '')} rows={3} className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-normal" /></label>
+                      <label className="block text-sm font-bold">Button text<input name={`cta${code}`} defaultValue={String(values.cta || '')} className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 font-normal" /></label>
+                    </div>
+                  </fieldset>
+                ))}
+              </div>
+
+              <fieldset className="rounded-xl border border-slate-200 p-4">
+                <legend className="px-2 text-xs font-black uppercase tracking-[0.14em] text-slate-700">SEO</legend>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <label className="text-sm font-bold">Search title<input name="seoTitle" defaultValue={String(campaign.seo?.title || '')} className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 font-normal" /></label>
+                  <label className="text-sm font-bold">Search description<textarea name="seoDescription" defaultValue={String(campaign.seo?.description || '')} rows={2} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-normal" /></label>
+                </div>
+              </fieldset>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className={`text-sm font-semibold ${saveMessage.toLowerCase().includes('saved') ? 'text-emerald-700' : 'text-red-700'}`}>{saveMessage}</p>
+                <Button type="submit" disabled={saving} className="bg-slate-950 hover:bg-slate-800"><Save className="mr-2 h-4 w-4" />{saving ? 'Saving…' : 'Save seasonal campaign'}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="flex-row items-center justify-between gap-3 border-b border-slate-200">
