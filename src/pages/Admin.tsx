@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CompassionMinistriesWorkspace from '@/components/admin/CompassionMinistriesWorkspace';
-import BlueWoodsMarketingWorkspace from '@/components/admin/BlueWoodsMarketingWorkspace';
+import BlueWoodsMarketingWorkspace, { type BlueWoodsMarketingSectionId } from '@/components/admin/BlueWoodsMarketingWorkspace';
 import ClientCrmDirectory from '@/components/admin/ClientCrmDirectory';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
 import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
@@ -29,6 +29,11 @@ interface AdminUser {
   rep_slug: string | null;
   is_active: boolean;
 }
+
+const blueWoodsMarketingSections: BlueWoodsMarketingSectionId[] = [
+  'overview', 'master-front-end', 'partners', 'brands', 'website-seo', 'social-media', 'podcasts',
+  'content-calendar', 'marketing', 'lead-campaigns', 'content', 'partnerships', 'events', 'tasks', 'files', 'settings'
+];
 
 const formatRole = (role: AdminUser['role']) =>
   role
@@ -242,7 +247,11 @@ const Admin = () => {
   const canViewPricingSandbox = adminUser.role === 'owner_admin' || adminUser.role === 'staff';
   const routeParams = new URLSearchParams(location.search);
   const requestedTab = routeParams.get('tab');
+  const requestedMarketingSection = routeParams.get('section');
   const selectedClientWorkspace = routeParams.get('client');
+  const activeMarketingSection: BlueWoodsMarketingSectionId = blueWoodsMarketingSections.includes(requestedMarketingSection as BlueWoodsMarketingSectionId)
+    ? requestedMarketingSection as BlueWoodsMarketingSectionId
+    : 'master-front-end';
   const activeTab = requestedTab === 'marketing'
     ? 'owner-marketing'
     : requestedTab === 'clients'
@@ -306,6 +315,16 @@ const Admin = () => {
     const nextParams = new URLSearchParams();
     nextParams.set('tab', tab);
     if (section) nextParams.set('section', section);
+    navigate({ pathname: '/admin', search: `?${nextParams.toString()}` });
+  };
+
+  const changeMarketingSection = (section: BlueWoodsMarketingSectionId) => {
+    const nextParams = new URLSearchParams(location.search);
+    nextParams.set('tab', 'marketing');
+    nextParams.set('section', section);
+    nextParams.delete('client');
+    nextParams.delete('rep');
+    nextParams.delete('approvals');
     navigate({ pathname: '/admin', search: `?${nextParams.toString()}` });
   };
 
@@ -396,7 +415,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="owner-marketing" className="mt-0">
-            <BlueWoodsMarketingWorkspace adminUserId={adminUser.id} />
+            <BlueWoodsMarketingWorkspace adminUserId={adminUser.id} initialSection={activeMarketingSection} onSectionChange={changeMarketingSection} />
           </TabsContent>
 
           <TabsContent value="staff-feed" className="mt-0">

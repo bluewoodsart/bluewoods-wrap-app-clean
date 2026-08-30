@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   BadgeCheck,
@@ -28,7 +28,7 @@ import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
 import PodcastCentral from '@/components/admin/PodcastCentral';
 import BrandPortfolio from '@/components/admin/BrandPortfolio';
 
-type SectionId =
+export type BlueWoodsMarketingSectionId =
   | 'overview'
   | 'master-front-end'
   | 'partners'
@@ -45,6 +45,8 @@ type SectionId =
   | 'tasks'
   | 'files'
   | 'settings';
+
+type SectionId = BlueWoodsMarketingSectionId;
 
 type StatusTone = 'live' | 'progress' | 'waiting' | 'planned' | 'complete';
 
@@ -362,8 +364,17 @@ const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: stri
   }
 };
 
-const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId }: { initialSection?: SectionId; adminUserId: string }) => {
+const BlueWoodsMarketingWorkspace = ({ initialSection = 'master-front-end', adminUserId, onSectionChange }: { initialSection?: SectionId; adminUserId: string; onSectionChange?: (section: SectionId) => void }) => {
   const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
+
+  useEffect(() => {
+    setActiveSection(initialSection);
+  }, [initialSection]);
+
+  const selectSection = (section: SectionId) => {
+    setActiveSection(section);
+    onSectionChange?.(section);
+  };
 
   const renderMarketing = () => (
     <div className="space-y-5">
@@ -437,7 +448,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
               <p className="mt-2 text-sm leading-6 text-slate-800">Perfect lead quality, routing, response standards, tracking, and provider economics with plumbing first. Then package the verified playbook as the default model for every Blue Woods territory—without overcrowding any neighborhood with competing providers.</p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => setActiveSection('podcasts')} className="border-amber-300 bg-white hover:bg-amber-100"><Mic2 className="mr-2 h-4 w-4" />Open connected podcast ideas</Button>
+          <Button variant="outline" onClick={() => selectSection('podcasts')} className="border-amber-300 bg-white hover:bg-amber-100"><Mic2 className="mr-2 h-4 w-4" />Open connected podcast ideas</Button>
         </CardContent>
       </Card>
     </div>
@@ -458,7 +469,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
       return (
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
-          <MasterFrontEnd onOpenSeo={() => setActiveSection('website-seo')} onOpenBrandAssets={() => setActiveSection('brands')} onOpenContent={() => setActiveSection('content')} />
+          <MasterFrontEnd onOpenSeo={() => selectSection('website-seo')} onOpenBrandAssets={() => selectSection('brands')} onOpenContent={() => selectSection('content')} />
         </div>
       );
     }
@@ -490,7 +501,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
       return (
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
-          <PodcastCentral adminUserId={adminUserId} onOpenSocial={() => setActiveSection('social-media')} onOpenCalendar={() => setActiveSection('content-calendar')} />
+          <PodcastCentral adminUserId={adminUserId} onOpenSocial={() => selectSection('social-media')} onOpenCalendar={() => selectSection('content-calendar')} />
         </div>
       );
     }
@@ -553,7 +564,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setActiveSection(item.id)}
+                      onClick={() => selectSection(item.id)}
                       className={`flex min-h-11 min-w-max items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition xl:w-full ${selected ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'}`}
                     >
                       <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-cyan-300' : 'text-slate-500'}`} />
