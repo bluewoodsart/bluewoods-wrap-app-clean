@@ -7,10 +7,13 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
+  Globe2,
   LayoutDashboard,
   ListChecks,
+  Maximize2,
   Megaphone,
   Mic2,
+  Monitor,
   Network,
   Search,
   Settings,
@@ -27,6 +30,7 @@ import BrandPortfolio from '@/components/admin/BrandPortfolio';
 
 type SectionId =
   | 'overview'
+  | 'master-front-end'
   | 'brands'
   | 'website-seo'
   | 'social-media'
@@ -51,6 +55,7 @@ interface NavigationItem {
 
 const navigation: NavigationItem[] = [
   { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'master-front-end', label: 'Master Front End', icon: Monitor },
   { id: 'brands', label: 'Brand Portfolio', icon: BriefcaseBusiness },
   { id: 'website-seo', label: 'Websites & SEO', icon: Search },
   { id: 'social-media', label: 'Social Media', icon: Share2 },
@@ -95,12 +100,65 @@ const InformationRow = ({ label, value, tone }: { label: string; value: string; 
   </div>
 );
 
+const MasterFrontEnd = ({ onOpenSeo, onOpenBrandAssets, onOpenContent }: { onOpenSeo: () => void; onOpenBrandAssets: () => void; onOpenContent: () => void }) => (
+  <div className="space-y-5">
+    <Card className="overflow-hidden border-cyan-200 shadow-sm">
+      <CardHeader className="border-b border-slate-200 bg-slate-950 text-white">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <StatusPill label="Live" tone="live" />
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-cyan-200">Production website</span>
+            </div>
+            <CardTitle className="mt-3 text-2xl text-white">SlapWrapz Master Front End</CardTitle>
+            <p className="mt-1 text-sm text-slate-300">This is the active customer-facing website. The preview below always loads the current production front end.</p>
+          </div>
+          <Button asChild className="shrink-0 bg-cyan-300 text-slate-950 hover:bg-cyan-200">
+            <a href="/" target="_blank" rel="noreferrer"><Maximize2 className="mr-2 h-4 w-4" />Open Full Website</a>
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-5">
+        <div className="overflow-hidden rounded-2xl border border-slate-300 bg-slate-100 shadow-inner">
+          <div className="flex items-center gap-2 border-b border-slate-300 bg-white px-4 py-2.5">
+            <div className="flex gap-1.5" aria-hidden="true"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /></div>
+            <div className="ml-2 flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600"><Globe2 className="h-3.5 w-3.5 shrink-0" /><span className="truncate">slapwrapz.com</span></div>
+          </div>
+          <div className="relative aspect-[16/10] min-h-[360px] bg-white">
+            <iframe
+              src="https://bluewoods-wrap-app-clean.vercel.app/"
+              title="Live SlapWrapz master front end"
+              loading="lazy"
+              sandbox="allow-forms allow-popups allow-scripts allow-same-origin"
+              referrerPolicy="strict-origin-when-cross-origin"
+              className="absolute inset-0 h-full w-full border-0"
+            />
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">This is a live interactive preview. Some links may open inside the preview; use Open Full Website for the normal customer view.</p>
+      </CardContent>
+    </Card>
+
+    <div className="grid gap-3 md:grid-cols-3">
+      <button type="button" onClick={onOpenSeo} className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-cyan-300 hover:bg-cyan-50"><p className="font-black text-slate-950">Website & SEO work</p><p className="mt-1 text-sm text-slate-600">Plan, test, and check off search improvements.</p></button>
+      <button type="button" onClick={onOpenBrandAssets} className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-cyan-300 hover:bg-cyan-50"><p className="font-black text-slate-950">Brand assets</p><p className="mt-1 text-sm text-slate-600">Use approved logos and visual files.</p></button>
+      <button type="button" onClick={onOpenContent} className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-cyan-300 hover:bg-cyan-50"><p className="font-black text-slate-950">Front-end content</p><p className="mt-1 text-sm text-slate-600">Organize photos, video, copy, and new page material.</p></button>
+    </div>
+  </div>
+);
+
 const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: string; title: string; description: string; items: string[] }> = {
   overview: {
     eyebrow: 'Owner command center',
     title: 'Blue Woods Brands Dashboard',
     description: 'A company-level view of Blue Woods brands, marketing systems, lead generation, creative production, approvals, and growth priorities.',
     items: ['SlapWrapz marketing and quote activity', 'Brand and campaign priorities', 'Creative production and approvals', 'Partner and rep growth']
+  },
+  'master-front-end': {
+    eyebrow: 'Customer-facing website',
+    title: 'Master Front End',
+    description: 'See the live SlapWrapz website, open the full customer experience, and connect future front-end work to SEO, brand assets, and content production.',
+    items: []
   },
   brands: {
     eyebrow: 'Company portfolio',
@@ -251,6 +309,14 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
           <SeoExecutionBoard adminUserId={adminUserId} />
+        </div>
+      );
+    }
+    if (activeSection === 'master-front-end') {
+      return (
+        <div className="space-y-5">
+          <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <MasterFrontEnd onOpenSeo={() => setActiveSection('website-seo')} onOpenBrandAssets={() => setActiveSection('brands')} onOpenContent={() => setActiveSection('content')} />
         </div>
       );
     }
