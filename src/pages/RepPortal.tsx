@@ -15,6 +15,7 @@ import { runMobileTouchAction } from '@/lib/mobileTouch';
 import StaffFeed from '@/components/StaffFeed';
 import UrgentLeadResponseCenter, { type UrgentLeadRow } from '@/components/UrgentLeadResponseCenter';
 import ZoeGameHub from '@/components/ZoeGameHub';
+import DavidBannerRepPortal from '@/components/DavidBannerRepPortal';
 import { formatWebsiteHeroReferences, WEBSITE_HERO_REFERENCE_RULE } from '@/lib/websiteHeroReference';
 import { supabase } from '@/lib/supabase';
 import type { UploadedFile } from '@/types';
@@ -1642,6 +1643,19 @@ const RepPortal = () => {
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  if (adminUser.rep_slug === 'david') {
+    return (
+      <DavidBannerRepPortal
+        displayName={adminUser.display_name || 'David'}
+        leads={quotes}
+        loading={loadingQuotes}
+        signingOut={signingOut}
+        onRefresh={() => void loadPortal()}
+        onLogout={() => void handleLogout()}
+      />
     );
   }
 
