@@ -41,6 +41,24 @@ interface CampaignPayload {
   orderIntents: OrderIntent[];
 }
 
+interface CommercePayload {
+  product: {
+    status: string;
+    base_price_cents: number | null;
+    pricing_unit: string;
+    fulfillment: Record<string, unknown>;
+  } | null;
+  variants: Array<{
+    size_key: string;
+    size_label: string;
+    square_feet: number;
+    regular_price_cents: number;
+    blitz_price_cents: number | null;
+    payment_checkout_url: string | null;
+  }>;
+  readiness: Record<string, boolean>;
+}
+
 const customerPage = 'https://master-front-end-blue-woods.bluewoodsart.chatgpt.site/banners/labor-day';
 const davidQrRoute = 'https://master-front-end-blue-woods.bluewoodsart.chatgpt.site/go/david';
 const commerceControl = 'https://master-front-end-blue-woods.bluewoodsart.chatgpt.site/marketing/banner-commerce';
@@ -69,6 +87,8 @@ const BannerLeadCampaignBoard = () => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [commerce, setCommerce] = useState<CommercePayload | null>(null);
+  const [commerceError, setCommerceError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,6 +103,16 @@ const BannerLeadCampaignBoard = () => {
       return;
     }
     setData((result ?? null) as CampaignPayload | null);
+    const { data: commerceResult, error: commerceLoadError } = await supabase.rpc('get_banner_commerce_admin', {
+      p_slug: 'custom-vinyl-banner'
+    });
+    if (commerceLoadError) {
+      setCommerceError(commerceLoadError.message);
+      setCommerce(null);
+    } else {
+      setCommerceError('');
+      setCommerce((commerceResult ?? null) as CommercePayload | null);
+    }
   }, []);
 
   useEffect(() => {
@@ -95,6 +125,16 @@ const BannerLeadCampaignBoard = () => {
   const campaign = data?.campaign ?? null;
   const english = localeRecord(campaign, 'en');
   const spanish = localeRecord(campaign, 'es');
+  const readiness = commerce?.readiness || {};
+  const readinessItems = [
+    ['regularReferencePrice', 'Approve $10 regular reference'],
+    ['promotionalPrices', 'Approve both promotional prices'],
+    ['checkoutLinks', 'Add both secure checkout links'],
+    ['productionTime', 'Set production time'],
+    ['pickupPrice', 'Set pickup price'],
+    ['deliveryPrice', 'Set delivery price'],
+    ['rushRules', 'Confirm rush availability']
+  ] as const;
 
   const saveCampaign = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -265,6 +305,51 @@ const BannerLeadCampaignBoard = () => {
           </CardContent>
         </Card>
       )}
+
+      <Card className="border-amber-200 shadow-sm">
+        <CardHeader className="border-b border-slate-200">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">One-banner commerce readiness</p>
+              <CardTitle className="mt-1">From conversation to secure checkout</CardTitle>
+              <p className="mt-1 text-sm text-slate-500">Owner view only. David never sees pricing setup or payment controls.</p>
+            </div>
+            <span className={`rounded-full px-3 py-2 text-xs font-black uppercase ${readiness.commerceReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+              {readiness.commerceReady ? 'Checkout ready' : 'Quote mode active'}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-5">
+          {commerceError ? (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Commerce readiness is available to approved BWB owner/staff accounts. {commerceError}</p>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {readinessItems.map(([key, label]) => (
+                  <div key={key} className={`rounded-xl border p-3 ${readiness[key] ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                    <p className={`text-xs font-black uppercase tracking-wide ${readiness[key] ? 'text-emerald-800' : 'text-amber-900'}`}>{readiness[key] ? '✓ Ready' : '○ Needed'}</p>
+                    <p className="mt-1 text-sm font-bold text-slate-900">{label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(commerce?.variants || []).map((variant) => (
+                  <div key={variant.size_key} className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">{variant.size_label}</p>
+                    <p className="mt-2 text-sm text-slate-700">Regular reference: ${(variant.regular_price_cents / 100).toFixed(2)}</p>
+                    <p className="text-sm text-slate-700">Promotional price: {variant.blitz_price_cents === null ? 'Not entered' : `$${(variant.blitz_price_cents / 100).toFixed(2)}`}</p>
+                    <p className="text-xs text-slate-500">Minimum allowed: ${(variant.square_feet * 5).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div className="flex flex-col gap-3 rounded-xl bg-slate-950 p-4 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div><p className="font-black">The customer stays in conversational quote mode until every checkout gate passes.</p><p className="mt-1 text-xs text-slate-300">No price or production promise is invented while settings are incomplete.</p></div>
+            <Button asChild className="shrink-0 bg-amber-300 text-slate-950 hover:bg-amber-200"><a href={commerceControl} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Open owner commerce settings</a></Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="flex-row items-center justify-between gap-3 border-b border-slate-200">
