@@ -31,6 +31,7 @@ import BrandPortfolio from '@/components/admin/BrandPortfolio';
 type SectionId =
   | 'overview'
   | 'master-front-end'
+  | 'partners'
   | 'brands'
   | 'website-seo'
   | 'social-media'
@@ -56,6 +57,7 @@ interface NavigationItem {
 const navigation: NavigationItem[] = [
   { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'master-front-end', label: 'Master Front End', icon: Monitor },
+  { id: 'partners', label: 'Partners', icon: Network },
   { id: 'brands', label: 'Brand Portfolio', icon: BriefcaseBusiness },
   { id: 'website-seo', label: 'Websites & SEO', icon: Search },
   { id: 'social-media', label: 'Social Media', icon: Share2 },
@@ -184,6 +186,63 @@ const MasterFrontEnd = ({ onOpenSeo, onOpenBrandAssets, onOpenContent }: { onOpe
   </div>
 );
 
+const Partners = () => {
+  const partners = [
+    {
+      name: 'LA Dealer',
+      relationship: 'Technology and marketplace partner',
+      collaboration: 'Building the Facebook Marketplace app together.',
+      nextStep: 'Define the shared marketplace workflow and first working release.',
+      href: null
+    },
+    {
+      name: 'ElectricLaw.org',
+      relationship: 'Strategic partner',
+      collaboration: 'Partner workspace for the Electric Law initiative.',
+      nextStep: 'Document the collaboration scope, contacts, assets, and next milestone.',
+      href: 'https://electriclaw.org/'
+    }
+  ];
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      {partners.map((partner) => (
+        <Card key={partner.name} className="overflow-hidden border-cyan-200 shadow-sm">
+          <div className="h-1.5 bg-cyan-400" />
+          <CardHeader className="border-b border-slate-200 bg-slate-50">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-700">Blue Woods partner</p>
+                <CardTitle className="mt-2 text-2xl">{partner.name}</CardTitle>
+              </div>
+              <StatusPill label="Active partner" tone="live" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Relationship</p>
+              <p className="mt-1 font-bold text-slate-950">{partner.relationship}</p>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Current collaboration</p>
+              <p className="mt-1 text-sm leading-6 text-slate-700">{partner.collaboration}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Next milestone</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-800">{partner.nextStep}</p>
+            </div>
+            {partner.href && (
+              <Button variant="outline" asChild className="w-full">
+                <a href={partner.href} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Open {partner.name}</a>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: string; title: string; description: string; items: string[] }> = {
   overview: {
     eyebrow: 'Owner command center',
@@ -195,6 +254,12 @@ const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: stri
     eyebrow: 'Customer-facing website',
     title: 'Master Front End',
     description: 'See the live SlapWrapz website, open the full customer experience, and connect future front-end work to SEO, brand assets, and content production.',
+    items: []
+  },
+  partners: {
+    eyebrow: 'Company relationships',
+    title: 'Partners',
+    description: 'The people and organizations building businesses, technology, and new opportunities alongside Blue Woods Brands.',
     items: []
   },
   brands: {
@@ -354,6 +419,14 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
           <MasterFrontEnd onOpenSeo={() => setActiveSection('website-seo')} onOpenBrandAssets={() => setActiveSection('brands')} onOpenContent={() => setActiveSection('content')} />
+        </div>
+      );
+    }
+    if (activeSection === 'partners') {
+      return (
+        <div className="space-y-5">
+          <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <Partners />
         </div>
       );
     }
