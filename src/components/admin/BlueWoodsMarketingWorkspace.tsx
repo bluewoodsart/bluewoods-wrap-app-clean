@@ -27,6 +27,7 @@ import SeoExecutionBoard from '@/components/admin/SeoExecutionBoard';
 import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
 import PodcastCentral from '@/components/admin/PodcastCentral';
 import BrandPortfolio from '@/components/admin/BrandPortfolio';
+import BannerLeadCampaignBoard from '@/components/admin/BannerLeadCampaignBoard';
 
 export type BlueWoodsMarketingSectionId =
   | 'overview'
@@ -502,6 +503,14 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'master-front-end', admi
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
           <PodcastCentral adminUserId={adminUserId} onOpenSocial={() => selectSection('social-media')} onOpenCalendar={() => selectSection('content-calendar')} />
+        </div>
+      );
+    }
+    if (activeSection === 'lead-campaigns') {
+      return (
+        <div className="space-y-5">
+          <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <BannerLeadCampaignBoard />
         </div>
       );
     }

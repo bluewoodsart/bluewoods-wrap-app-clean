@@ -3,6 +3,18 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
+  "redirects": [
+    {
+      "source": "/go/david",
+      "destination": "https://master-front-end-blue-woods.bluewoodsart.chatgpt.site/go/david",
+      "permanent": false
+    },
+    {
+      "source": "/banners/labor-day",
+      "destination": "https://master-front-end-blue-woods.bluewoodsart.chatgpt.site/banners/labor-day",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/).*)",
