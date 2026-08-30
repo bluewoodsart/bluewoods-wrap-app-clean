@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import SeoExecutionBoard from '@/components/admin/SeoExecutionBoard';
 import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
 import PodcastCentral from '@/components/admin/PodcastCentral';
+import BrandPortfolio from '@/components/admin/BrandPortfolio';
 
 type SectionId =
   | 'overview'
@@ -250,6 +251,14 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'marketing', adminUserId
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
           <SeoExecutionBoard adminUserId={adminUserId} />
+        </div>
+      );
+    }
+    if (activeSection === 'brands') {
+      return (
+        <div className="space-y-5">
+          <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <BrandPortfolio />
         </div>
       );
     }
