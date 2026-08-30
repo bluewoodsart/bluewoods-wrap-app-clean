@@ -29,10 +29,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 import PodcastIdeaMedia from './PodcastIdeaMedia';
+import PodcastShowStudio from './PodcastShowStudio';
 
 type ShowStatus = 'active' | 'foundation' | 'planned';
 
-interface PodcastShow {
+export interface PodcastShow {
+  key: string;
   name: string;
   owner: string;
   description: string;
@@ -48,7 +50,7 @@ interface PodcastAsset {
   signedUrl: string;
 }
 
-interface PodcastIdea {
+export interface PodcastIdea {
   id: string;
   title: string;
   concept: string;
@@ -62,13 +64,15 @@ interface PodcastIdea {
 
 const shows: PodcastShow[] = [
   {
-    name: 'The Breakout',
+    key: 'breakout',
+    name: 'BWB Breakout',
     owner: 'Blue Woods Brands',
     description: 'The flagship show about breaking out, building brands, creating opportunities, and documenting the work in public.',
     status: 'foundation',
     accent: 'border-cyan-200 bg-cyan-50',
   },
   {
+    key: 'press-play',
     name: 'Press Play Podcast',
     owner: 'Press Play',
     description: 'Advertising, entertainment, activation ideas, and the people who know how to press play on an opportunity.',
@@ -76,6 +80,7 @@ const shows: PodcastShow[] = [
     accent: 'border-violet-200 bg-violet-50',
   },
   {
+    key: 'aw',
     name: 'A&W Podcast',
     owner: 'A&W',
     description: 'A dedicated show lane ready for its concept, hosts, visual identity, channel connections, and episode plan.',
@@ -83,6 +88,7 @@ const shows: PodcastShow[] = [
     accent: 'border-amber-200 bg-amber-50',
   },
   {
+    key: 'golden-years',
     name: 'The Golden Years',
     owner: 'Blue Woods Brands · Boomer app bridge',
     description: 'Stories, wisdom, memories, and turning points from older adults—preserving their voices while opening the path toward the future Boomer app.',
@@ -90,6 +96,7 @@ const shows: PodcastShow[] = [
     accent: 'border-yellow-200 bg-yellow-50',
   },
   {
+    key: 'slapwrapz',
     name: 'SlapWrapz Podcast',
     owner: 'SlapWrapz',
     description: 'Vehicle transformations, customer stories, design education, shop talk, and the business behind moving billboards.',
@@ -144,6 +151,7 @@ const PodcastCentral = ({ adminUserId, onOpenSocial, onOpenCalendar }: { adminUs
   const [newIdeaConcept, setNewIdeaConcept] = useState('');
   const [newIdeaConnections, setNewIdeaConnections] = useState('');
   const [newIdeaTargetDate, setNewIdeaTargetDate] = useState('');
+  const [selectedShowKey, setSelectedShowKey] = useState<string | null>(null);
 
   const loadAssets = async () => {
     setLoadingAssets(true);
@@ -264,6 +272,17 @@ const PodcastCentral = ({ adminUserId, onOpenSocial, onOpenCalendar }: { adminUs
     if (file) void uploadAsset(file);
   };
 
+  const selectedShow = shows.find((show) => show.key === selectedShowKey);
+  if (selectedShow) {
+    return (
+      <PodcastShowStudio
+        show={selectedShow}
+        ideas={ideas.filter((idea) => idea.show_key === selectedShow.key)}
+        onBack={() => setSelectedShowKey(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-2xl border border-cyan-300/40 bg-slate-950 text-white shadow-sm">
@@ -306,7 +325,7 @@ const PodcastCentral = ({ adminUserId, onOpenSocial, onOpenCalendar }: { adminUs
               <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-wide">Flagship podcast</span>
               <span className="rounded-full bg-cyan-300 px-3 py-1 text-[10px] font-black uppercase text-slate-950">Foundation live</span>
             </div>
-            <h3 className="mt-5 text-4xl font-black tracking-tight">The Breakout</h3>
+            <h3 className="mt-5 text-4xl font-black tracking-tight">BWB Breakout</h3>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-cyan-50">The acting front for Blue Woods Brands—documenting the moment people, ideas, companies, and communities break out into something bigger.</p>
           </div>
           <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
@@ -363,6 +382,7 @@ const PodcastCentral = ({ adminUserId, onOpenSocial, onOpenCalendar }: { adminUs
                     <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${status.className}`}>{status.label}</span>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-700">{show.description}</p>
+                  <Button className="mt-4 w-full" variant="outline" onClick={() => setSelectedShowKey(show.key)}><Mic2 className="mr-2 h-4 w-4" />Open podcast studio</Button>
                 </CardContent>
               </Card>
             );
@@ -398,7 +418,7 @@ const PodcastCentral = ({ adminUserId, onOpenSocial, onOpenCalendar }: { adminUs
               <Card key={idea.id} className={`shadow-sm ${idea.priority === 'flagship' ? 'border-cyan-300 bg-cyan-50/40' : idea.target_date ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200'}`}>
                 <CardContent className="p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><p className="text-xs font-black uppercase tracking-wide text-slate-500">{idea.priority === 'flagship' ? 'Flagship' : idea.show_key === 'breakout' ? 'The Breakout' : idea.show_key ? idea.show_key.replace(/-/g, ' ') : 'Podcast Central'}</p><h4 className="mt-1 text-lg font-black text-slate-950">{idea.title}</h4></div>
+                    <div><p className="text-xs font-black uppercase tracking-wide text-slate-500">{idea.priority === 'flagship' ? 'Flagship' : idea.show_key === 'breakout' ? 'BWB Breakout' : idea.show_key ? idea.show_key.replace(/-/g, ' ') : 'Podcast Central'}</p><h4 className="mt-1 text-lg font-black text-slate-950">{idea.title}</h4></div>
                     <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${ideaStatusStyles[idea.status]}`}>{idea.status}</span>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-700">{idea.concept}</p>
@@ -457,19 +477,19 @@ const PodcastCentral = ({ adminUserId, onOpenSocial, onOpenCalendar }: { adminUs
           <CardContent className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)_auto] sm:items-center rounded-xl border border-cyan-200 bg-cyan-50 p-3">
               <div className="rounded-lg border border-white bg-white p-2"><img src="/bwb-bluewoods-logo.png" alt="BWB master logo" className="h-16 w-full object-contain" /></div>
-              <div><p className="font-black text-slate-950">BWB blue-and-white master logo</p><p className="mt-1 text-xs text-slate-600">Ready now for The Breakout YouTube channel and podcast brand development.</p></div>
+              <div><p className="font-black text-slate-950">BWB blue-and-white master logo</p><p className="mt-1 text-xs text-slate-600">Ready now for the BWB Breakout YouTube channel and podcast brand development.</p></div>
               <Button size="sm" variant="outline" asChild><a href="/bwb-bluewoods-logo.png" download="bwb-bluewoods-logo.png"><Download className="mr-2 h-4 w-4" />Download</a></Button>
             </div>
 
             {assetError && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{assetError}</div>}
             {loadingAssets && <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm font-semibold text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Loading shared podcast assets...</div>}
-            {!loadingAssets && assets.length === 0 && !assetError && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><FileImage className="mx-auto h-7 w-7 text-slate-400" /><p className="mt-2 font-black text-slate-900">The shared upload lane is ready.</p><p className="mt-1 text-sm text-slate-600">Upload The Breakout cover art, alternate logos, guest photos, or sponsor files.</p></div>}
+            {!loadingAssets && assets.length === 0 && !assetError && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><FileImage className="mx-auto h-7 w-7 text-slate-400" /><p className="mt-2 font-black text-slate-900">The shared upload lane is ready.</p><p className="mt-1 text-sm text-slate-600">Upload BWB Breakout cover art, alternate logos, guest photos, or sponsor files.</p></div>}
             {!loadingAssets && assets.length > 0 && (
               <div className="grid gap-3 sm:grid-cols-2">
                 {assets.map((asset) => (
                   <div key={asset.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
                     <div className="rounded-lg bg-slate-100 p-2.5 text-slate-700"><FileImage className="h-5 w-5" /></div>
-                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-950">{formatFileName(asset.name)}</p><p className="mt-0.5 text-xs text-slate-500">The Breakout asset</p></div>
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-slate-950">{formatFileName(asset.name)}</p><p className="mt-0.5 text-xs text-slate-500">BWB Breakout asset</p></div>
                     {asset.signedUrl && <Button size="icon" variant="ghost" asChild><a href={asset.signedUrl} target="_blank" rel="noreferrer" aria-label={`Open ${formatFileName(asset.name)}`}><ExternalLink className="h-4 w-4" /></a></Button>}
                   </div>
                 ))}
