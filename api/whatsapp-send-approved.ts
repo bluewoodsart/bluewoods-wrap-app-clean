@@ -1,7 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const handler = async (req: VercelRequest, res: VercelResponse) => {
+interface ApiRequest { method?: string; headers: Record<string, string | string[] | undefined>; body?: { approvalId?: string; body?: string } }
+interface ApiResponse { status: (code: number) => ApiResponse; json: (body: unknown) => void }
+
+const handler = async (req: ApiRequest, res: ApiResponse) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;

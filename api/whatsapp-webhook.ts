@@ -1,10 +1,13 @@
 import crypto from 'node:crypto';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage } from 'node:http';
 import { createClient } from '@supabase/supabase-js';
+
+interface ApiRequest extends IncomingMessage { query: Record<string, string | string[] | undefined> }
+interface ApiResponse { status: (code: number) => ApiResponse; json: (body: unknown) => void; send: (body: string) => void }
 
 export const config = { api: { bodyParser: false } };
 
-const readRawBody = async (req: VercelRequest) => {
+const readRawBody = async (req: ApiRequest) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   return Buffer.concat(chunks);
@@ -22,7 +25,7 @@ const buildQualificationDraft = (name: string, body: string) => {
   return `Hi ${name || 'there'}, thanks for contacting SlapWrapz. We can help with that. To price it correctly, please send ${ask || 'any additional project details and the best time to reach you'}. Ashley will review everything before your quote is sent.`;
 };
 
-const handler = async (req: VercelRequest, res: VercelResponse) => {
+const handler = async (req: ApiRequest, res: ApiResponse) => {
   if (req.method === 'GET') {
     const mode = String(req.query['hub.mode'] || '');
     const token = String(req.query['hub.verify_token'] || '');
