@@ -200,7 +200,13 @@ const RepOnboardingPromptCard = () => {
   const selectedRepIdeas = pageIdeas.filter((idea) => idea.rep_slug === selectedRepSlug);
   const selectedOpenIdeas = selectedRepIdeas.filter((idea) => idea.status === 'pending_review' || idea.status === 'approved');
   const allOpenIdeas = pageIdeas.filter((idea) => idea.status === 'pending_review' || idea.status === 'approved');
-  const visibleIdeas = selectedOpenIdeas.length > 0 ? selectedOpenIdeas : allOpenIdeas.slice(0, 5);
+  const pendingIdeas = pageIdeas.filter((idea) => idea.status === 'pending_review');
+  const isApprovalQueueView = searchParams.has('approvals');
+  const visibleIdeas = isApprovalQueueView
+    ? pendingIdeas
+    : selectedOpenIdeas.length > 0
+      ? selectedOpenIdeas
+      : allOpenIdeas.slice(0, 5);
 
   const openRepDetail = (rep: RepOnboardingRow) => {
     const repSlug = getRepSlug(rep);
@@ -598,9 +604,11 @@ const RepOnboardingPromptCard = () => {
         <CardHeader>
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
-              <CardTitle>Rep Page Idea Approval Queue</CardTitle>
+              <CardTitle>{isApprovalQueueView ? 'Pending Rep Page Approvals' : 'Rep Page Idea Approval Queue'}</CardTitle>
               <p className="mt-1 text-sm text-slate-600">
-                This is the handoff: reps can say build to enter the build lane, or Ashley can approve ideas into it here.
+                {isApprovalQueueView
+                  ? `${pendingIdeas.length} idea${pendingIdeas.length === 1 ? '' : 's'} currently require approval across all reps.`
+                  : 'This is the handoff: reps can say build to enter the build lane, or Ashley can approve ideas into it here.'}
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => void loadPageIdeas()}>
@@ -622,7 +630,9 @@ const RepOnboardingPromptCard = () => {
           )}
           {visibleIdeas.length === 0 ? (
             <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              No pending or build-lane rep page ideas are waiting here.
+              {isApprovalQueueView
+                ? 'All approvals are clear. No rep page ideas are waiting for review.'
+                : 'No pending or build-lane rep page ideas are waiting here.'}
             </div>
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
