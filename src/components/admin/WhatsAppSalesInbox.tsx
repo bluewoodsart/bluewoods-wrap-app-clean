@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 
 type Contact = { id: string; profile_name: string | null; phone: string; lead_status: string; project_type: string | null; vehicle_or_trailer: string | null; dimensions: string | null; location: string | null; deadline: string | null; budget: string | null; last_message_at: string | null };
-type Conversation = { id: string; status: string; summary: string | null; whatsapp_contacts: Contact; whatsapp_messages: Array<{ id: string; direction: string; body: string | null; message_type: string; status: string; created_at: string }>; whatsapp_outbound_approvals: Array<{ id: string; draft_body: string; draft_kind: string; status: string; created_at: string }> };
+type Conversation = { id: string; status: string; summary: string | null; whatsapp_contacts: Contact; whatsapp_messages: Array<{ id: string; direction: string; body: string | null; message_type: string; media_id: string | null; media_mime_type: string | null; status: string; created_at: string }>; whatsapp_outbound_approvals: Array<{ id: string; draft_body: string; draft_kind: string; status: string; created_at: string }> };
 
 const WhatsAppSalesInbox = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -15,6 +15,9 @@ const WhatsAppSalesInbox = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState('');
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteDetails, setQuoteDetails] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -28,6 +31,12 @@ const WhatsAppSalesInbox = () => {
     else {
       const rows = (data || []) as unknown as Conversation[];
       setConversations(rows.map((row) => ({ ...row, whatsapp_messages: [...(row.whatsapp_messages || [])].sort((a,b) => a.created_at.localeCompare(b.created_at)), whatsapp_outbound_approvals: [...(row.whatsapp_outbound_approvals || [])].sort((a,b) => b.created_at.localeCompare(a.created_at)) })));
+      const mediaMessages = rows.flatMap((row) => row.whatsapp_messages || []).filter((item) => item.media_id?.includes('/'));
+      const signedEntries = await Promise.all(mediaMessages.map(async (item) => {
+        const { data: signed } = await supabase.storage.from('whatsapp-media').createSignedUrl(item.media_id!, 3600);
+        return [item.id, signed?.signedUrl || ''] as const;
+      }));
+      setMediaUrls(Object.fromEntries(signedEntries.filter(([, url]) => url)));
       setSelectedId((current) => current || rows[0]?.id || null);
     }
     setLoading(false);
@@ -48,6 +57,18 @@ const WhatsAppSalesInbox = () => {
     if (!response.ok) { setMessage(result.error || 'Message was not sent.'); return; }
     setMessage('Approved and sent through WhatsApp.');
     await load();
+    window.dispatchEvent(new Event('bwb-approvals-updated'));
+  };
+
+  const createQuoteDraft = async () => {
+    if (!selected || !quoteAmount.trim()) return;
+    const customer = selected.whatsapp_contacts.profile_name || 'there';
+    const body = `Hi ${customer}, Ashley reviewed your project. Your preliminary SlapWrapz quote is ${quoteAmount.trim()}.${quoteDetails.trim() ? ` ${quoteDetails.trim()}` : ''} This quote remains subject to final measurements, artwork review, material selection, and written approval before production.`;
+    const { error } = await supabase.from('whatsapp_outbound_approvals').insert({ conversation_id: selected.id, draft_body: body, draft_kind: 'quote', status: 'pending', created_by: 'owner_quote_builder' });
+    if (error) { setMessage(error.message); return; }
+    setQuoteAmount(''); setQuoteDetails(''); setMessage('Quote draft created. Review and approve it before sending.');
+    await load();
+    window.dispatchEvent(new Event('bwb-approvals-updated'));
   };
 
   return (
@@ -66,8 +87,9 @@ const WhatsAppSalesInbox = () => {
         <Card><CardHeader><CardTitle>{selected ? selected.whatsapp_contacts.profile_name || selected.whatsapp_contacts.phone : 'Select a conversation'}</CardTitle></CardHeader><CardContent>
           {!selected ? <p className="py-12 text-center text-sm text-slate-500">Choose a WhatsApp lead to review.</p> : <div className="space-y-5">
             <div className="flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-slate-100 px-3 py-1.5">{selected.whatsapp_contacts.phone}</span><span className="rounded-full bg-blue-100 px-3 py-1.5 text-blue-800">{selected.whatsapp_contacts.lead_status}</span><span className="rounded-full bg-violet-100 px-3 py-1.5 text-violet-800">{selected.status.replace('_',' ')}</span></div>
-            <div className="max-h-80 space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-4">{selected.whatsapp_messages.map(item => <div key={item.id} className={`max-w-[85%] rounded-xl p-3 text-sm ${item.direction === 'outbound' ? 'ml-auto bg-emerald-700 text-white' : 'bg-white shadow-sm'}`}><p>{item.body || `[${item.message_type}]`}</p><p className={`mt-1 text-[10px] ${item.direction === 'outbound' ? 'text-emerald-100' : 'text-slate-400'}`}>{new Date(item.created_at).toLocaleString()}</p></div>)}</div>
+            <div className="max-h-80 space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-4">{selected.whatsapp_messages.map(item => <div key={item.id} className={`max-w-[85%] rounded-xl p-3 text-sm ${item.direction === 'outbound' ? 'ml-auto bg-emerald-700 text-white' : 'bg-white shadow-sm'}`}>{mediaUrls[item.id] && (item.media_mime_type === 'application/pdf' ? <a href={mediaUrls[item.id]} target="_blank" rel="noreferrer" className="mb-2 block font-bold underline">Open customer PDF</a> : <img src={mediaUrls[item.id]} alt="Customer project upload" className="mb-2 max-h-64 rounded-lg object-contain" />)}<p>{item.body || `[${item.message_type}]`}</p><p className={`mt-1 text-[10px] ${item.direction === 'outbound' ? 'text-emerald-100' : 'text-slate-400'}`}>{new Date(item.created_at).toLocaleString()}</p></div>)}</div>
             {pending ? <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4"><div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-amber-700" /><p className="font-black text-amber-950">Approval required before sending</p></div><p className="mt-1 text-xs text-amber-800">Edit the assistant draft if needed. The customer has not received this.</p><Textarea className="mt-3 min-h-32 bg-white" value={draft} onChange={(event) => setDraft(event.target.value)} /><Button onClick={() => void approveAndSend()} disabled={sending || !draft.trim()} className="mt-3 w-full bg-emerald-700 hover:bg-emerald-800"><Send className="mr-2 h-4 w-4" />{sending ? 'Sending...' : 'Approve and Send'}</Button></div> : <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900"><CheckCircle2 className="mr-2 inline h-4 w-4" />No response is waiting for approval.</div>}
+            {!pending && <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="font-black text-blue-950">Prepare a quote draft</p><p className="mt-1 text-xs text-blue-800">Enter the owner-approved preliminary price and terms. This creates another approval—not a sent message.</p><input value={quoteAmount} onChange={(event) => setQuoteAmount(event.target.value)} placeholder="Example: $2,450 plus tax" className="mt-3 h-10 w-full rounded-md border border-blue-200 bg-white px-3 text-sm" /><Textarea value={quoteDetails} onChange={(event) => setQuoteDetails(event.target.value)} placeholder="Deposit, included work, timing, or conditions" className="mt-2 bg-white" /><Button variant="outline" onClick={() => void createQuoteDraft()} disabled={!quoteAmount.trim()} className="mt-3 w-full border-blue-300 bg-white">Create Quote for Approval</Button></div>}
             {message && <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-700">{message}</p>}
           </div>}
         </CardContent></Card>

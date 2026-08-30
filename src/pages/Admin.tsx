@@ -77,6 +77,7 @@ const Admin = () => {
   const [error, setError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState(0);
   const [approvalsLoading, setApprovalsLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
@@ -146,12 +147,14 @@ const Admin = () => {
 
     const loadApprovalCount = async () => {
       setApprovalsLoading(true);
-      const { data, error: approvalError } = await supabase.rpc('list_admin_rep_page_ideas_v1', {
-        p_rep_slug: null
-      });
+      const [{ data, error: approvalError }, { count: whatsappCount }] = await Promise.all([
+        supabase.rpc('list_admin_rep_page_ideas_v1', { p_rep_slug: null }),
+        supabase.from('whatsapp_outbound_approvals').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      ]);
       if (!approvalError) {
         setPendingApprovalCount((data ?? []).filter((idea: { status?: string }) => idea.status === 'pending_review').length);
       }
+      setPendingWhatsAppCount(whatsappCount || 0);
       setApprovalsLoading(false);
     };
 
@@ -365,7 +368,7 @@ const Admin = () => {
               <TabsTrigger value="rep-onboarding" className="min-h-11 min-w-max flex-1 px-3">Reps</TabsTrigger>
               <TabsTrigger value="production" className="min-h-11 min-w-max flex-1 px-3">Production</TabsTrigger>
               <TabsTrigger value="networking" className="min-h-11 min-w-max flex-1 px-3">Networking</TabsTrigger>
-              <TabsTrigger value="whatsapp" className="min-h-11 min-w-max flex-1 px-3">WhatsApp</TabsTrigger>
+              <TabsTrigger value="whatsapp" className="min-h-11 min-w-max flex-1 gap-2 px-3">WhatsApp{pendingWhatsAppCount > 0 && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">{pendingWhatsAppCount}</span>}</TabsTrigger>
               {canViewPricingSandbox && (
                 <TabsTrigger value="pricing-sandbox" className="min-h-11 min-w-max flex-1 px-3">Pricing Sandbox</TabsTrigger>
               )}

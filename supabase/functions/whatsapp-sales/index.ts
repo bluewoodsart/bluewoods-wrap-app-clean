@@ -85,7 +85,25 @@ Deno.serve(async (req) => {
       }
       const { data: conversation, error: conversationError } = await service.from('whatsapp_conversations').upsert({ contact_id: contact.id, status: 'waiting_owner', updated_at: new Date().toISOString() }, { onConflict: 'contact_id' }).select().single();
       if (conversationError) throw conversationError;
-      await service.from('whatsapp_messages').upsert({ conversation_id: conversation.id, meta_message_id: incoming.id, direction: 'inbound', message_type: incoming.type || 'text', body, media_id: incoming.image?.id || incoming.document?.id || null, status: 'received', raw_payload: incoming }, { onConflict: 'meta_message_id', ignoreDuplicates: true });
+      const metaMediaId = incoming.image?.id || incoming.document?.id || null;
+      let storedMediaPath: string | null = null;
+      let mediaMimeType: string | null = null;
+      const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
+      if (metaMediaId && accessToken) {
+        const metadataResponse = await fetch(`https://graph.facebook.com/v23.0/${metaMediaId}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (metadataResponse.ok) {
+          const metadata = await metadataResponse.json();
+          const mediaResponse = await fetch(metadata.url, { headers: { Authorization: `Bearer ${accessToken}` } });
+          if (mediaResponse.ok) {
+            mediaMimeType = mediaResponse.headers.get('content-type') || metadata.mime_type || 'application/octet-stream';
+            const extension = mediaMimeType === 'image/png' ? 'png' : mediaMimeType === 'image/webp' ? 'webp' : mediaMimeType === 'application/pdf' ? 'pdf' : 'jpg';
+            storedMediaPath = `${contact.id}/${incoming.id}.${extension}`;
+            const { error: uploadError } = await service.storage.from('whatsapp-media').upload(storedMediaPath, await mediaResponse.arrayBuffer(), { contentType: mediaMimeType, upsert: false });
+            if (uploadError) storedMediaPath = null;
+          }
+        }
+      }
+      await service.from('whatsapp_messages').upsert({ conversation_id: conversation.id, meta_message_id: incoming.id, direction: 'inbound', message_type: incoming.type || 'text', body, media_id: storedMediaPath || metaMediaId, media_mime_type: mediaMimeType, status: 'received', raw_payload: incoming }, { onConflict: 'meta_message_id', ignoreDuplicates: true });
       const { count } = await service.from('whatsapp_outbound_approvals').select('id', { count: 'exact', head: true }).eq('conversation_id', conversation.id).eq('status', 'pending');
       if (!count) await service.from('whatsapp_outbound_approvals').insert({ conversation_id: conversation.id, draft_body: qualificationDraft(profileName, body), draft_kind: 'qualification', status: 'pending' });
     }
