@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
+import PodcastIdeaMedia from './PodcastIdeaMedia';
 
 type ShowStatus = 'active' | 'foundation' | 'planned';
 
@@ -403,6 +404,7 @@ const PodcastCentral = ({ adminUserId, onOpenSocial, onOpenCalendar }: { adminUs
                   <p className="mt-3 text-sm leading-6 text-slate-700">{idea.concept}</p>
                   {idea.related_initiatives.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{idea.related_initiatives.map((connection) => <span key={connection} className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase text-slate-700 ring-1 ring-slate-200">{connection}</span>)}</div>}
                   {idea.target_date && <div className="mt-4 flex items-center gap-2 border-t border-slate-200 pt-3 text-xs font-black text-amber-800"><CalendarDays className="h-4 w-4" />Target: {new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${idea.target_date}T00:00:00Z`))}</div>}
+                  <PodcastIdeaMedia ideaId={idea.id} ideaTitle={idea.title} />
                 </CardContent>
               </Card>
             ))}
