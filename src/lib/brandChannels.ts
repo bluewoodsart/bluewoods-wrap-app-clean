@@ -25,8 +25,8 @@ export interface BrandChannel {
 export const brandChannels: Record<string, BrandChannel> = {
   trapstar: {
     slug: 'trapstar',
-    name: 'Trapstar Wraps',
-    eyebrow: 'Trapstar Wraps',
+    name: 'Zone 6 Customs',
+    eyebrow: 'Zone 6 Customs',
     headerSubtitle: 'Blue Woods Brands',
     parentBrand: 'Brought to you by Blue Woods Brands',
     poweredBy: '',
@@ -38,14 +38,14 @@ export const brandChannels: Record<string, BrandChannel> = {
     headline: 'Where your car is the star.',
     description:
       'Custom wrap energy, sharp camo graphics, bold logos, and show-ready style backed by Blue Woods Brands production support.',
-    cardEyebrow: 'Trapstar Customs',
+    cardEyebrow: 'Zone 6 Customs',
     cardHeadline: 'Make the vehicle the headline',
     cardDescription:
-      'Trapstar Customs LG gives you a direct path to intense vehicle wraps, banners, and brand visibility with every request tracked from quote to production.',
+      'Zone 6 Customs gives you a direct path to intense vehicle wraps, banners, and brand visibility with every request tracked from quote to production.',
     featureBullets: [
       'Custom vehicle wraps and racing-inspired graphics',
       'Bold sponsor/logo placement and business visibility',
-      'Quote requests stay connected with Trapstar from start to finish'
+      'Quote requests stay connected with Zone 6 from start to finish'
     ]
   },
   jazzy: {

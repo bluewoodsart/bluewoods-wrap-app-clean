@@ -133,7 +133,7 @@ const postBodyClaimsMedia = (post: FeedPost) => /shared a (photo|screenshot|vide
 const isAcceptedMediaFile = (file: File) => Boolean(getStaffMediaDetails(file));
 const getMediaExtension = (file: File) => getStaffMediaDetails(file)?.extension || null;
 const WHEELERS_TOWING_QUOTE_ID = 'SW-20260715-07175D';
-const WHEELERS_TOWING_PAGE_URL = 'https://www.slapwrapz.com/trapstar/local/wheelers-towing';
+const WHEELERS_TOWING_PAGE_URL = 'https://www.slapwrapz.com/zone6/local/wheelers-towing';
 
 const CUSTOMER_IDEAS: CustomerIdea[] = [
   { id: 'towing-website', title: '24/7 Towing Website & Emergency Call Page', niche: 'Towing & Roadside', badge: 'Priority 1 · Strategic offer', description: 'A fast mobile website with tap-to-call, service area, towing services, reviews, truck photos, and quote/contact capture.', placements: 'Linked from Google Business, every truck QR, social profiles, cards, signs, invoices, and uniforms.', offer: 'Your wrapped trucks get attention; the website gives that attention one place to call, trust, and convert.', priority: 1, stage: 'Best Next Offer', requiresDestination: false },

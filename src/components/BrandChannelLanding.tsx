@@ -9,13 +9,13 @@ interface BrandChannelLandingProps {
 
 const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
   const isJazzyChannel = channel.slug === 'jazzy';
-  const isTrapstarChannel = channel.slug === 'trapstar';
+  const isZone6Channel = channel.slug === 'trapstar';
   const isAnthonyChannel = channel.slug === 'anthony';
   const isAdamChannel = channel.slug === 'adam';
   const isWesleyChannel = channel.slug === 'wesley';
   const isRepHeroChannel = channel.slug === 'jarrel';
 
-  if (isTrapstarChannel) {
+  if (isZone6Channel) {
     return (
       <div className="min-h-[100svh] overflow-x-hidden bg-neutral-950 text-white">
         <header className="absolute left-0 right-0 top-0 z-20 mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-5">
@@ -31,7 +31,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
             </div>
           </Link>
           <Button asChild size="sm" className="h-9 shrink-0 border border-yellow-300/40 bg-yellow-300 px-3 text-xs font-black text-neutral-950 hover:bg-yellow-200 md:text-sm">
-            <Link to="/trapstar/login">Log In</Link>
+            <Link to="/zone6/login">Log In</Link>
           </Button>
         </header>
 
@@ -49,7 +49,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                   {channel.eyebrow}
                 </p>
                 <h1 className="mt-3 max-w-full break-words text-3xl font-black leading-[1.02] text-white drop-shadow-2xl sm:text-5xl md:mt-5 md:text-7xl">
-                  Trapstar Customs LG
+                  Zone 6 Customs
                 </h1>
                 <p className="mt-3 max-w-2xl break-words text-xl font-black uppercase leading-tight text-yellow-300 drop-shadow sm:text-3xl md:mt-5 md:text-5xl">
                   {channel.headline}
@@ -105,7 +105,7 @@ const BrandChannelLanding = ({ channel }: BrandChannelLandingProps) => {
                 </div>
 
                 <Link
-                  to="/trapstar/local/wheelers-towing"
+                  to="/zone6/local/wheelers-towing"
                   className="mt-5 flex items-center justify-between gap-4 border border-white/15 bg-black/55 px-4 py-3 text-sm font-bold text-white transition hover:border-yellow-300/50 hover:bg-black/70 md:mt-7 md:max-w-xl"
                 >
                   <span className="flex items-center gap-3">

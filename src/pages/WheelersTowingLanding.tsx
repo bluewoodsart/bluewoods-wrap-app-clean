@@ -183,7 +183,7 @@ const WheelersTowingLanding = () => {
         mapsUrl: pickupCoordinates ? getGoogleMapsUrl(pickupCoordinates) : null,
         vehicle,
         details,
-        sourcePage: '/trapstar/local/wheelers-towing'
+        sourcePage: '/zone6/local/wheelers-towing'
       },
       p_uploaded_files: [],
       p_product_type: 'towing_lead'

@@ -15,7 +15,7 @@ export const SALES_REPS: Record<string, SalesRep> = {
     email: 'trapstarcustoms@gmail.com'
   },
   trapstar: {
-    name: 'Trapstar Customs LG',
+    name: 'Zone 6 Customs LLC',
     email: 'trapstarcustomslg@gmail.com'
   },
   jazzy: {

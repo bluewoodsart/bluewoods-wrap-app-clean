@@ -416,7 +416,7 @@ const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') =
 
 const JAZZY_REFERRAL_ONE_SHEET_PATH = '/jazzy/kevin-jazzy-referral-one-sheet.pdf';
 const WHEELERS_TOWING_QUOTE_ID = 'SW-20260715-07175D';
-const WHEELERS_TOWING_PAGE_URL = 'https://www.slapwrapz.com/trapstar/local/wheelers-towing';
+const WHEELERS_TOWING_PAGE_URL = 'https://www.slapwrapz.com/zone6/local/wheelers-towing';
 
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
@@ -1205,25 +1205,6 @@ const RepPortal = () => {
     window.location.href = destination;
   };
 
-  const claimUrgentLead = async (lead: UrgentLeadRow) => {
-    setUrgentLeadActionId(lead.quote_request_id);
-    setUrgentLeadMessage('');
-    setUrgentLeadError('');
-    const { error: claimError } = await supabase.rpc('claim_expired_urgent_lead_v1', {
-      p_quote_request_id: lead.quote_request_id
-    });
-    setUrgentLeadActionId(null);
-
-    if (claimError) {
-      setUrgentLeadError(claimError.message);
-      await loadUrgentLeads();
-      return;
-    }
-
-    setUrgentLeadMessage(`${lead.customer_name} is now assigned to you. Your new five-minute contact timer has started.`);
-    await Promise.all([loadUrgentLeads(), refreshAssignedQuotes()]);
-  };
-
   const openUrgentLead = (lead: UrgentLeadRow) => {
     const quote = quotes.find((candidate) => candidate.id === lead.quote_request_id);
     if (quote) {
@@ -1603,7 +1584,7 @@ const RepPortal = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-slate-600">
-              You are currently signed in as an admin account. Log out first, then sign in with the rep account for Jazzy, Jarrel, Trapstar, or PressPlay.
+              You are currently signed in as an admin account. Log out first, then sign in with the rep account for Jazzy, Jarrel, Zone 6, or PressPlay.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
@@ -1702,7 +1683,6 @@ const RepPortal = () => {
               onRefresh={() => void loadUrgentLeads()}
               onAcknowledge={(lead) => void acknowledgeUrgentLead(lead)}
               onContact={(lead, method) => void contactUrgentLead(lead, method)}
-              onClaim={(lead) => void claimUrgentLead(lead)}
               onOpenLead={openUrgentLead}
             />
           </div>
