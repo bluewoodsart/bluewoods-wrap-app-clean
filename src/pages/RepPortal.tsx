@@ -416,7 +416,7 @@ const getPhoneHref = (phone: string | null | undefined, scheme: 'tel' | 'sms') =
 
 const JAZZY_REFERRAL_ONE_SHEET_PATH = '/jazzy/kevin-jazzy-referral-one-sheet.pdf';
 const WHEELERS_TOWING_QUOTE_ID = 'SW-20260715-07175D';
-const WHEELERS_TOWING_PAGE_URL = 'https://www.slapwrapz.com/trapstar/local/wheelers-towing';
+const WHEELERS_TOWING_PAGE_URL = 'https://www.slapwrapz.com/zone6/local/wheelers-towing';
 
 const isImageFile = (file: FileSummary) => {
   if (file.type?.toLowerCase().startsWith('image/')) return true;
@@ -1205,25 +1205,6 @@ const RepPortal = () => {
     window.location.href = destination;
   };
 
-  const claimUrgentLead = async (lead: UrgentLeadRow) => {
-    setUrgentLeadActionId(lead.quote_request_id);
-    setUrgentLeadMessage('');
-    setUrgentLeadError('');
-    const { error: claimError } = await supabase.rpc('claim_expired_urgent_lead_v1', {
-      p_quote_request_id: lead.quote_request_id
-    });
-    setUrgentLeadActionId(null);
-
-    if (claimError) {
-      setUrgentLeadError(claimError.message);
-      await loadUrgentLeads();
-      return;
-    }
-
-    setUrgentLeadMessage(`${lead.customer_name} is now assigned to you. Your new five-minute contact timer has started.`);
-    await Promise.all([loadUrgentLeads(), refreshAssignedQuotes()]);
-  };
-
   const openUrgentLead = (lead: UrgentLeadRow) => {
     const quote = quotes.find((candidate) => candidate.id === lead.quote_request_id);
     if (quote) {
@@ -1572,7 +1553,9 @@ const RepPortal = () => {
   const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
   const repPublicUrl = adminUser?.rep_slug ? `www.slapwrapz.com/${adminUser.rep_slug}` : 'www.slapwrapz.com';
   const repPublicPageUrl = `https://${repPublicUrl}`;
-  const repDisplayName = adminUser?.display_name || adminUser?.email || 'Rep';
+  const repDisplayName = adminUser?.rep_slug === 'trapstar'
+    ? 'Zone 6 Customs LLC'
+    : adminUser?.display_name || adminUser?.email || 'Rep';
   const repQrPngUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&margin=24&data=${encodeURIComponent(repPublicPageUrl)}`;
   const repQrSvgUrl = `https://api.qrserver.com/v1/create-qr-code/?format=svg&size=900x900&margin=24&data=${encodeURIComponent(repPublicPageUrl)}`;
   const showCoverDirectionPanel = adminUser?.role === 'sales_rep' || adminUser?.role === 'rep_manager';
@@ -1603,7 +1586,7 @@ const RepPortal = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-slate-600">
-              You are currently signed in as an admin account. Log out first, then sign in with the rep account for Jazzy, Jarrel, Trapstar, or PressPlay.
+              You are currently signed in as an admin account. Log out first, then sign in with the rep account for Jazzy, Jarrel, Zone 6, or PressPlay.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
@@ -1666,7 +1649,7 @@ const RepPortal = () => {
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">SlapWrapz Rep Portal</p>
             <p className="text-sm text-slate-800">
-              {adminUser.display_name || adminUser.email} - {adminUser.role === 'rep_manager' ? 'Manager team quotes' : 'Assigned quotes only'}
+              {repDisplayName} - {adminUser.role === 'rep_manager' ? 'Manager team quotes' : 'Assigned quotes only'}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
@@ -1681,7 +1664,7 @@ const RepPortal = () => {
         <section>
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-950">{adminUser.display_name || 'Rep Portal'}</h1>
+              <h1 className="text-2xl font-bold text-slate-950">{repDisplayName}</h1>
               <p className="text-sm text-slate-600">
                 {adminUser.role === 'rep_manager' ? 'Manager view for' : 'Assigned work for'} rep slug {adminUser.rep_slug || '-'}
               </p>
@@ -1702,7 +1685,6 @@ const RepPortal = () => {
               onRefresh={() => void loadUrgentLeads()}
               onAcknowledge={(lead) => void acknowledgeUrgentLead(lead)}
               onContact={(lead, method) => void contactUrgentLead(lead, method)}
-              onClaim={(lead) => void claimUrgentLead(lead)}
               onOpenLead={openUrgentLead}
             />
           </div>

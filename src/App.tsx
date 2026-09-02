@@ -38,7 +38,7 @@ import { getBrandChannel } from "@/lib/brandChannels";
 import { getSafeStartOverPath, getStoredRepSlug, isRepPortalSessionActive } from "@/lib/repTracking";
 
 const queryClient = new QueryClient();
-const trapstarChannel = getBrandChannel('trapstar');
+const zone6Channel = getBrandChannel('trapstar');
 const jazzyChannel = getBrandChannel('jazzy');
 const jarrelChannel = getBrandChannel('jarrel');
 const anthonyChannel = getBrandChannel('anthony');
@@ -105,8 +105,10 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
-              <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
-              <Route path="/trapstar/local/wheelers-towing" element={<WheelersTowingLanding />} />
+              <Route path="/zone6" element={<BrandChannelLanding channel={zone6Channel} />} />
+              <Route path="/zone6/local/wheelers-towing" element={<WheelersTowingLanding />} />
+              <Route path="/trapstar" element={<Navigate to="/zone6" replace />} />
+              <Route path="/trapstar/local/wheelers-towing" element={<Navigate to="/zone6/local/wheelers-towing" replace />} />
               <Route path="/jazzy" element={<BrandChannelLanding channel={jazzyChannel} />} />
               <Route path="/jarrel" element={<BrandChannelLanding channel={jarrelChannel} />} />
               <Route path="/anthony" element={<BrandChannelLanding channel={anthonyChannel} />} />
@@ -159,21 +161,22 @@ const App = () => {
                 )}
               />
               <Route
-                path="/trapstar/login"
+                path="/zone6/login"
                 element={(
                   <LoginPlaceholder
                     defaultRedirect="/rep"
-                    brandName="Trapstar Wraps"
+                    brandName="Zone 6 Customs"
                     brandSubtitle="Blue Woods Brands"
                     uppercaseBrandSubtitle={false}
-                    eyebrow="Trapstar Portal"
-                    heading="Trapstar Portal Login"
-                    backLinkLabel="Back to Trapstar"
-                    backLinkTarget="/trapstar"
+                    eyebrow="Zone 6 Portal"
+                    heading="Zone 6 Portal Login"
+                    backLinkLabel="Back to Zone 6"
+                    backLinkTarget="/zone6"
                     allowAccountSwitch
                   />
                 )}
               />
+              <Route path="/trapstar/login" element={<Navigate to="/zone6/login" replace />} />
               <Route
                 path="/anthony/login"
                 element={(

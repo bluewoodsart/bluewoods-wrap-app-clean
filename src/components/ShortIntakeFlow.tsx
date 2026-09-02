@@ -701,7 +701,7 @@ const ShortIntakeFlow: React.FC = () => {
       <div className="space-y-5">
         {repHandoff && (
           <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
-            Customer and vehicle information was carried over from the original Trapstar lead. Completed questions were skipped.
+            Customer and vehicle information was carried over from the original Zone 6 lead. Completed questions were skipped.
           </div>
         )}
         <div className="rounded-xl border bg-slate-50 p-4">

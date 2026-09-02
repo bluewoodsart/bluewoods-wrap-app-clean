@@ -62,7 +62,7 @@ export default function CustomerInvoicePortal() {
       if (!active) return;
       setLoading(false);
       if (loadError) {
-        setError('This invoice link could not be checked. Please contact Trapstar Customs for a fresh link.');
+        setError('This invoice link could not be checked. Please contact Zone 6 Customs for a fresh link.');
         return;
       }
 
@@ -206,7 +206,7 @@ export default function CustomerInvoicePortal() {
         </div>
 
         <footer className="border-t border-slate-200 bg-slate-50 px-5 py-5 text-center text-xs text-slate-600 sm:px-10">
-          Trapstar Customs project services · Legal billing entity: Blue Woods Art LLC
+          Zone 6 Customs project services · Legal billing entity: Blue Woods Art LLC
         </footer>
       </article>
     </main>
