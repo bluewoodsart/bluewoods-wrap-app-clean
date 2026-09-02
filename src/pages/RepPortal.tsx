@@ -1553,7 +1553,9 @@ const RepPortal = () => {
   const showJazzyPartnerPacket = adminUser?.rep_slug === 'jazzy';
   const repPublicUrl = adminUser?.rep_slug ? `www.slapwrapz.com/${adminUser.rep_slug}` : 'www.slapwrapz.com';
   const repPublicPageUrl = `https://${repPublicUrl}`;
-  const repDisplayName = adminUser?.display_name || adminUser?.email || 'Rep';
+  const repDisplayName = adminUser?.rep_slug === 'trapstar'
+    ? 'Zone 6 Customs LLC'
+    : adminUser?.display_name || adminUser?.email || 'Rep';
   const repQrPngUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&margin=24&data=${encodeURIComponent(repPublicPageUrl)}`;
   const repQrSvgUrl = `https://api.qrserver.com/v1/create-qr-code/?format=svg&size=900x900&margin=24&data=${encodeURIComponent(repPublicPageUrl)}`;
   const showCoverDirectionPanel = adminUser?.role === 'sales_rep' || adminUser?.role === 'rep_manager';
@@ -1647,7 +1649,7 @@ const RepPortal = () => {
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">SlapWrapz Rep Portal</p>
             <p className="text-sm text-slate-800">
-              {adminUser.display_name || adminUser.email} - {adminUser.role === 'rep_manager' ? 'Manager team quotes' : 'Assigned quotes only'}
+              {repDisplayName} - {adminUser.role === 'rep_manager' ? 'Manager team quotes' : 'Assigned quotes only'}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout} onTouchEnd={(event) => runMobileTouchAction(event, () => void handleLogout())} disabled={signingOut}>
@@ -1662,7 +1664,7 @@ const RepPortal = () => {
         <section>
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-950">{adminUser.display_name || 'Rep Portal'}</h1>
+              <h1 className="text-2xl font-bold text-slate-950">{repDisplayName}</h1>
               <p className="text-sm text-slate-600">
                 {adminUser.role === 'rep_manager' ? 'Manager view for' : 'Assigned work for'} rep slug {adminUser.rep_slug || '-'}
               </p>
