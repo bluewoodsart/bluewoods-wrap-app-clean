@@ -101,6 +101,7 @@ export const getStoredRepSlug = () => {
 
 export const getRepLandingPath = (repSlug?: string | null) => {
   const sanitizedSlug = sanitizeRepSlug(repSlug || getStoredRepSlug());
+  if (sanitizedSlug === 'trapstar') return '/zone6';
   return sanitizedSlug ? `/${sanitizedSlug}` : '/';
 };
 
@@ -125,6 +126,7 @@ const SAFE_REDIRECT_PATHS = [
   '/signs',
   '/thank-you',
   '/confirmation',
+  '/zone6',
   '/trapstar',
   '/jazzy',
   '/jarrel',

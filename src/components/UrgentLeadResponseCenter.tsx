@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock3, Mail, MessageSquare, Phone, RefreshCw, UserPlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, Mail, MessageSquare, Phone, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export interface UrgentLeadRow {
@@ -22,7 +22,7 @@ export interface UrgentLeadRow {
   contact_method: string | null;
   assigned_rep_slug: string;
   assigned_rep_name: string | null;
-  queue_state: 'assigned' | 'acknowledged' | 'available';
+  queue_state: 'assigned' | 'acknowledged' | 'overdue';
   is_mine: boolean;
 }
 
@@ -35,7 +35,6 @@ interface UrgentLeadResponseCenterProps {
   onRefresh: () => void;
   onAcknowledge: (lead: UrgentLeadRow) => void;
   onContact: (lead: UrgentLeadRow, method: 'call' | 'text' | 'email') => void;
-  onClaim: (lead: UrgentLeadRow) => void;
   onOpenLead: (lead: UrgentLeadRow) => void;
 }
 
@@ -80,7 +79,6 @@ const UrgentLeadResponseCenter = ({
   onRefresh,
   onAcknowledge,
   onContact,
-  onClaim,
   onOpenLead
 }: UrgentLeadResponseCenterProps) => {
   const [now, setNow] = useState(() => Date.now());
@@ -123,16 +121,16 @@ const UrgentLeadResponseCenter = ({
         )}
         {orderedLeads.map((lead) => {
           const remaining = new Date(lead.response_deadline_at).getTime() - now;
-          const available = remaining <= 0;
+          const overdue = remaining <= 0;
           const canContact = lead.is_mine;
           const busy = actionLeadId === lead.quote_request_id;
           return (
-            <article key={lead.tracking_id} className={`rounded-xl border-2 p-4 ${available ? 'border-amber-400 bg-amber-50' : 'border-red-300 bg-red-50'}`}>
+            <article key={lead.tracking_id} className={`rounded-xl border-2 p-4 ${overdue ? 'border-amber-400 bg-amber-50' : 'border-red-300 bg-red-50'}`}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${available ? 'bg-amber-500 text-slate-950' : 'bg-red-700 text-white'}`}>
-                      {available ? 'Open to claim' : lead.acknowledged_at ? 'Received · contact now' : 'New assignment'}
+                    <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${overdue ? 'bg-amber-500 text-slate-950' : 'bg-red-700 text-white'}`}>
+                      {overdue ? 'Response overdue' : lead.acknowledged_at ? 'Received · contact now' : 'New assignment'}
                     </span>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-slate-200">
                       {lead.quote_id || 'New lead'}
@@ -147,10 +145,10 @@ const UrgentLeadResponseCenter = ({
                   </div>
                 </div>
 
-                <div className={`flex min-w-[10rem] flex-col items-center rounded-xl border-2 px-5 py-4 text-center ${available ? 'border-amber-400 bg-white text-amber-800' : 'border-red-500 bg-white text-red-700'}`}>
+                <div className={`flex min-w-[10rem] flex-col items-center rounded-xl border-2 px-5 py-4 text-center ${overdue ? 'border-amber-400 bg-white text-amber-800' : 'border-red-500 bg-white text-red-700'}`}>
                   <Clock3 className="h-6 w-6" />
                   <span className="mt-1 font-mono text-4xl font-black tabular-nums">{formatCountdown(remaining)}</span>
-                  <span className="mt-1 text-xs font-black uppercase tracking-wide">{available ? 'Released to team' : 'Time to contact'}</span>
+                  <span className="mt-1 text-xs font-black uppercase tracking-wide">{overdue ? 'Contact overdue' : 'Time to contact'}</span>
                 </div>
               </div>
 
@@ -161,12 +159,7 @@ const UrgentLeadResponseCenter = ({
                 </Button>
               )}
 
-              {available && !lead.is_mine ? (
-                <Button type="button" onClick={() => onClaim(lead)} disabled={busy} className="mt-4 min-h-12 w-full touch-manipulation bg-amber-500 text-base font-black text-slate-950 hover:bg-amber-400">
-                  <UserPlus className="mr-2 h-5 w-5" />
-                  {busy ? 'Claiming...' : 'Claim This Lead Now'}
-                </Button>
-              ) : canContact ? (
+              {canContact ? (
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-4">
                   <Button type="button" onClick={() => onContact(lead, 'call')} disabled={busy || !lead.customer_phone} className="min-h-12 touch-manipulation bg-emerald-600 font-black hover:bg-emerald-700">
                     <Phone className="mr-2 h-5 w-5" /> Call

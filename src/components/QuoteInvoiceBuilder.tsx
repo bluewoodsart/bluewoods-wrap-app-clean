@@ -75,7 +75,7 @@ const formatMoney = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number.isFinite(value) ? value : 0);
 
 const getShareMessage = (customerName: string, shareUrl: string) =>
-  `Hi ${customerName}, here is the official Trapstar Customs quote from Blue Woods Art LLC. Please review the project details and use the secure PayPal deposit button when you are ready: ${shareUrl}`;
+  `Hi ${customerName}, here is the official Zone 6 Customs quote from Blue Woods Art LLC. Please review the project details and use the secure PayPal deposit button when you are ready: ${shareUrl}`;
 
 export function QuoteInvoiceBuilder({
   quoteRequestId,
@@ -215,7 +215,7 @@ export function QuoteInvoiceBuilder({
   };
 
   const emailHref = isApproved && shareUrl
-    ? `mailto:${encodeURIComponent(customerEmail)}?subject=${encodeURIComponent(`Trapstar Customs quote ${orderNumber}`)}&body=${encodeURIComponent(getShareMessage(customerName, shareUrl))}`
+    ? `mailto:${encodeURIComponent(customerEmail)}?subject=${encodeURIComponent(`Zone 6 Customs quote ${orderNumber}`)}&body=${encodeURIComponent(getShareMessage(customerName, shareUrl))}`
     : '';
   const digits = customerPhone.replace(/\D/g, '');
   const textHref = isApproved && shareUrl && digits
@@ -231,7 +231,7 @@ export function QuoteInvoiceBuilder({
       <div className="bg-slate-950 px-4 py-4 text-white sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-300">Trapstar Customs</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-300">Zone 6 Customs</p>
             <h3 className="mt-1 text-xl font-black">Official Quote / Invoice</h3>
             <p className="mt-1 text-xs text-slate-300">Billing entity: Blue Woods Art LLC · {orderNumber}</p>
           </div>
