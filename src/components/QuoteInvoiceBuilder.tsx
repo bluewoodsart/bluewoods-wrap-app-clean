@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, ExternalLink, Eye, FileUp, Plus, Printer, Save, Send, Share2, ShieldCheck, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, Eye, FileUp, Plus, Printer, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -77,15 +77,10 @@ const buildDefaultInvoice = (projectDescription: string): InvoiceData => ({
 const formatMoney = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number.isFinite(value) ? value : 0);
 
-const getShareMessage = (customerName: string, shareUrl: string) =>
-  `Hi ${customerName}, here is the official Trapstar Customs quote from Blue Woods Art LLC. Please review the project details and use the secure PayPal deposit button when you are ready: ${shareUrl}`;
-
 export function QuoteInvoiceBuilder({
   quoteRequestId,
   orderNumber,
   customerName,
-  customerEmail,
-  customerPhone,
   customerCompany,
   projectDescription
 }: QuoteInvoiceBuilderProps) {
@@ -236,24 +231,13 @@ export function QuoteInvoiceBuilder({
   const copyShareLink = async () => {
     if (!shareUrl) return;
     await navigator.clipboard.writeText(shareUrl);
-    setMessage('Customer-facing preview link copied.');
+    setMessage('Private invoice link copied. Copying the link does not send an email or text.');
   };
 
-  const shareFromAndroid = async () => {
-    if (!shareUrl || !isApproved) return;
-    const text = getShareMessage(customerName, shareUrl);
-    if (navigator.share) {
-      await navigator.share({ title: `Quote ${orderNumber}`, text, url: shareUrl });
-      return;
-    }
-    await navigator.clipboard.writeText(text);
-    setMessage('Customer message copied. Paste it into your preferred app.');
-  };
-
-  const approveForSending = async () => {
+  const publishToProofPortal = async () => {
     if (!testedConfirmed || saving) return;
     setSaving(true);
-    setMessage('Approving tested invoice...');
+    setMessage('Publishing the approved invoice to the private proof portal...');
     setError('');
 
     const { data, error: approvalError } = await supabase.rpc('approve_quote_invoice_rep_v1', {
@@ -278,16 +262,8 @@ export function QuoteInvoiceBuilder({
     } : current);
     setConfirmOpen(false);
     setTestedConfirmed(false);
-    setMessage('Approved for manual sending. No email or text has been sent automatically.');
+    setMessage('Published to the private proof portal. No email or text was sent.');
   };
-
-  const emailHref = isApproved && shareUrl
-    ? `mailto:${encodeURIComponent(customerEmail)}?subject=${encodeURIComponent(`Trapstar Customs quote ${orderNumber}`)}&body=${encodeURIComponent(getShareMessage(customerName, shareUrl))}`
-    : '';
-  const digits = customerPhone.replace(/\D/g, '');
-  const textHref = isApproved && shareUrl && digits
-    ? `sms:${digits}?&body=${encodeURIComponent(getShareMessage(customerName, shareUrl))}`
-    : '';
 
   if (loading) {
     return <p className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm font-semibold text-orange-900">Loading invoice draft...</p>;
@@ -298,14 +274,14 @@ export function QuoteInvoiceBuilder({
       <div className="bg-slate-950 px-4 py-4 text-white sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-300">Trapstar Customs</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">Blue Woods Brands</p>
             <h3 className="mt-1 text-xl font-black">Official Quote / Invoice</h3>
             <p className="mt-1 text-xs text-slate-300">Billing entity: Blue Woods Art LLC · {orderNumber}</p>
           </div>
           <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${
             isApproved ? 'bg-emerald-400 text-emerald-950' : 'bg-red-500 text-white'
           }`}>
-            {isApproved ? 'Approved to Send' : 'Test Mode'}
+            {isApproved ? 'Published to Proof' : 'Draft Preview'}
           </span>
         </div>
       </div>
@@ -553,30 +529,19 @@ export function QuoteInvoiceBuilder({
             className="min-h-14 w-full bg-red-600 text-base font-black text-white hover:bg-red-500"
           >
             <ShieldCheck className="mr-2 h-5 w-5" />
-            Manual Test & Send Confirmation
+            Review & Publish to Proof Portal
           </Button>
         ) : (
           <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4">
-            <p className="font-black text-emerald-950">Approved for manual sending</p>
-            <p className="mt-1 text-xs text-emerald-800">These buttons open the rep’s chosen app. SlapWrapz does not send automatically.</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <p className="font-black text-emerald-950">Published inside the private proof portal</p>
+            <p className="mt-1 text-xs text-emerald-800">No customer email, text, or notification is sent by this invoice tool.</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <Button asChild className="min-h-12 bg-emerald-700 font-bold hover:bg-emerald-600">
-                <a href={emailHref}><Send className="mr-2 h-4 w-4" />Email Customer</a>
-              </Button>
-              {textHref ? (
-                <Button asChild variant="outline" className="min-h-12 border-emerald-300 bg-white font-bold text-emerald-800">
-                  <a href={textHref}>Text Customer</a>
-                </Button>
-              ) : (
-                <Button type="button" variant="outline" disabled className="min-h-12">No Phone Number</Button>
-              )}
-              <Button type="button" variant="outline" onClick={() => void shareFromAndroid()} className="min-h-12 border-emerald-300 bg-white font-bold text-emerald-800">
-                <Share2 className="mr-2 h-4 w-4" />
-                Android Share
+                <a href={shareUrl} target="_blank" rel="noreferrer"><Eye className="mr-2 h-4 w-4" />Open Published Invoice</a>
               </Button>
               <Button type="button" variant="outline" onClick={() => void copyShareLink()} className="min-h-12 border-emerald-300 bg-white font-bold text-emerald-800">
                 <Copy className="mr-2 h-4 w-4" />
-                Copy Link
+                Copy Private Link
               </Button>
             </div>
           </div>
@@ -589,14 +554,14 @@ export function QuoteInvoiceBuilder({
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="w-[calc(100vw-1rem)] max-w-lg">
           <DialogHeader>
-            <DialogTitle>Confirm manual testing</DialogTitle>
+            <DialogTitle>Publish to the private proof portal</DialogTitle>
             <DialogDescription>
-              No message will be sent by this confirmation. It only unlocks the rep’s manual email, text, and Android Share buttons.
+              This makes the approved quote or uploaded PDF visible inside the customer’s existing private proof experience. It does not send an email or text.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-              Check the customer, line items, totals, dates, terms, PayPal link, and payment button in the preview before approval.
+              Check the customer, line items, totals, dates, PDF, terms, and payment link before publishing.
             </div>
             <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3">
               <input
@@ -605,16 +570,16 @@ export function QuoteInvoiceBuilder({
                 onChange={(event) => setTestedConfirmed(event.target.checked)}
                 className="mt-1 h-5 w-5"
               />
-              <span className="text-sm font-semibold text-slate-900">I manually tested this invoice and its PayPal link on desktop and phone.</span>
+              <span className="text-sm font-semibold text-slate-900">I reviewed this invoice and understand that publishing changes only the private proof portal.</span>
             </label>
             <Button
               type="button"
               disabled={!testedConfirmed || saving}
-              onClick={() => void approveForSending()}
+              onClick={() => void publishToProofPortal()}
               className="min-h-12 w-full bg-emerald-700 font-bold hover:bg-emerald-600"
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
-              Approve for Manual Sending
+              Publish to Private Proof Portal
             </Button>
           </div>
         </DialogContent>
