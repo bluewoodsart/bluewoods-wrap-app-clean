@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Copy, Eye, Plus, Printer, Save, Send, Share2, ShieldCheck, Trash2 } from 'lucide-react';
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Copy, ExternalLink, Eye, FileUp, Plus, Printer, Save, Send, Share2, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,9 @@ interface InvoiceData {
   terms: string;
   paypalUrl: string;
   projectDescription: string;
+  proposalPdfUrl?: string;
+  proposalPdfName?: string;
+  proposalPdfUploadedAt?: string;
 }
 
 interface InvoiceRecord {
@@ -94,6 +97,8 @@ export function QuoteInvoiceBuilder({
   const [error, setError] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [testedConfirmed, setTestedConfirmed] = useState(false);
+  const [uploadingProposal, setUploadingProposal] = useState(false);
+  const proposalUploadInputRef = useRef<HTMLInputElement>(null);
 
   const subtotal = useMemo(
     () => invoice.lineItems.reduce((sum, item) => sum + Math.max(item.quantity, 0) * Math.max(item.rate, 0), 0),
@@ -144,7 +149,7 @@ export function QuoteInvoiceBuilder({
     setError('');
   };
 
-  const saveDraft = async () => {
+  const persistDraft = async (nextInvoice: InvoiceData, successMessage: string) => {
     if (saving) return;
     setSaving(true);
     setMessage('Saving draft to this customer record...');
@@ -152,7 +157,7 @@ export function QuoteInvoiceBuilder({
 
     const { data, error: saveError } = await supabase.rpc('upsert_quote_invoice_rep_v1', {
       p_quote_request_id: quoteRequestId,
-      p_invoice_data: invoice
+      p_invoice_data: nextInvoice
     });
 
     setSaving(false);
@@ -163,7 +168,69 @@ export function QuoteInvoiceBuilder({
     }
 
     setRecord(data?.[0] as InvoiceRecord);
-    setMessage('Draft saved. The invoice will reopen from this same customer record.');
+    setInvoice(nextInvoice);
+    setMessage(successMessage);
+  };
+
+  const saveDraft = async () => {
+    await persistDraft(invoice, 'Draft saved. The invoice will reopen from this same customer record.');
+  };
+
+  const uploadProposalPdf = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || saving || uploadingProposal) return;
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setError('Choose a PDF proposal or invoice.');
+      setMessage('');
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      setError('The proposal PDF must be 25 MB or smaller.');
+      setMessage('');
+      return;
+    }
+
+    setUploadingProposal(true);
+    setError('');
+    setMessage('Uploading proposal PDF...');
+
+    const safeFileName = file.name
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'proposal.pdf';
+    const storagePath = `invoices/${quoteRequestId}/${crypto.randomUUID()}-${safeFileName}`;
+    const { error: uploadError } = await supabase.storage
+      .from('customer-proofs')
+      .upload(storagePath, file, {
+        cacheControl: '3600',
+        contentType: 'application/pdf',
+        upsert: false
+      });
+
+    if (uploadError) {
+      setUploadingProposal(false);
+      setMessage('');
+      setError(uploadError.message);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('customer-proofs')
+      .getPublicUrl(storagePath);
+    const nextInvoice: InvoiceData = {
+      ...invoice,
+      proposalPdfUrl: publicUrlData.publicUrl,
+      proposalPdfName: file.name,
+      proposalPdfUploadedAt: new Date().toISOString()
+    };
+
+    setUploadingProposal(false);
+    await persistDraft(
+      nextInvoice,
+      'Proposal PDF uploaded and saved. Review the invoice, then approve it to show the document on the customer proof page.'
+    );
   };
 
   const copyShareLink = async () => {
@@ -415,6 +482,49 @@ export function QuoteInvoiceBuilder({
           />
           <span className="mt-1 block text-xs font-normal text-slate-500">Paste the complete PayPal or PayPal.Me link. Saving any change returns this invoice to TEST MODE.</span>
         </label>
+
+        <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-slate-950">Proposal / Invoice PDF</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Upload the finished PDF here. It stays attached to this quote and appears beside Payment after approval.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={proposalUploadInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={uploadProposalPdf}
+              />
+              {invoice.proposalPdfUrl && (
+                <Button asChild type="button" variant="outline" className="bg-white">
+                  <a href={invoice.proposalPdfUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open PDF
+                  </a>
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="bg-white"
+                disabled={saving || uploadingProposal}
+                onClick={() => proposalUploadInputRef.current?.click()}
+              >
+                <FileUp className="mr-2 h-4 w-4" />
+                {uploadingProposal ? 'Uploading...' : invoice.proposalPdfUrl ? 'Replace PDF' : 'Upload PDF'}
+              </Button>
+            </div>
+          </div>
+          {invoice.proposalPdfUrl && (
+            <p className="mt-3 truncate rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-900">
+              {invoice.proposalPdfName || 'Uploaded proposal / invoice.pdf'}
+            </p>
+          )}
+        </div>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Button type="button" onClick={() => void saveDraft()} disabled={saving} className="min-h-12 bg-slate-950 font-bold text-white hover:bg-slate-800">
