@@ -62,7 +62,7 @@ export default function CustomerInvoicePortal() {
       if (!active) return;
       setLoading(false);
       if (loadError) {
-        setError('This invoice link could not be checked. Please contact Trapstar Customs for a fresh link.');
+        setError('This invoice link could not be checked. Please contact Blue Woods Brands for a fresh link.');
         return;
       }
 
@@ -115,8 +115,8 @@ export default function CustomerInvoicePortal() {
         <header className="border-b-[6px] border-orange-500 bg-slate-950 px-5 py-7 text-white sm:px-10 sm:py-9">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-2xl font-black tracking-tight sm:text-3xl">TRAPSTAR CUSTOMS</p>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-orange-300">Powered by Blue Woods Art LLC</p>
+              <p className="text-2xl font-black tracking-tight sm:text-3xl">BLUE WOODS BRANDS</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300">Legal billing entity · Blue Woods Art LLC</p>
             </div>
             <div className="sm:text-right">
               <h1 className="text-2xl font-black">QUOTE / INVOICE</h1>
@@ -127,7 +127,7 @@ export default function CustomerInvoicePortal() {
 
         {!isApproved && (
           <div className="bg-red-600 px-4 py-3 text-center text-sm font-black uppercase tracking-wide text-white">
-            TEST MODE · Preview only · Payment disabled
+            Draft preview · Not sent to customer · Payment disabled
           </div>
         )}
 
@@ -206,7 +206,7 @@ export default function CustomerInvoicePortal() {
         </div>
 
         <footer className="border-t border-slate-200 bg-slate-50 px-5 py-5 text-center text-xs text-slate-600 sm:px-10">
-          Trapstar Customs project services · Legal billing entity: Blue Woods Art LLC
+          Blue Woods Brands · Legal billing entity: Blue Woods Art LLC
         </footer>
       </article>
     </main>
