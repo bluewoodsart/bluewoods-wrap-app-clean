@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, CreditCard, FileText, Maximize2, RefreshCw, Send, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, FileText, Maximize2, RefreshCw, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -41,6 +41,8 @@ interface ApprovedProposal {
     lineItems?: Array<{ quantity?: number; rate?: number }>;
     depositPercent?: number;
     projectDescription?: string;
+    proposalPdfUrl?: string;
+    proposalPdfName?: string;
   };
   order_number: string;
   approved_at: string | null;
@@ -462,7 +464,15 @@ const CustomerProofPortal = () => {
                 <CardHeader>
                   <CardTitle className="text-lg">Payment</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-3">
+                  {approvedProposal?.invoice_data.proposalPdfUrl && (
+                    <Button asChild variant="outline" className="w-full border-blue-200 text-blue-800">
+                      <a href={approvedProposal.invoice_data.proposalPdfUrl} target="_blank" rel="noreferrer">
+                        <FileText className="mr-2 h-4 w-4" />
+                        View Proposal / Invoice PDF
+                      </a>
+                    </Button>
+                  )}
                   {details?.payment_url ? (
                     <Button asChild className="w-full">
                       <a href={details.payment_url} target="_blank" rel="noreferrer">
@@ -646,7 +656,15 @@ const CustomerProofPortal = () => {
                 <CardHeader>
                   <CardTitle className="text-lg">Payment</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-3">
+                  {approvedProposal?.invoice_data.proposalPdfUrl && (
+                    <Button asChild variant="outline" className="w-full border-blue-200 text-blue-800">
+                      <a href={approvedProposal.invoice_data.proposalPdfUrl} target="_blank" rel="noreferrer">
+                        <FileText className="mr-2 h-4 w-4" />
+                        View Proposal / Invoice PDF
+                      </a>
+                    </Button>
+                  )}
                   {details?.payment_url ? (
                     <Button asChild className="w-full">
                       <a href={details.payment_url} target="_blank" rel="noreferrer">
@@ -687,11 +705,21 @@ const CustomerProofPortal = () => {
                       )}
                     </div>
                   </div>
-                  <Button asChild>
-                    <a href={`/invoice/${approvedProposal.invoice_token}`}>
-                      Review Official Proposal
-                    </a>
-                  </Button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {approvedProposal.invoice_data.proposalPdfUrl && (
+                      <Button asChild variant="outline">
+                        <a href={approvedProposal.invoice_data.proposalPdfUrl} target="_blank" rel="noreferrer">
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Open PDF
+                        </a>
+                      </Button>
+                    )}
+                    <Button asChild>
+                      <a href={`/invoice/${approvedProposal.invoice_token}`}>
+                        Review Official Proposal
+                      </a>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-slate-600">
