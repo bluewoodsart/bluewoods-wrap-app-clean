@@ -98,6 +98,14 @@ interface CustomerProofOption {
   is_active?: boolean;
   created_at?: string;
 }
+
+interface CustomerProofImage {
+  id: string;
+  image_url: string;
+  original_filename: string | null;
+  sort_order: number;
+  created_at?: string;
+}
 type AdminRole = 'owner_admin' | 'staff' | 'sales_rep';
 
 const UNASSIGNED_REP_VALUE = '__unassigned__';
@@ -1016,6 +1024,9 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   const [proofPaymentUrl, setProofPaymentUrl] = useState('');
   const [proofMode, setProofMode] = useState<ProofMode>('single');
   const [proofOptions, setProofOptions] = useState<CustomerProofOption[]>([]);
+  const [proofImages, setProofImages] = useState<CustomerProofImage[]>([]);
+  const [loadingProofImages, setLoadingProofImages] = useState(false);
+  const [removingProofImageId, setRemovingProofImageId] = useState<string | null>(null);
   const [savingProofPortal, setSavingProofPortal] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
   const lastSelectedQuoteIdRef = useRef<string | null>(null);
@@ -1243,6 +1254,26 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     }
   };
 
+  const loadCustomerProofImages = async (quoteRequestId: string) => {
+    setLoadingProofImages(true);
+
+    const { data, error: proofImagesError } = await supabase
+      .rpc('list_customer_proof_images_admin', {
+        p_quote_request_id: quoteRequestId
+      });
+
+    setLoadingProofImages(false);
+
+    if (proofImagesError) {
+      console.error('Admin customer proof image set load failed:', proofImagesError);
+      setProofImages([]);
+      setProofPortalError('The proof image set could not be loaded. Refresh and try again.');
+      return;
+    }
+
+    setProofImages(Array.isArray(data) ? data as CustomerProofImage[] : []);
+  };
+
   const loadQuoteDetail = async (quoteRequestId: string) => {
     setLoadingDetail(true);
 
@@ -1267,6 +1298,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setProofPaymentUrl(quoteDetail?.customer_proof_payment_url || '');
     setProofMode(quoteDetail?.customer_proof_mode || 'single');
     setProofOptions(getCustomerProofOptions(quoteDetail));
+    void loadCustomerProofImages(quoteRequestId);
     if (quoteDetail) {
       setDesignerInstructions((currentInstructions) => currentInstructions || getDesignerPacketDefaultInstructions(quoteDetail));
     }
@@ -1313,6 +1345,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     setProofPaymentUrl('');
     setProofMode('single');
     setProofOptions([]);
+    setProofImages([]);
     setProofPortalMessage('');
     setProofPortalError('');
     setFollowUpMessage('');
@@ -1353,6 +1386,25 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       return;
     }
 
+    const trimmedProofImageUrl = proofImageUrl.trim();
+    if (trimmedProofImageUrl && !proofImages.some((proofImage) => proofImage.image_url === trimmedProofImageUrl)) {
+      const { data: nextProofImages, error: proofImageSetError } = await supabase
+        .rpc('add_customer_proof_image_admin', {
+          p_quote_request_id: selectedQuote.id,
+          p_image_url: trimmedProofImageUrl,
+          p_original_filename: 'Proof image added by URL'
+        });
+
+      if (proofImageSetError) {
+        console.error('Admin proof image URL add failed:', proofImageSetError);
+        setProofPortalError(proofImageSetError.message);
+        setProofPortalMessage('The proof portal was saved, but the image could not be added to the proof set.');
+        return;
+      }
+
+      setProofImages(Array.isArray(nextProofImages) ? nextProofImages as CustomerProofImage[] : []);
+    }
+
     const token = data?.[0]?.customer_proof_token;
     setProofPortalMessage(token ? 'Proof portal saved. Private link is ready.' : 'Proof portal saved.');
     await Promise.all([
@@ -1362,70 +1414,127 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
   };
 
   const uploadNewProof = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []);
     event.target.value = '';
 
-    if (!file || !selectedQuote || uploadingProof) return;
+    if (!files.length || !selectedQuote || uploadingProof) return;
 
-    if (!file.type.startsWith('image/')) {
-      setProofPortalError('Upload an image file for the customer proof.');
+    const existingProofImageCount = proofImages.length > 0 ? proofImages.length : proofImageUrl.trim() ? 1 : 0;
+    const remainingSlots = Math.max(0, 50 - existingProofImageCount);
+    if (files.length > remainingSlots) {
+      setProofPortalError(`This proof set has room for ${remainingSlots} more image${remainingSlots === 1 ? '' : 's'}.`);
       setProofPortalMessage('');
       return;
     }
 
-    if (file.size > 52428800) {
-      setProofPortalError('Proof image must be 50MB or smaller.');
+    const invalidFile = files.find((file) => !file.type.startsWith('image/') || file.size > 52428800);
+    if (invalidFile) {
+      setProofPortalError(
+        !invalidFile.type.startsWith('image/')
+          ? 'Upload image files for the customer proof.'
+          : 'Each proof image must be 50MB or smaller.'
+      );
       setProofPortalMessage('');
       return;
     }
 
     setUploadingProof(true);
     setProofPortalError('');
-    setProofPortalMessage('Uploading proof...');
+    setProofPortalMessage(`Uploading ${files.length} proof image${files.length === 1 ? '' : 's'}...`);
 
-    const safeFileName = getSafeProofFileName(file.name);
-    const storagePath = `proofs/${selectedQuote.id}/${Date.now()}-${safeFileName}`;
+    let proofToken = (selectedQuoteDetail || selectedQuote).customer_proof_token;
+    let firstUploadedProofUrl = '';
+    let nextProofImages = proofImages;
 
-    const { error: uploadError } = await supabase.storage
-      .from('customer-proofs')
-      .upload(storagePath, file, {
-        cacheControl: '3600',
-        contentType: file.type || 'application/octet-stream',
-        upsert: false
-      });
+    if (nextProofImages.length === 0 && proofImageUrl.trim()) {
+      const { data: seededProofImages, error: seedProofImageError } = await supabase
+        .rpc('add_customer_proof_image_admin', {
+          p_quote_request_id: selectedQuote.id,
+          p_image_url: proofImageUrl.trim(),
+          p_original_filename: 'Current proof'
+        });
 
-    if (uploadError) {
-      console.error('Admin proof upload failed:', uploadError);
-      setUploadingProof(false);
-      setProofPortalError(uploadError.message);
-      setProofPortalMessage('');
-      return;
+      if (seedProofImageError) {
+        console.error('Admin current proof image set seed failed:', seedProofImageError);
+        setUploadingProof(false);
+        setProofPortalError(seedProofImageError.message);
+        setProofPortalMessage('The existing proof could not be preserved in the new proof set.');
+        return;
+      }
+
+      nextProofImages = Array.isArray(seededProofImages) ? seededProofImages as CustomerProofImage[] : [];
+      setProofImages(nextProofImages);
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from('customer-proofs')
-      .getPublicUrl(storagePath);
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const safeFileName = getSafeProofFileName(file.name);
+      const storagePath = `proofs/${selectedQuote.id}/${Date.now()}-${index}-${safeFileName}`;
 
-    const uploadedProofUrl = publicUrlData.publicUrl;
-    const { data, error: proofSettingsError } = await supabase
-      .rpc('upsert_customer_proof_portal_admin', {
-        p_quote_request_id: selectedQuote.id,
-        p_proof_image_url: uploadedProofUrl,
-        p_payment_url: proofPaymentUrl.trim() || null
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('customer-proofs')
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          contentType: file.type || 'application/octet-stream',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Admin proof upload failed:', uploadError);
+        setUploadingProof(false);
+        setProofPortalError(uploadError.message);
+        setProofPortalMessage(index > 0 ? `${index} image${index === 1 ? '' : 's'} added before the upload stopped.` : '');
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('customer-proofs')
+        .getPublicUrl(storagePath);
+
+      const uploadedProofUrl = publicUrlData.publicUrl;
+      firstUploadedProofUrl ||= uploadedProofUrl;
+
+      if (!proofToken) {
+        const { data: proofPortalData, error: proofSettingsError } = await supabase
+          .rpc('upsert_customer_proof_portal_admin', {
+            p_quote_request_id: selectedQuote.id,
+            p_proof_image_url: proofImageUrl.trim() || uploadedProofUrl,
+            p_payment_url: proofPaymentUrl.trim() || null
+          });
+
+        if (proofSettingsError) {
+          console.error('Admin proof portal save failed after upload:', proofSettingsError);
+          setUploadingProof(false);
+          setProofPortalError(proofSettingsError.message);
+          setProofPortalMessage('');
+          return;
+        }
+
+        proofToken = proofPortalData?.[0]?.customer_proof_token || null;
+      }
+
+      const { data: proofImageData, error: proofImageError } = await supabase
+        .rpc('add_customer_proof_image_admin', {
+          p_quote_request_id: selectedQuote.id,
+          p_image_url: uploadedProofUrl,
+          p_original_filename: file.name
+        });
+
+      if (proofImageError) {
+        console.error('Admin proof image set save failed:', proofImageError);
+        setUploadingProof(false);
+        setProofPortalError(proofImageError.message);
+        setProofPortalMessage(index > 0 ? `${index} image${index === 1 ? '' : 's'} added before the upload stopped.` : '');
+        return;
+      }
+
+      nextProofImages = Array.isArray(proofImageData) ? proofImageData as CustomerProofImage[] : nextProofImages;
+      setProofImages(nextProofImages);
+    }
 
     setUploadingProof(false);
-
-    if (proofSettingsError) {
-      console.error('Admin proof portal save failed after upload:', proofSettingsError);
-      setProofPortalError(proofSettingsError.message);
-      setProofPortalMessage('');
-      return;
-    }
-
-    setProofImageUrl(uploadedProofUrl);
-    const token = data?.[0]?.customer_proof_token;
-    setProofPortalMessage(token ? 'Proof uploaded. Private link still works.' : 'Proof uploaded.');
+    setProofImageUrl((currentUrl) => currentUrl || firstUploadedProofUrl);
+    setProofPortalMessage(`${files.length} proof image${files.length === 1 ? '' : 's'} added. Customers can review every view from the same private link.`);
     await Promise.all([
       loadQuoteDetail(selectedQuote.id),
       loadStatusEvents(selectedQuote.id)
@@ -1656,6 +1765,36 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
     }
     setProofPortalMessage('Proof options reordered.');
     await loadQuoteDetail(selectedQuote.id);
+  };
+
+  const removeProofImage = async (proofImageId: string) => {
+    if (!selectedQuote || removingProofImageId || proofImages.length <= 1) return;
+
+    setRemovingProofImageId(proofImageId);
+    setProofPortalError('');
+    setProofPortalMessage('Removing proof image...');
+
+    const { data, error: removeError } = await supabase
+      .rpc('remove_customer_proof_image_admin', {
+        p_quote_request_id: selectedQuote.id,
+        p_proof_image_id: proofImageId
+      });
+
+    setRemovingProofImageId(null);
+
+    if (removeError) {
+      console.error('Admin proof image remove failed:', removeError);
+      setProofPortalError(removeError.message);
+      setProofPortalMessage('');
+      return;
+    }
+
+    setProofImages(Array.isArray(data) ? data as CustomerProofImage[] : []);
+    setProofPortalMessage('Proof image removed. The remaining views are still available on the private link.');
+    await Promise.all([
+      loadQuoteDetail(selectedQuote.id),
+      loadStatusEvents(selectedQuote.id)
+    ]);
   };
 
   const copyProofPortalLink = async (token: string | null | undefined) => {
@@ -3069,6 +3208,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
               setProofPaymentUrl('');
               setProofMode('single');
               setProofOptions([]);
+              setProofImages([]);
               setProofPortalMessage('');
               setProofPortalError('');
               setFollowUpMessage('');
@@ -3095,6 +3235,16 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             const currentAssignRepSlug = activeQuote.rep_slug || UNASSIGNED_REP_VALUE;
             const hasAssignmentChange = selectedAssignRepSlug !== currentAssignRepSlug;
             const activeProofOptions = proofOptions.length > 0 ? proofOptions : getCustomerProofOptions(activeQuote);
+            const activeProofImages: CustomerProofImage[] = proofImages.length > 0
+              ? proofImages
+              : proofImageUrl.trim()
+                ? [{
+                    id: 'legacy-current-proof',
+                    image_url: proofImageUrl.trim(),
+                    original_filename: 'Current proof',
+                    sort_order: 0
+                  }]
+                : [];
             const selectedCallHref = getPhoneHref(activeQuote.customer_phone, 'tel');
             const selectedTextHref = getPhoneHref(activeQuote.customer_phone, 'sms');
 
@@ -3407,14 +3557,14 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="single">Single proof</SelectItem>
-                            <SelectItem value="multi">Multiple options</SelectItem>
+                            <SelectItem value="single">One design / multiple views</SelectItem>
+                            <SelectItem value="multi">Choose between design options</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-medium uppercase text-slate-500" htmlFor="proof-image-url">
-                          Current Proof Image URL
+                          Add Proof Image URL
                         </label>
                         <Input
                           id="proof-image-url"
@@ -3489,6 +3639,74 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         </p>
                       </div>
                     )}
+                    <div className="mt-4 rounded-md border border-blue-200 bg-blue-50/50 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-slate-950">Current Proof Set</p>
+                          <p className="text-xs text-slate-600">
+                            {activeProofImages.length}/50 images. Add every view the customer needs to review.
+                          </p>
+                        </div>
+                        <div>
+                          <input
+                            ref={proofUploadInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={uploadNewProof}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={savingProofPortal || uploadingProof || loadingProofImages || activeProofImages.length >= 50}
+                            onClick={() => proofUploadInputRef.current?.click()}
+                          >
+                            <ImagePlus className="mr-2 h-3.5 w-3.5" />
+                            {uploadingProof ? 'Uploading...' : 'Add Proof Images'}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {loadingProofImages ? (
+                        <p className="mt-3 rounded-md border border-dashed border-blue-200 bg-white p-4 text-sm text-slate-500">
+                          Loading proof images...
+                        </p>
+                      ) : activeProofImages.length > 0 ? (
+                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                          {activeProofImages.map((proofImage, proofImageIndex) => (
+                            <div key={proofImage.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
+                              <img
+                                src={proofImage.image_url}
+                                alt={proofImage.original_filename || `Proof view ${proofImageIndex + 1}`}
+                                className="h-28 w-full bg-slate-100 object-contain"
+                              />
+                              <div className="flex items-center gap-2 p-2">
+                                <p className="min-w-0 flex-1 truncate text-xs text-slate-700">
+                                  {proofImage.original_filename || `View ${proofImageIndex + 1}`}
+                                </p>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="outline"
+                                  className="h-8 w-8 shrink-0"
+                                  disabled={activeProofImages.length <= 1 || proofImage.id === 'legacy-current-proof' || removingProofImageId === proofImage.id}
+                                  onClick={() => void removeProofImage(proofImage.id)}
+                                  aria-label={`Remove ${proofImage.original_filename || `proof view ${proofImageIndex + 1}`}`}
+                                  title={activeProofImages.length <= 1 || proofImage.id === 'legacy-current-proof' ? 'Keep at least one current proof image' : 'Remove proof image'}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 rounded-md border border-dashed border-blue-200 bg-white p-4 text-sm text-slate-600">
+                          No proof images yet. Select several files at once, or paste an image URL above and save the portal.
+                        </p>
+                      )}
+                    </div>
                     {proofMode === 'multi' && (
                       <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -3608,24 +3826,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <input
-                          ref={proofUploadInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={uploadNewProof}
-                        />
                         {proofMode === 'single' && (
                           <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              disabled={savingProofPortal || uploadingProof}
-                              onClick={() => proofUploadInputRef.current?.click()}
-                            >
-                              <Upload className="mr-2 h-3.5 w-3.5" />
-                              {uploadingProof ? 'Uploading...' : 'Upload New Proof'}
-                            </Button>
                             <Button onClick={saveProofPortalSettings} disabled={savingProofPortal || uploadingProof}>
                               {savingProofPortal ? 'Saving...' : 'Save Proof Portal'}
                             </Button>
