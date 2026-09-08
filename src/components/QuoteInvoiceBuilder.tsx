@@ -224,7 +224,7 @@ export function QuoteInvoiceBuilder({
     setUploadingProposal(false);
     await persistDraft(
       nextInvoice,
-      'Proposal PDF uploaded and saved. Review the invoice, then approve it to show the document on the customer proof page.'
+      'Proposal PDF uploaded and saved privately. No email or text was sent. Review the invoice, then publish it to show the document on the customer proof page.'
     );
   };
 
@@ -456,7 +456,7 @@ export function QuoteInvoiceBuilder({
             placeholder="https://www.paypal.com/..."
             className="mt-2 min-h-12 border-2 border-orange-300"
           />
-          <span className="mt-1 block text-xs font-normal text-slate-500">Paste the complete PayPal or PayPal.Me link. Saving any change returns this invoice to TEST MODE.</span>
+          <span className="mt-1 block text-xs font-normal text-slate-500">Paste the complete PayPal or PayPal.Me link. Saving changes returns this invoice to Draft Preview and never emails or texts the customer.</span>
         </label>
 
         <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
