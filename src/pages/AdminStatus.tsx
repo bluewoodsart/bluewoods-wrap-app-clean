@@ -3886,11 +3886,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                     customerName={activeQuote.customer_name}
                     customerEmail={activeQuote.customer_email}
                     customerPhone={activeQuote.customer_phone || ''}
-                    customerCompany={String(getSummaryValue(activeQuote, 'companyName') || '')}
+                    customerCompany={String(getCompanyName(activeQuote) || '')}
                     projectDescription={[
-                      String(getSummaryValue(activeQuote, 'manualVehicleDescription') || ''),
-                      String(getSummaryValue(activeQuote, ['selectedService', 'quoteType']) || '')
-                    ].filter(Boolean).join(' · ') || getProjectTitle(activeQuote)}
+                      getVehicleSummaryText(activeQuote),
+                      getProductLabel(activeQuote)
+                    ].filter((value) => value && value !== '-').join(' · ') || 'Custom project'}
                   />
                 </section>
 
