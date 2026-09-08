@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
+import { QuoteInvoiceBuilder } from '@/components/QuoteInvoiceBuilder';
 import WesleyWingsProofGallery from '@/components/WesleyWingsProofGallery';
 import { CustomerContactEditor, type SavedCustomerContact } from '@/components/admin/CustomerContactEditor';
 import { encodeUpsellImageIdea, formatUpsellIdeaForEmail, parseUpsellImageIdea, type UpsellImageIdea } from '@/lib/officeDialogue';
@@ -3878,6 +3879,22 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
                 </section>
 
                 <section className="order-3">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-950">Proposal / Invoice</h3>
+                  <QuoteInvoiceBuilder
+                    quoteRequestId={activeQuote.id}
+                    orderNumber={activeQuote.quote_id || activeQuote.id}
+                    customerName={activeQuote.customer_name}
+                    customerEmail={activeQuote.customer_email}
+                    customerPhone={activeQuote.customer_phone || ''}
+                    customerCompany={String(getSummaryValue(activeQuote, 'companyName') || '')}
+                    projectDescription={[
+                      String(getSummaryValue(activeQuote, 'manualVehicleDescription') || ''),
+                      String(getSummaryValue(activeQuote, ['selectedService', 'quoteType']) || '')
+                    ].filter(Boolean).join(' · ') || getProjectTitle(activeQuote)}
+                  />
+                </section>
+
+                <section className="order-4">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Designer Packet</h3>
                   <div className="rounded-md border border-slate-200 bg-white p-4">
                     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
