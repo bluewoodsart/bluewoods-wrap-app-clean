@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blue Woods | Poster Pricing Sandbox</title>
+  <style>
+    :root{color-scheme:dark;--bg:#020617;--card:#0f172a;--line:#334155;--cyan:#67e8f9;--muted:#94a3b8;--amber:#fbbf24}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#12345b 0,transparent 35%),var(--bg);color:#f8fafc;font:16px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}.wrap{max-width:1100px;margin:auto;padding:36px 20px 60px}header{display:flex;justify-content:space-between;gap:24px;align-items:end;border-bottom:1px solid var(--line);padding-bottom:25px}.eyebrow{color:var(--cyan);letter-spacing:.14em;font-size:.75rem;font-weight:800;text-transform:uppercase}h1{font-size:clamp(2rem,5vw,3rem);margin:.35rem 0 .5rem}p{margin:.25rem 0;color:#cbd5e1}.notice{margin:24px 0;padding:16px 18px;border:1px solid #b45309;border-radius:12px;background:#78350f33;color:#fef3c7}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px}.card{border:1px solid var(--line);border-radius:16px;background:#0f172acc;padding:22px;box-shadow:0 18px 50px #0005}h2{font-size:1.2rem;margin:0 0 6px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}label{display:block;font-size:.85rem;font-weight:700;color:#dbeafe}input{display:block;width:100%;margin-top:7px;border:1px solid #475569;border-radius:8px;background:#020617;color:white;padding:11px 12px;font:inherit}small{color:var(--muted)}.metric{display:flex;justify-content:space-between;gap:20px;padding:11px 0;border-bottom:1px solid #334155}.metric span{color:#bae6fd}.metric strong{font-size:1.1rem}.contribution{border-top:1px solid #155e75;margin-top:8px;padding-top:16px}.contribution strong{display:block;font-size:2.5rem;color:var(--cyan);margin-top:4px}.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}.quick div{background:#02061799;border:1px solid var(--line);border-radius:12px;padding:16px}.quick b{display:block;font-size:1.5rem;color:var(--cyan);margin:8px 0 4px}button{border:1px solid #64748b;border-radius:8px;background:#0f172a;color:#f8fafc;padding:10px 14px;font:inherit;font-weight:700;cursor:pointer}button:hover{background:#1e293b}@media(max-width:720px){header{align-items:start;flex-direction:column}.grid{grid-template-columns:1fr}.fields,.quick{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div><div class="eyebrow">Blue Woods · test object</div><h1>Poster Pricing Sandbox</h1><p>Direct poster consumables and contribution only — not the big overhead model.</p></div>
+      <button id="reset">Reset test values</button>
+    </header>
+    <section class="notice"><strong>Working estimate, not a final job price.</strong><br>Paper starts from the 54 in × 200 ft LexJet roll: $188.27 ÷ 900 sq ft = <b>$0.209/sq ft</b>. Ink is the current provisional $0.20/sq ft assumption until RIP reports confirm it.</section>
+    <section class="grid">
+      <div class="card"><h2>Test inputs</h2><p>Change a value and results update immediately.</p>
+        <div class="fields">
+          <label>Finished width (in)<input id="width" type="number" min="0" step=".01" value="16"></label>
+          <label>Finished height (in)<input id="height" type="number" min="0" step=".01" value="20"></label>
+          <label>Selling price ($ / sq ft)<input id="price" type="number" min="0" step=".01" value="9"></label>
+          <label>Paper ($ / sq ft)<input id="paper" type="number" min="0" step=".001" value=".209"></label>
+          <label>Ink provisional ($ / sq ft)<input id="ink" type="number" min="0" step=".01" value=".20"></label>
+          <label>Waste allowance (%)<input id="waste" type="number" min="0" step=".1" value="10"></label>
+        </div>
+      </div>
+      <div class="card"><h2>Live result</h2><p>Before labor, fees, tax, delivery, and fixed overhead.</p>
+        <div class="metric"><span>Finished area</span><strong id="area"></strong></div>
+        <div class="metric"><span>Customer price</span><strong id="revenue"></strong></div>
+        <div class="metric"><span>Direct consumable reserve</span><strong id="direct"></strong></div>
+        <div class="metric"><span>Direct consumables / sq ft</span><strong id="directRate"></strong></div>
+        <div class="contribution"><span>Contribution before labor & overhead</span><strong id="contribution"></strong></div>
+      </div>
+    </section>
+    <section class="card" style="margin-top:20px"><h2>Fast reference</h2><p>Same direct-cost assumptions, useful for counter quotes.</p><div class="quick" id="quick"></div></section>
+  </main>
+  <script>
+    const ids=['width','height','price','paper','ink','waste']; const $=id=>document.getElementById(id); const usd=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n); const n=id=>Math.max(0,Number($(id).value)||0);
+    function render(){const rate=(n('paper')+n('ink'))*(1+n('waste')/100),area=n('width')*n('height')/144,revenue=area*n('price'),direct=area*rate;$('area').textContent=area.toFixed(2)+' sq ft';$('revenue').textContent=usd(revenue);$('direct').textContent=usd(direct);$('directRate').textContent=usd(rate);$('contribution').textContent=usd(revenue-direct);$('quick').innerHTML=[['8 × 10',8,10],['16 × 20',16,20],['24 × 36',24,36]].map(x=>{const a=x[1]*x[2]/144,p=a*n('price'),d=a*rate;return '<div><strong>'+x[0]+'</strong><b>'+usd(p)+'</b><small>'+a.toFixed(2)+' sq ft · '+usd(p-d)+' contribution before labor</small></div>'}).join('')};ids.forEach(id=>$(id).addEventListener('input',render));$('reset').addEventListener('click',()=>{Object.assign($('width'),{value:16});Object.assign($('height'),{value:20});Object.assign($('price'),{value:9});Object.assign($('paper'),{value:.209});Object.assign($('ink'),{value:.2});Object.assign($('waste'),{value:10});render()});render();
+  </script>
+</body>
+</html>
