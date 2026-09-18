@@ -23,6 +23,8 @@ interface CustomerActionRequestBody {
   requestTypes?: string[];
   message?: string;
   uploadUrl?: string;
+  productLabel?: string;
+  proofUrl?: string;
 }
 
 const escapeHtml = (value: unknown) =>
@@ -104,10 +106,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
   }
 
-  const { customerEmail, customerName, quoteId, requestType, requestTypes, message, uploadUrl } = parseBody(req.body);
+  const { customerEmail, customerName, quoteId, requestType, requestTypes, message, uploadUrl, productLabel, proofUrl } = parseBody(req.body);
   const trimmedCustomerEmail = customerEmail?.trim();
   const trimmedMessage = message?.trim();
   const trimmedUploadUrl = uploadUrl?.trim();
+  const trimmedProofUrl = proofUrl?.trim();
   const selectedRequestTypes = Array.isArray(requestTypes)
     ? Array.from(new Set(requestTypes.map((type) => type.trim()).filter(Boolean)))
     : requestType?.trim()
@@ -116,6 +119,54 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (!trimmedCustomerEmail) {
     return res.status(400).json({ error: 'Missing customerEmail' });
+  }
+
+  if (trimmedProofUrl) {
+    const greetingName = customerName?.trim() || 'there';
+    const product = productLabel?.trim() || 'design';
+    const subject = `Your ${product.toLowerCase()} proof is ready${quoteId ? ` — ${quoteId}` : ''}`;
+    const safeProofUrl = escapeHtml(trimmedProofUrl);
+    const html = `
+      <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
+        <div style="max-width:680px;margin:0 auto;">
+          <div style="padding:24px;border-radius:16px;background:#0f4fa8;color:#ffffff;">
+            <h1 style="margin:0;font-size:26px;">Your proof is ready</h1>
+            <p style="margin:8px 0 0;font-size:16px;">Please review your ${escapeHtml(product.toLowerCase())} proof.</p>
+          </div>
+          <div style="margin-top:18px;padding:22px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
+            <p style="margin:0 0 12px;">Hi ${escapeHtml(greetingName)},</p>
+            <p style="margin:0 0 18px;">Your updated proof is ready to view. Use the private link below to review it and send your approval or revision request.</p>
+            <p style="margin:0 0 18px;"><a href="${safeProofUrl}" style="display:inline-block;border-radius:10px;background:#0f4fa8;color:#ffffff;padding:12px 18px;text-decoration:none;font-weight:700;">View your proof</a></p>
+            <p style="margin:0;color:#64748b;font-size:14px;">If the button does not work, copy this private link:<br><a href="${safeProofUrl}" style="color:#2563eb;">${safeProofUrl}</a></p>
+          </div>
+          <p style="margin:20px 0 0;color:#475569;font-size:14px;">Thank you for choosing SlapWrapz by Blue Woods Brands.</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await sendEmail(apiKey, {
+        from: FROM_EMAIL,
+        to: trimmedCustomerEmail,
+        subject,
+        html,
+        text: [
+          `Hi ${greetingName},`,
+          '',
+          `Your updated ${product.toLowerCase()} proof is ready to review.`,
+          `View your private proof: ${trimmedProofUrl}`,
+          '',
+          'Please use the proof page to send your approval or revision request.',
+          '',
+          'Thank you for choosing SlapWrapz by Blue Woods Brands.'
+        ].join('\n')
+      });
+
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      console.error('customer proof email error:', error instanceof Error ? error.message : error);
+      return res.status(502).json({ error: 'Customer proof email failed' });
+    }
   }
 
   if (selectedRequestTypes.length === 0) {
