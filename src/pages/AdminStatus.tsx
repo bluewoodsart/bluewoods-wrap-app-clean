@@ -1419,7 +1419,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
       setProofPortalMessage('Proof saved. Sending the customer their private link...');
 
       try {
-        const emailResponse = await fetch('/api/send-customer-proof-email', {
+        const emailResponse = await fetch('/api/send-customer-action-request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
