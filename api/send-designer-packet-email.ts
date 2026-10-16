@@ -1,4 +1,5 @@
 import { request } from 'node:https';
+import { getDesignerCloudFolderUrl } from '../src/lib/designerCloudFolder.js';
 
 const RESEND_API_URL = new URL('https://api.resend.com/emails');
 const FROM_EMAIL = 'SlapWrapz <quotes@slapwrapz.com>';
@@ -127,7 +128,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const greetingName = designerName?.trim() || 'designer';
   const subject = `Design packet: ${customerName || 'SlapWrapz customer'}${quoteId ? ` (${quoteId})` : ''}`;
-  const safeCloudFolderUrl = cloudFolderUrl?.trim();
+  const safeCloudFolderUrl = getDesignerCloudFolderUrl(cloudFolderUrl);
 
   const html = `
     <div style="margin:0;background:#f8fafc;padding:24px;font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
