@@ -135,7 +135,8 @@ const projects: Project[] = [
     "name": "Philly Me Up Water Ice",
     "liveUrl": "https://phillymeup.slapwrapz.com",
     "description": "Water ice orders and the staff order queue.",
-    "note": "Backend location unverified. Locate and verify the staff queue before adding its link.",
+    "backend": "https://phillymeup.slapwrapz.com/phillymeup/staff",
+    "note": "Existing staff queue (truck PIN required). Receives customer names, flavors, instructions, order status, and estimated wait times. Customers pay at pickup.",
     "initials": "PM",
     "platform": "ChatGPT Sites"
   },
@@ -210,7 +211,7 @@ export default function MyProjects() {
               <p className="text-xs leading-5 text-slate-500">{project.note}</p>
               <div className="mt-auto flex flex-wrap gap-2 pt-2">
                 {project.liveUrl ? <Button asChild variant="outline" size="sm"><a href={project.liveUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${project.name} website in a new tab`}><ExternalLink aria-hidden="true" className="mr-2 h-4 w-4" />Live website</a></Button> : <Button variant="outline" size="sm" disabled>Not published</Button>}
-                {project.backend ? <Button asChild size="sm"><Link to={project.backend} aria-label={`Open ${project.name} backend`}><ArrowUpRight aria-hidden="true" className="mr-2 h-4 w-4" />Open backend</Link></Button> : <Button size="sm" disabled>Backend link needed</Button>}
+                {project.backend ? <Button asChild size="sm">{project.backend.startsWith('https://') ? <a href={project.backend} target="_blank" rel="noopener noreferrer" aria-label={`Open ${project.name} backend in a new tab`}><ArrowUpRight aria-hidden="true" className="mr-2 h-4 w-4" />Open backend</a> : <Link to={project.backend} aria-label={`Open ${project.name} backend`}><ArrowUpRight aria-hidden="true" className="mr-2 h-4 w-4" />Open backend</Link>}</Button> : <Button size="sm" disabled>Backend link needed</Button>}
               </div>
             </div>
           </article>
