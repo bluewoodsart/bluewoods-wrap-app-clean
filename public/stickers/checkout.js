@@ -27,7 +27,7 @@
  new MutationObserver(refresh).observe($('#preview'),{childList:true});
  $('#review').addEventListener('click',refresh);
  const readSaved=()=>{try{return JSON.parse(localStorage.getItem('bwb-sticker-order')||'null')}catch{return null}};
- async function api(body){const r=await fetch('/api/sticker-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error||'Please try again.');return data;}
+ async function api(body){const r=await fetch('/api/sticker-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok){if(data.restart)localStorage.removeItem('bwb-sticker-order');throw Error(data.error||'Please try again.');}return data;}
  async function crop(){
   const img=$('#preview img');if(!img?.complete||!img.naturalWidth)throw Error('Upload your artwork first.');
   const canvas=document.createElement('canvas');canvas.width=canvas.height=1200;const ctx=canvas.getContext('2d');

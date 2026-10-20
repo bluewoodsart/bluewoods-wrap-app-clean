@@ -66,10 +66,11 @@ export default async function handler(req: any,res: any) {
   }
   if(body.action!=='checkout')return res.status(400).json({error:'Invalid action.'});
   if(!ready())return res.status(503).json({error:'Checkout setup is still in progress. Please try again later.'});
+  if(order && order.stripe_mode!==mode())return res.status(409).json({error:'Checkout settings changed. Please click payment again to start a new order.',restart:true});
   if(order?.stripe_session_id){
    const session=await stripe('checkout/sessions/'+order.stripe_session_id);
    if(session.status==='open')return res.status(200).json({id:order.id,url:session.url});
-   return res.status(409).json({error:order.status==='paid'?'This order is already paid.':'This checkout has ended. Start a new order.'});
+   return res.status(409).json({error:order.status==='paid'?'This order is already paid.':'This checkout has ended. Click payment again to start a new order.',restart:order.status!=='paid'});
   }
   if(!order){
    if(body.approved!==true || !totalFor(body.delivery))return res.status(400).json({error:'Approve your artwork and choose delivery.'});
@@ -87,6 +88,7 @@ export default async function handler(req: any,res: any) {
    if(uploadError){await db.from('bwb_sticker_orders').delete().eq('id',body.id);throw uploadError;}
    order=await find(body.id);
   }
+  if(Date.now()-new Date(order.created_at).getTime()>1800000)return res.status(409).json({error:'This draft has expired. Click payment again to start a new order.',restart:true});
   const {data:storedArt,error:readError}=await db.storage.from('sticker-artwork').download(order.artwork_path);
   if(readError || !storedArt || hash(Buffer.from(await storedArt.arrayBuffer()))!==order.artwork_sha256)throw Error('Artwork is not ready.');
   // Immutable stored artwork and delivery are reused on retry; the browser cannot change price.
