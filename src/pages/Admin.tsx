@@ -20,6 +20,7 @@ import { runMobileTouchAction } from '@/lib/mobileTouch';
 import { clearClientAuthStorage, isClientForceLoggedOut, markClientForceLoggedOut } from '@/lib/repTracking';
 import AdminStatus from './AdminStatus';
 import StickerStoreSettings from '@/components/admin/StickerStoreSettings';
+import MyProjects from '@/components/admin/MyProjects';
 
 interface AdminUser {
   id: string;
@@ -253,7 +254,7 @@ const Admin = () => {
   const activeMarketingSection: BlueWoodsMarketingSectionId = blueWoodsMarketingSections.includes(requestedMarketingSection as BlueWoodsMarketingSectionId)
     ? requestedMarketingSection as BlueWoodsMarketingSectionId
     : 'master-front-end';
-  const activeTab = requestedTab === 'stickers' && adminUser.role === 'owner_admin' ? 'stickers' : requestedTab === 'marketing'
+  const activeTab = requestedTab === 'projects' && adminUser.role === 'owner_admin' ? 'projects' : requestedTab === 'stickers' && adminUser.role === 'owner_admin' ? 'stickers' : requestedTab === 'marketing'
     ? 'owner-marketing'
     : requestedTab === 'clients'
     ? 'clients'
@@ -275,7 +276,7 @@ const Admin = () => {
 
   const changeAdminTab = (nextTab: string) => {
     const nextParams = new URLSearchParams(location.search);
-    const tabValue = nextTab === 'stickers' ? 'stickers' : nextTab === 'owner-marketing'
+    const tabValue = nextTab === 'projects' ? 'projects' : nextTab === 'stickers' ? 'stickers' : nextTab === 'owner-marketing'
       ? 'marketing'
       : nextTab === 'clients'
       ? 'clients'
@@ -357,9 +358,12 @@ const Admin = () => {
         <div className="border-b border-slate-800 bg-slate-950 px-4 py-3 text-white md:px-8">
           <div className="mx-auto max-w-7xl">
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">Owner Command Center</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
               <Button variant="outline" asChild className="justify-start border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
                 <Link to="/"><ExternalLink className="mr-2 h-4 w-4" />Main Website</Link>
+              </Button>
+              <Button variant="outline" onClick={() => openOwnerDestination('projects')} className={`justify-start border-white/20 hover:bg-white hover:text-slate-950 ${activeTab === 'projects' ? 'bg-white text-slate-950' : 'bg-white/10 text-white'}`}>
+                <BriefcaseBusiness className="mr-2 h-4 w-4" />My Projects
               </Button>
               <Button variant="outline" onClick={() => openOwnerDestination('marketing')} className={`justify-start border-white/20 hover:bg-white hover:text-slate-950 ${activeTab === 'owner-marketing' ? 'bg-white text-slate-950' : 'bg-white/10 text-white'}`}>
                 <Megaphone className="mr-2 h-4 w-4" />Marketing
@@ -381,6 +385,7 @@ const Admin = () => {
         <Tabs value={activeTab} onValueChange={changeAdminTab} className="space-y-5">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <TabsList className="flex h-auto w-full max-w-5xl overflow-x-auto">
+              {adminUser.role === 'owner_admin' && <TabsTrigger value="projects" className="min-h-11 min-w-max flex-1 px-3">My Projects</TabsTrigger>}
               <TabsTrigger value="clients" className="min-h-11 min-w-max flex-1 px-3">Clients</TabsTrigger>
               <TabsTrigger value="staff-feed" className="min-h-11 min-w-max flex-1 px-3">Staff Feed</TabsTrigger>
               {/* Video Instructions is archived: its direct route and records remain available for restoration. */}
@@ -405,6 +410,7 @@ const Admin = () => {
             </button>
           </div>
 
+          {adminUser.role === 'owner_admin' && <TabsContent value="projects" className="mt-0"><MyProjects /></TabsContent>}
           <TabsContent value="clients" className="mt-0">
             {selectedClientWorkspace === 'compassion-ministries' ? (
               <div className="space-y-4">
