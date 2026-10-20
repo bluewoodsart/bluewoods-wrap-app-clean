@@ -17,6 +17,14 @@
   ],
   "rewrites": [
     {
+      "source": "/stickers",
+      "destination": "/stickers/index.html"
+    },
+    {
+      "source": "/stickers/:path*",
+      "destination": "/stickers/index.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
