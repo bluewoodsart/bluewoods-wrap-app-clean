@@ -81,6 +81,7 @@ export function QuoteInvoiceBuilder({
   quoteRequestId,
   orderNumber,
   customerName,
+  customerEmail,
   customerCompany,
   projectDescription
 }: QuoteInvoiceBuilderProps) {
@@ -245,8 +246,8 @@ export function QuoteInvoiceBuilder({
       p_confirm_tested: true
     });
 
-    setSaving(false);
     if (approvalError) {
+      setSaving(false);
       setMessage('');
       setError(approvalError.message);
       return;
@@ -262,7 +263,58 @@ export function QuoteInvoiceBuilder({
     } : current);
     setConfirmOpen(false);
     setTestedConfirmed(false);
-    setMessage('Published to the private proof portal. No email or text was sent.');
+
+    const { data: proofPortalData, error: proofPortalError } = await supabase.rpc('upsert_customer_proof_portal_admin', {
+      p_quote_request_id: quoteRequestId,
+      p_proof_image_url: null,
+      p_payment_url: invoice.paypalUrl.trim() || null
+    });
+
+    if (proofPortalError) {
+      setSaving(false);
+      setMessage('The quote was published, but the consolidated customer portal could not be prepared.');
+      setError(proofPortalError.message);
+      return;
+    }
+
+    const proofToken = proofPortalData?.[0]?.customer_proof_token as string | undefined;
+    const proofUrl = proofToken ? `${window.location.origin}/proof/${proofToken}` : '';
+    if (!proofUrl) {
+      setSaving(false);
+      setMessage('The quote was published, but no private customer portal link was created.');
+      return;
+    }
+    if (!customerEmail.trim()) {
+      setSaving(false);
+      setMessage('Everything was published to the private portal, but this customer record has no email address to notify.');
+      return;
+    }
+
+    setMessage('Everything is published. Sending one consolidated customer notification...');
+    try {
+      const emailResponse = await fetch('/api/send-customer-action-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail,
+          customerName,
+          quoteId: orderNumber,
+          productLabel: projectDescription || 'project',
+          proofUrl
+        })
+      });
+      if (!emailResponse.ok) {
+        const responseBody = await emailResponse.json().catch(() => ({})) as { error?: string };
+        throw new Error(responseBody.error || 'Customer notification failed');
+      }
+      setMessage('Published successfully. One consolidated email was sent with the customer’s private portal link.');
+    } catch (notificationError) {
+      console.error('Consolidated proof portal notification failed:', notificationError);
+      setMessage('Everything was published, but the customer notification did not send.');
+      setError(notificationError instanceof Error ? notificationError.message : 'Customer notification failed');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -529,12 +581,12 @@ export function QuoteInvoiceBuilder({
             className="min-h-14 w-full bg-red-600 text-base font-black text-white hover:bg-red-500"
           >
             <ShieldCheck className="mr-2 h-5 w-5" />
-            Review & Publish to Proof Portal
+            Review, Publish & Notify Customer
           </Button>
         ) : (
           <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4">
             <p className="font-black text-emerald-950">Published inside the private proof portal</p>
-            <p className="mt-1 text-xs text-emerald-800">No customer email, text, or notification is sent by this invoice tool.</p>
+            <p className="mt-1 text-xs text-emerald-800">The final publish sends one consolidated email containing the customer’s private portal link.</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <Button asChild className="min-h-12 bg-emerald-700 font-bold hover:bg-emerald-600">
                 <a href={shareUrl} target="_blank" rel="noreferrer"><Eye className="mr-2 h-4 w-4" />Open Published Invoice</a>
@@ -556,7 +608,7 @@ export function QuoteInvoiceBuilder({
           <DialogHeader>
             <DialogTitle>Publish to the private proof portal</DialogTitle>
             <DialogDescription>
-              This makes the approved quote or uploaded PDF visible inside the customer’s existing private proof experience. It does not send an email or text.
+              This is the final customer-ready step. It publishes the approved quote or PDF, proof images, payment link, and current project information, then sends one consolidated email containing the private portal link.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -570,7 +622,7 @@ export function QuoteInvoiceBuilder({
                 onChange={(event) => setTestedConfirmed(event.target.checked)}
                 className="mt-1 h-5 w-5"
               />
-              <span className="text-sm font-semibold text-slate-900">I reviewed this invoice and understand that publishing changes only the private proof portal.</span>
+              <span className="text-sm font-semibold text-slate-900">I reviewed the complete customer portal and I’m ready to publish it and send one customer notification.</span>
             </label>
             <Button
               type="button"
@@ -579,7 +631,7 @@ export function QuoteInvoiceBuilder({
               className="min-h-12 w-full bg-emerald-700 font-bold hover:bg-emerald-600"
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
-              Publish to Private Proof Portal
+              Publish & Notify Customer
             </Button>
           </div>
         </DialogContent>

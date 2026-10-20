@@ -1411,40 +1411,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
 
     if (!proofUrl) {
       setProofPortalMessage('Proof saved, but no private proof link was created.');
-      setSavingProofPortal(false);
-    } else if (!selectedQuote.customer_email?.trim()) {
-      setProofPortalMessage('Proof saved, but this quote has no customer email to notify.');
-      setSavingProofPortal(false);
     } else {
-      setProofPortalMessage('Proof saved. Sending the customer their private link...');
-
-      try {
-        const emailResponse = await fetch('/api/send-customer-action-request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerEmail: selectedQuote.customer_email,
-            customerName: selectedQuote.customer_name,
-            quoteId: selectedQuote.quote_id || selectedQuote.id,
-            productLabel: getProductLabel(selectedQuote),
-            proofUrl
-          })
-        });
-
-        if (!emailResponse.ok) {
-          const responseBody = await emailResponse.json().catch(() => ({})) as { error?: string };
-          throw new Error(responseBody.error || 'Customer proof email failed');
-        }
-
-        setProofPortalMessage('Proof saved and the customer has been emailed their private link.');
-      } catch (emailError) {
-        console.error('Customer proof email failed after proof save:', emailError);
-        setProofPortalError('Proof saved, but the customer email did not send. You can try Save Proof again.');
-        setProofPortalMessage('');
-      } finally {
-        setSavingProofPortal(false);
-      }
+      setProofPortalMessage('Proof portal draft saved. No email or text was sent. Finish the quote, invoice, payment link, and proof set, then use Review, Publish & Notify Customer once at the end.');
     }
+    setSavingProofPortal(false);
 
     await Promise.all([
       loadQuoteDetail(selectedQuote.id),
