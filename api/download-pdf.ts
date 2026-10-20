@@ -1,3 +1,5 @@
+import stickerStore from '../server/sticker-handler.js';
+export const config = { api: { bodyParser: false } };
 interface ApiRequest {
   method?: string;
   query?: Record<string, string | string[] | undefined>;
@@ -23,6 +25,7 @@ const isAllowedPdfUrl = (value: string) => {
 };
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+  if (req.query?.sticker_store === '1') return stickerStore(req, res);
   if (req.method !== 'GET') return res.status(405).send('Method not allowed');
   const rawUrl = req.query?.url;
   const rawName = req.query?.name;
@@ -46,3 +49,4 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(502).send('PDF unavailable');
   }
 }
+

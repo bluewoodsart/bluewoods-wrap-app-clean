@@ -17,6 +17,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/sticker-store",
+      "destination": "/api/download-pdf?sticker_store=1"
+    },
+    {
+      "source": "/stickers/checkout.js",
+      "destination": "/stickers/checkout.js"
+    },
+    {
       "source": "/stickers",
       "destination": "/stickers/index.html"
     },
