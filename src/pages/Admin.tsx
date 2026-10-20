@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { runMobileTouchAction } from '@/lib/mobileTouch';
 import { clearClientAuthStorage, isClientForceLoggedOut, markClientForceLoggedOut } from '@/lib/repTracking';
 import AdminStatus from './AdminStatus';
+import StickerStoreSettings from '@/components/admin/StickerStoreSettings';
 
 interface AdminUser {
   id: string;
@@ -252,7 +253,7 @@ const Admin = () => {
   const activeMarketingSection: BlueWoodsMarketingSectionId = blueWoodsMarketingSections.includes(requestedMarketingSection as BlueWoodsMarketingSectionId)
     ? requestedMarketingSection as BlueWoodsMarketingSectionId
     : 'master-front-end';
-  const activeTab = requestedTab === 'marketing'
+  const activeTab = requestedTab === 'stickers' && adminUser.role === 'owner_admin' ? 'stickers' : requestedTab === 'marketing'
     ? 'owner-marketing'
     : requestedTab === 'clients'
     ? 'clients'
@@ -274,7 +275,7 @@ const Admin = () => {
 
   const changeAdminTab = (nextTab: string) => {
     const nextParams = new URLSearchParams(location.search);
-    const tabValue = nextTab === 'owner-marketing'
+    const tabValue = nextTab === 'stickers' ? 'stickers' : nextTab === 'owner-marketing'
       ? 'marketing'
       : nextTab === 'clients'
       ? 'clients'
@@ -385,6 +386,7 @@ const Admin = () => {
               {/* Video Instructions is archived: its direct route and records remain available for restoration. */}
               <TabsTrigger value="quote-requests" className="min-h-11 min-w-max flex-1 px-3">Quote Requests</TabsTrigger>
               <TabsTrigger value="rep-onboarding" className="min-h-11 min-w-max flex-1 px-3">Reps</TabsTrigger>
+              {adminUser.role === 'owner_admin' && <TabsTrigger value="stickers" className="min-h-11 min-w-max flex-1 px-3">Sticker Store</TabsTrigger>}
               <TabsTrigger value="production" className="min-h-11 min-w-max flex-1 px-3">Production</TabsTrigger>
               <TabsTrigger value="networking" className="min-h-11 min-w-max flex-1 px-3">Networking</TabsTrigger>
               <TabsTrigger value="whatsapp" className="min-h-11 min-w-max flex-1 gap-2 px-3">WhatsApp{pendingWhatsAppCount > 0 && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">{pendingWhatsAppCount}</span>}</TabsTrigger>
@@ -418,6 +420,7 @@ const Admin = () => {
             <BlueWoodsMarketingWorkspace adminUserId={adminUser.id} initialSection={activeMarketingSection} onSectionChange={changeMarketingSection} />
           </TabsContent>
 
+          {adminUser.role === 'owner_admin' && <TabsContent value="stickers" className="mt-0"><StickerStoreSettings /></TabsContent>}
           <TabsContent value="staff-feed" className="mt-0">
             <StaffFeed />
           </TabsContent>
