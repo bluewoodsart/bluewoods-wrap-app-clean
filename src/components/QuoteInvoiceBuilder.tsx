@@ -237,6 +237,10 @@ export function QuoteInvoiceBuilder({
 
   const publishToProofPortal = async () => {
     if (!testedConfirmed || saving) return;
+    if (!record?.invoice_data.paypalUrl?.trim()) {
+      setError('Add the PayPal payment link and save the draft before publishing. No email has been sent.');
+      return;
+    }
     setSaving(true);
     setMessage('Publishing the approved invoice to the private proof portal...');
     setError('');
@@ -508,7 +512,7 @@ export function QuoteInvoiceBuilder({
             placeholder="https://www.paypal.com/..."
             className="mt-2 min-h-12 border-2 border-orange-300"
           />
-          <span className="mt-1 block text-xs font-normal text-slate-500">Paste the complete PayPal or PayPal.Me link. Saving changes returns this invoice to Draft Preview and never emails or texts the customer.</span>
+          <span className="mt-1 block text-xs font-normal text-slate-500">Required before publishing and emailing the quote. Paste the complete PayPal or PayPal.Me link. Saving changes returns this invoice to Draft Preview and never emails or texts the customer.</span>
         </label>
 
         <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
@@ -612,6 +616,16 @@ export function QuoteInvoiceBuilder({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {error && (
+              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                {error}
+              </p>
+            )}
+            {!record?.invoice_data.paypalUrl?.trim() && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                A saved PayPal payment link is required to publish and email this quote. Close this window, add the link, and save the draft first. No email has been sent.
+              </p>
+            )}
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
               Check the customer, line items, totals, dates, PDF, terms, and payment link before publishing.
             </div>
