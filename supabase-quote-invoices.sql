@@ -242,10 +242,6 @@ begin
     raise exception 'Save the invoice draft before approval.';
   end if;
 
-  if trim(coalesce(v_invoice.invoice_data->>'paypalUrl', '')) = '' then
-    raise exception 'Add the PayPal payment link before approval.';
-  end if;
-
   select coalesce(sum(
     greatest(coalesce(nullif(item->>'quantity', '')::numeric, 0), 0)
     * greatest(coalesce(nullif(item->>'rate', '')::numeric, 0), 0)
