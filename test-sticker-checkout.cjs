@@ -18,7 +18,7 @@ const png=Buffer.alloc(33);Buffer.from('89504e470d0a1a0a','hex').copy(png);png.w
 png.writeUInt32BE(999999,16);assert.throws(()=>core.validateArtwork(png.toString('base64')));
 let existing=null,updates=[],uploadCount=0;
 const db={from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:existing,error:null}),update(value){updates.push(value);return {eq(){return this},then(resolve){resolve({error:null})}}}})};
-const handler=compile('server/sticker-handler.ts',{'@supabase/supabase-js':{createClient:()=>db},'./sticker-core.js':core}).default;
+const handler=compile('server/sticker-handler.ts',{'@supabase/supabase-js':{createClient:()=>db},'./sticker-core.js':core,'./sticker-generator.js':{generatorReady:()=>false,generateSticker:()=>{throw Error('unexpected generation')}}}).default;
 async function call(body,headers={},method='POST'){let status,data;const req={method,headers,async *[Symbol.asyncIterator](){yield Buffer.from(typeof body==='string'?body:JSON.stringify(body))}};const res={setHeader(){},status(n){status=n;return this},json(v){data=v}};await handler(req,res);return {status,data};}
 (async()=>{
  delete process.env.STRIPE_SECRET_KEY;delete process.env.SUPABASE_SERVICE_ROLE_KEY;

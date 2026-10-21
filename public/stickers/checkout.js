@@ -66,8 +66,9 @@
  }
  fetch('/api/sticker-store').then(r=>r.json()).then(data=>{
   available=data.enabled===true;
-  banner.textContent=available?(data.mode==='test'?'TEST CHECKOUT — no real payments or production orders. AI generation is a demo.':'Custom ten-packs — $10 + postage. Upload your artwork to order. AI generation is a demo.'):'STOREFRONT PREVIEW — checkout setup in progress. AI generation is a demo.';
+  banner.textContent=data.generatorEnabled?'AI STICKER PREVIEWS ARE LIVE · Ordering is being connected.':available?(data.mode==='test'?'TEST CHECKOUT — no real payments or production orders. AI generation is a demo.':'Custom ten-packs — $10 + postage. Upload your artwork to order. AI generation is a demo.'):'STOREFRONT PREVIEW — checkout setup in progress. AI generation is a demo.';
   refresh();
  }).catch(refresh);
  refresh();checkReturn();
 })();
+

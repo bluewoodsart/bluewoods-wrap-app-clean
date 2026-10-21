@@ -1,3 +1,4 @@
+import {generateSticker,generatorReady} from './sticker-generator.js';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createHmac } from 'node:crypto';
 import { totalFor, verifySignature, validPaidSession, validateArtwork } from './sticker-core.js';
@@ -25,10 +26,11 @@ async function rawBody(req: any) {
 }
 export default async function handler(req: any,res: any) {
  res.setHeader('Cache-Control','no-store'); res.setHeader('X-Content-Type-Options','nosniff');
- if(req.method==='GET')return res.status(200).json({enabled:ready(),mode:mode()});
+ if(req.method==='GET')return res.status(200).json({enabled:ready(),mode:mode(),generatorEnabled:generatorReady()});
  if(req.method!=='POST')return res.status(405).json({error:'Method not allowed.'});
  try {
   const raw=await rawBody(req); const signature=req.headers['stripe-signature'];
+  if(!signature){const input=JSON.parse(raw.toString());if(input.action==='generate')return generateSticker(input,req,res);}
   const dbKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!dbKey || !process.env.VITE_SUPABASE_URL)return res.status(503).json({error:'Checkout setup is still in progress.'});
   const db=createClient(process.env.VITE_SUPABASE_URL,dbKey,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -114,3 +116,4 @@ export default async function handler(req: any,res: any) {
   return res.status(400).json({error:error instanceof Error && /^(Artwork must|Invalid artwork|Request too large)/.test(error.message)?error.message:'We could not complete that request. Please retry; your existing order will be reused.'});
  }
 }
+

@@ -17,6 +17,10 @@
   ],
   "rewrites": [
     {
+      "source": "/stickers/generator.js",
+      "destination": "/stickers/generator.js"
+    },
+    {
       "source": "/api/sticker-store",
       "destination": "/api/download-pdf?sticker_store=1"
     },
@@ -36,5 +40,11 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/download-pdf.ts": {
+      "maxDuration": 180
+    }
+  }
 }
+
