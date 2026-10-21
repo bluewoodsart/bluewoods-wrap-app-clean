@@ -508,7 +508,7 @@ export function QuoteInvoiceBuilder({
             placeholder="https://www.paypal.com/..."
             className="mt-2 min-h-12 border-2 border-orange-300"
           />
-          <span className="mt-1 block text-xs font-normal text-slate-500">Paste the complete PayPal or PayPal.Me link. Saving changes returns this invoice to Draft Preview and never emails or texts the customer.</span>
+          <span className="mt-1 block text-xs font-normal text-slate-500">Optional. You can publish and email the quote without a payment link. To add one, paste the complete PayPal or PayPal.Me link. Saving changes returns this invoice to Draft Preview and never emails or texts the customer.</span>
         </label>
 
         <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
@@ -612,6 +612,11 @@ export function QuoteInvoiceBuilder({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {error && (
+              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                {error}
+              </p>
+            )}
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
               Check the customer, line items, totals, dates, PDF, terms, and payment link before publishing.
             </div>
