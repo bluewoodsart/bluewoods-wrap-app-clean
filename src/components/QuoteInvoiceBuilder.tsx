@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, ExternalLink, Eye, FileUp, Plus, Printer, Save, ShieldCheck, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, Eye, FileUp, Mail, Plus, Printer, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,8 @@ export function QuoteInvoiceBuilder({
   const [error, setError] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [testedConfirmed, setTestedConfirmed] = useState(false);
+  const [sendMode, setSendMode] = useState<'publish' | 'resend'>('publish');
+  const sendInFlightRef = useRef(false);
   const [uploadingProposal, setUploadingProposal] = useState(false);
   const proposalUploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +106,20 @@ export function QuoteInvoiceBuilder({
   const remainingBalance = subtotal - depositAmount;
   const shareUrl = record?.token ? `${window.location.origin}/invoice/${record.token}` : '';
   const isApproved = record?.status === 'approved';
+  const hasUnsavedChanges = !record || JSON.stringify(invoice) !== JSON.stringify(record.invoice_data);
+  const recipientEmail = customerEmail.trim();
+
+  useEffect(() => {
+    setTestedConfirmed(false);
+  }, [customerEmail, invoice]);
+
+  const openSendReview = (mode: 'publish' | 'resend') => {
+    setSendMode(mode);
+    setTestedConfirmed(false);
+    setError('');
+    setMessage('');
+    setConfirmOpen(true);
+  };
 
   useEffect(() => {
     let active = true;
@@ -163,8 +179,14 @@ export function QuoteInvoiceBuilder({
       return;
     }
 
-    setRecord(data?.[0] as InvoiceRecord);
-    setInvoice(nextInvoice);
+    const saved = data?.[0] as InvoiceRecord | undefined;
+    if (!saved) {
+      setMessage('');
+      setError('The saved draft could not be confirmed. Reload the quote before sending.');
+      return;
+    }
+    setRecord(saved);
+    setInvoice(saved.invoice_data);
     setMessage(successMessage);
   };
 
@@ -236,70 +258,58 @@ export function QuoteInvoiceBuilder({
   };
 
   const publishToProofPortal = async () => {
-    if (!testedConfirmed || saving) return;
+    if (!testedConfirmed || saving || sendInFlightRef.current) return;
+    if (hasUnsavedChanges) {
+      setError('Save the draft before sending so the email uses your latest quote.');
+      return;
+    }
+    if (!recipientEmail) {
+      setError('Add and save the customer email before sending.');
+      return;
+    }
+
+    sendInFlightRef.current = true;
     setSaving(true);
-    setMessage('Publishing the approved invoice to the private proof portal...');
+    setMessage('Publishing the saved quote to the private proof portal...');
     setError('');
 
-    const { data, error: approvalError } = await supabase.rpc('approve_quote_invoice_rep_v1', {
-      p_quote_request_id: quoteRequestId,
-      p_confirm_tested: true
-    });
-
-    if (approvalError) {
-      setSaving(false);
-      setMessage('');
-      setError(approvalError.message);
-      return;
-    }
-
-    const approved = data?.[0];
-    setRecord((current) => current ? {
-      ...current,
-      status: 'approved',
-      token: approved.token,
-      tested_at: approved.tested_at,
-      approved_at: approved.approved_at
-    } : current);
-    setConfirmOpen(false);
-    setTestedConfirmed(false);
-
-    const { data: proofPortalData, error: proofPortalError } = await supabase.rpc('upsert_customer_proof_portal_admin', {
-      p_quote_request_id: quoteRequestId,
-      p_proof_image_url: null,
-      p_payment_url: invoice.paypalUrl.trim() || null
-    });
-
-    if (proofPortalError) {
-      setSaving(false);
-      setMessage('The quote was published, but the consolidated customer portal could not be prepared.');
-      setError(proofPortalError.message);
-      return;
-    }
-
-    const proofToken = proofPortalData?.[0]?.customer_proof_token as string | undefined;
-    const proofUrl = proofToken ? `${window.location.origin}/proof/${proofToken}` : '';
-    if (!proofUrl) {
-      setSaving(false);
-      setMessage('The quote was published, but no private customer portal link was created.');
-      return;
-    }
-    if (!customerEmail.trim()) {
-      setSaving(false);
-      setMessage('Everything was published to the private portal, but this customer record has no email address to notify.');
-      return;
-    }
-
-    setMessage('Everything is published. Sending one consolidated customer notification...');
     try {
+      const { data, error: approvalError } = await supabase.rpc('approve_quote_invoice_rep_v1', {
+        p_quote_request_id: quoteRequestId,
+        p_confirm_tested: true
+      });
+      if (approvalError) throw new Error(approvalError.message);
+
+      const approved = data?.[0];
+      if (!approved?.token) throw new Error('The quote could not be published. No email was sent.');
+      setRecord((current) => current ? {
+        ...current,
+        status: 'approved',
+        token: approved.token,
+        tested_at: approved.tested_at,
+        approved_at: approved.approved_at
+      } : current);
+
+      const { data: proofPortalData, error: proofPortalError } = await supabase.rpc('upsert_customer_proof_portal_admin', {
+        p_quote_request_id: quoteRequestId,
+        p_proof_image_url: null,
+        p_payment_url: invoice.paypalUrl.trim() || null
+      });
+      if (proofPortalError) throw new Error(proofPortalError.message);
+
+      const proofToken = proofPortalData?.[0]?.customer_proof_token as string | undefined;
+      if (!proofToken) throw new Error('No private customer portal link was created. No email was sent.');
+      const proofUrl = `${window.location.origin}/proof/${proofToken}`;
+
+      setMessage('Sending one email with the updated quote and private portal link...');
       const emailResponse = await fetch('/api/send-customer-action-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerEmail,
+          customerEmail: recipientEmail,
           customerName,
           quoteId: orderNumber,
-          productLabel: projectDescription || 'project',
+          productLabel: invoice.projectDescription || projectDescription || 'project',
           proofUrl
         })
       });
@@ -307,12 +317,16 @@ export function QuoteInvoiceBuilder({
         const responseBody = await emailResponse.json().catch(() => ({})) as { error?: string };
         throw new Error(responseBody.error || 'Customer notification failed');
       }
-      setMessage('Published successfully. One consolidated email was sent with the customer’s private portal link.');
-    } catch (notificationError) {
-      console.error('Consolidated proof portal notification failed:', notificationError);
-      setMessage('Everything was published, but the customer notification did not send.');
-      setError(notificationError instanceof Error ? notificationError.message : 'Customer notification failed');
+
+      setMessage(`One email was sent to ${recipientEmail} with the latest saved quote and private portal link.`);
+      setConfirmOpen(false);
+      setTestedConfirmed(false);
+    } catch (sendError) {
+      console.error('Quote publication or notification failed:', sendError);
+      setMessage('');
+      setError(sendError instanceof Error ? sendError.message : 'The quote could not be sent.');
     } finally {
+      sendInFlightRef.current = false;
       setSaving(false);
     }
   };
@@ -577,7 +591,7 @@ export function QuoteInvoiceBuilder({
           <Button
             type="button"
             disabled={!shareUrl || saving}
-            onClick={() => setConfirmOpen(true)}
+            onClick={() => openSendReview('publish')}
             className="min-h-14 w-full bg-red-600 text-base font-black text-white hover:bg-red-500"
           >
             <ShieldCheck className="mr-2 h-5 w-5" />
@@ -599,19 +613,44 @@ export function QuoteInvoiceBuilder({
           </div>
         )}
 
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!shareUrl || saving || uploadingProposal}
+          onClick={() => openSendReview('resend')}
+          className="min-h-12 w-full border-blue-300 font-bold text-blue-800"
+        >
+          <Mail className="mr-2 h-4 w-4" />
+          Resend Updated Quote
+        </Button>
+
         {message && <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</p>}
         {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
       </div>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Dialog open={confirmOpen} onOpenChange={(open) => { if (!saving) setConfirmOpen(open); }}>
         <DialogContent className="w-[calc(100vw-1rem)] max-w-lg">
           <DialogHeader>
-            <DialogTitle>Publish to the private proof portal</DialogTitle>
+            <DialogTitle>{sendMode === 'resend' ? 'Resend Updated Quote' : 'Publish to the private proof portal'}</DialogTitle>
             <DialogDescription>
-              This is the final customer-ready step. It publishes the approved quote or PDF, proof images, payment link, and current project information, then sends one consolidated email containing the private portal link.
+              Review the recipient and saved quote below. Confirming publishes the saved quote and sends one email with the private portal link. A payment link is optional.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              <p><strong>Send to:</strong> {recipientEmail || 'No customer email saved'}</p>
+              <p><strong>Quote:</strong> {orderNumber}</p>
+              <p><strong>Subtotal:</strong> {formatMoney(subtotal)}</p>
+            </div>
+            {hasUnsavedChanges && (
+              <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                You have unsaved quote changes. Close this window and click Save Draft before sending.
+              </p>
+            )}
+            {!recipientEmail && (
+              <p role="alert" className="text-sm font-semibold text-red-700">Add and save the customer email before sending.</p>
+            )}
+            {saving && <p role="status" className="text-sm font-semibold text-blue-800">{message}</p>}
             {error && (
               <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
                 {error}
@@ -631,12 +670,12 @@ export function QuoteInvoiceBuilder({
             </label>
             <Button
               type="button"
-              disabled={!testedConfirmed || saving}
+              disabled={!testedConfirmed || saving || hasUnsavedChanges || !recipientEmail}
               onClick={() => void publishToProofPortal()}
               className="min-h-12 w-full bg-emerald-700 font-bold hover:bg-emerald-600"
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
-              Publish & Notify Customer
+              {saving ? 'Sending...' : sendMode === 'resend' ? 'Resend Updated Quote' : 'Publish & Notify Customer'}
             </Button>
           </div>
         </DialogContent>
