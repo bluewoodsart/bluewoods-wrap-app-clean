@@ -1,4 +1,5 @@
 import React from 'react';
+import HomeSeoContent from '@/components/HomeSeoContent';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BadgeCheck, Clock3, Palette, ShieldCheck, Sparkles, Truck, Upload, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,8 @@ const Index: React.FC<IndexProps> = () => {
           <Link to="/login?redirect=/rep">Rep Portal</Link>
         </Button>
 
-        <nav className="hidden shrink-0 items-center gap-2 sm:flex">
+        <nav aria-label="Main navigation" className="hidden shrink-0 items-center gap-2 sm:flex">
+          <a href="#services" className="mr-3 text-sm font-bold text-cyan-200">Our services</a>
           <Button asChild size="sm" variant="outline" className="h-9 border-white/30 bg-white/10 px-3 text-xs text-white hover:bg-white/20 hover:text-white md:text-sm">
             <Link to="/admin">Login</Link>
           </Button>
@@ -65,10 +67,10 @@ const Index: React.FC<IndexProps> = () => {
           <div className="relative z-10 mx-auto w-full max-w-7xl overflow-hidden">
             <div className="max-w-[22rem] rounded-none sm:max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200 md:text-sm md:tracking-[0.22em]">
-              Wraps, fleet branding, banners, and sales-ready artwork
+              Fayetteville, Georgia · Wraps, signs, and custom printing
               </p>
               <h1 className="mt-3 max-w-full break-words text-[1.7rem] font-black leading-[1.05] text-white drop-shadow-2xl sm:text-4xl md:mt-5 md:text-7xl">
-                SlapWrapz makes your brand impossible to miss.
+                Vehicle wraps & printed graphics that get your brand noticed.
               </h1>
               <p className="mt-4 max-w-2xl break-words text-sm leading-6 text-slate-100 drop-shadow sm:text-base md:mt-6 md:text-xl md:leading-8">
                 Vehicle wraps, fleet graphics, banners, and production-ready brand visibility. Start with a quote,
@@ -152,6 +154,7 @@ const Index: React.FC<IndexProps> = () => {
             </div>
           </div>
         </section>
+        <HomeSeoContent />
       </main>
     </div>
   );
