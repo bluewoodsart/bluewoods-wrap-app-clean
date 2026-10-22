@@ -37,9 +37,7 @@ export async function analyzeBusinessCardBoard(req: any, res: any) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
   const directOpenAiKey = process.env.OPENAI_API_KEY;
-  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
   if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'Server database configuration is missing.' });
-  if (!directOpenAiKey && !gatewayToken) return res.status(503).json({ error: 'AI analysis authentication is unavailable.' });
 
   const bearer = req.headers.authorization?.replace(/^Bearer\s+/i, '');
   if (!bearer) return res.status(401).json({ error: 'Sign in as a BWB administrator.' });
@@ -51,6 +49,11 @@ export async function analyzeBusinessCardBoard(req: any, res: any) {
 
   const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl : '';
   if (!imageUrl.startsWith('https://')) return res.status(400).json({ error: 'A secure signed image URL is required.' });
+
+  const requestOidcHeader = req.headers?.['x-vercel-oidc-token'];
+  const requestOidcToken = Array.isArray(requestOidcHeader) ? requestOidcHeader[0] : requestOidcHeader;
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || requestOidcToken?.trim();
+  if (!directOpenAiKey && !gatewayToken) return res.status(503).json({ error: 'AI analysis authentication is unavailable.' });
 
   const response = await fetch(gatewayToken ? 'https://ai-gateway.vercel.sh/v1/responses' : 'https://api.openai.com/v1/responses', {
     method: 'POST',
