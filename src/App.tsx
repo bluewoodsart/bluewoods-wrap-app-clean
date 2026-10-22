@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
+import RouteSeo from "./components/RouteSeo";
 import NotFound from "./pages/NotFound";
 import ThankYou from "./pages/ThankYou";
 import AdminStatus from "./pages/AdminStatus";
@@ -103,6 +104,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <RouteSeo />
             <Routes>
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
               <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
