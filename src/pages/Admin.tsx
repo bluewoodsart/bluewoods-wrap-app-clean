@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
+import { Component, type ErrorInfo, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { BadgeCheck, BriefcaseBusiness, ExternalLink, LogOut, Megaphone, Network, RefreshCw, ShieldAlert } from 'lucide-react';
@@ -89,7 +89,11 @@ const Admin = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const authUserIdRef = useRef<string | null>(null);
+  const authGenerationRef = useRef(0);
+
   const loadAdminUser = async () => {
+    const generation = ++authGenerationRef.current;
     setLoading(true);
     setError('');
 
@@ -110,7 +114,9 @@ const Admin = () => {
       return;
     }
 
+    if (generation !== authGenerationRef.current) return;
     const activeSession = sessionData.session;
+    authUserIdRef.current = activeSession?.user.id ?? null;
     setSession(activeSession);
 
     if (!activeSession) {
@@ -121,6 +127,7 @@ const Admin = () => {
 
     const { data, error: adminError } = await supabase.rpc('get_current_admin_user');
 
+    if (generation !== authGenerationRef.current) return;
     if (adminError) {
       setError(adminError.message);
       setAdminUser(null);
@@ -134,17 +141,28 @@ const Admin = () => {
 
   useEffect(() => {
     void loadAdminUser();
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(() => {
-      // Supabase calls made before this callback returns can deadlock auth-js.
-      window.setTimeout(() => {
-        void loadAdminUser();
-      }, 0);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      // Supabase emits SIGNED_IN again on tab focus. Keep every child form mounted
+      // when the identity is unchanged; the client refreshes its own access token.
+      if (nextUserId && nextUserId === authUserIdRef.current && !isClientForceLoggedOut()) {
+        setSession(nextSession);
+        return;
+      }
+      ++authGenerationRef.current;
+      authUserIdRef.current = nextUserId;
+      setSession(nextSession);
+      setAdminUser(null);
+      setLoading(Boolean(nextSession));
+      if (timer) clearTimeout(timer);
+      if (nextSession) {
+        timer = setTimeout(() => { void loadAdminUser(); }, 0);
+      }
     });
-
     return () => {
+      ++authGenerationRef.current;
+      if (timer) clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);
@@ -436,7 +454,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="quote-requests" className="mt-0">
-            <AdminStatus enableBulkActions currentAdminRole={adminUser.role} />
+            <AdminStatus key={adminUser.id} enableBulkActions currentAdminRole={adminUser.role} currentAdminUserId={adminUser.id} />
           </TabsContent>
 
           <TabsContent value="rep-onboarding" className="mt-0">
