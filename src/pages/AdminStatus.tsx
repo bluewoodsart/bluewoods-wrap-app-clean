@@ -945,6 +945,8 @@ interface AdminStatusProps {
 }
 
 const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdminUserId }: AdminStatusProps) => {
+  const [syncedFiles, setSyncedFiles] = useState<{ quoteId: string; files: UploadedFileSummary[] }>({ quoteId: '', files: [] });
+  const [fileSyncError, setFileSyncError] = useState('');
   const [quotes, setQuotes] = useState<QuoteRequestRow[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<QuoteRequestRow | null>(null);
   const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<QuoteRequestRow | null>(null);
@@ -1276,6 +1278,51 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
 
     setProofImages(Array.isArray(data) ? data as CustomerProofImage[] : []);
   };
+
+  // Refresh attachments independently: never reload editable quote fields or close dialogs.
+  useEffect(() => {
+    const selectedId = selectedQuote?.id;
+    const quoteId = selectedQuote?.quote_id || selectedId;
+    if (!selectedId || !quoteId) return;
+    let disposed = false;
+    let inFlight = false;
+    const refreshFiles = async () => {
+      if (disposed || inFlight || document.visibilityState === 'hidden') return;
+      inFlight = true;
+      try {
+        const { data, error } = await supabase.from('customer_files')
+          .select('id,file_name,file_url,file_type,file_size,tags')
+          .eq('quote_id', quoteId).order('created_at', { ascending: true });
+        if (disposed) return;
+        if (error) {
+          setFileSyncError('Could not refresh attachments. Retrying automatically.');
+          return;
+        }
+        setSyncedFiles({ quoteId: selectedId, files: (data || []).map(file => ({
+          id: file.id, name: file.file_name, url: file.file_url,
+          type: file.file_type, size: file.file_size, tags: file.tags || []
+        })) });
+        setFileSyncError('');
+      } catch {
+        if (!disposed) setFileSyncError('Could not refresh attachments. Retrying automatically.');
+      } finally {
+        inFlight = false;
+      }
+    };
+    const refresh = () => { void refreshFiles(); };
+    refresh();
+    const interval = window.setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('bwb-quote-files-updated', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('bwb-quote-files-updated', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [selectedQuote?.id, selectedQuote?.quote_id]);
 
   const loadQuoteDetail = async (quoteRequestId: string) => {
     setLoadingDetail(true);
@@ -3245,7 +3292,10 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
           {selectedQuote && (() => {
             const activeQuote = selectedQuoteDetail || selectedQuote;
             const hasSalesRepNotificationTarget = Boolean(activeQuote.rep_email || activeQuote.rep_slug);
-            const uploadedFiles = getUploadedFiles(activeQuote);
+            const uploadedFiles = Array.from(new Map([
+              ...getUploadedFiles(activeQuote),
+              ...(syncedFiles.quoteId === activeQuote.id ? syncedFiles.files : [])
+            ].map(file => [file.url || file.id || file.name, file])).values());
             const groupedFiles = getGroupedFiles(uploadedFiles);
             const stillNeededItems = getStillNeededItems(groupedFiles, customerActionRequests);
             const hasArtworkOrLogo = groupedFiles.artworkFiles.length > 0;
@@ -3502,6 +3552,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                         additionalTags={['website_hero_reference', 'logo_reference', 'transparent_background_required', 'mobile_safe_logo']}
                         enforceMaxFilesError
                       />
+                      <FileList files={uploadedFiles.filter(file => file.tags?.includes('website_hero_reference'))} emptyMessage="No saved hero reference photos yet." />
                       <p className="mt-3 whitespace-pre-line rounded-md border border-violet-200 bg-white p-3 text-xs font-medium leading-5 text-violet-950">
                         {WEBSITE_HERO_REFERENCE_RULE}
                       </p>
@@ -4749,6 +4800,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                   </div>
                   <div>
                     <h3 className="mb-3 text-sm font-semibold text-slate-950">All uploaded files</h3>
+                    <p role="status" className="mb-3 text-xs text-slate-500">{fileSyncError || 'Saved uploads refresh automatically every 15 seconds and when you return to this window.'}</p>
                     {uploadedFiles.length > 20 && (
                       <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
                         Large upload set — review required.
