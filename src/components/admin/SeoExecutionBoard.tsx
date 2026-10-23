@@ -57,16 +57,32 @@ interface ActionState {
 
 const phases: SeoPhase[] = [
   {
+    id: 'release-checks',
+    eyebrow: 'Website release',
+    title: 'SlapWrapz mobile, services & quote handoff',
+    timing: 'October 2026',
+    description: 'Record what is live and tested separately from Google indexing, rankings, and lead delivery.',
+    actions: [
+      { key: 'homepage-service-content', title: 'Publish homepage service content and FAQs', detail: 'Expand the homepage with six service descriptions, local context, project steps, and links to the published service pages.', verify: 'Open the homepage and confirm the content, FAQ controls, and service links render.' },
+      { key: 'mobile-layout-check', title: 'Verify the mobile layout and navigation', detail: 'Make Services reachable in the phone header and check the homepage, service pages, and quote screens at narrow widths.', verify: 'Record tested viewport widths; check readable text, working links, and no horizontal overflow.' },
+      { key: 'service-links-check', title: 'Verify all six service pages and quote destinations', detail: 'Check wraps, banners, magnets, stickers, business signs, and window graphics. Each service needs a working quote path.', verify: 'Record HTTP status, canonical URL, and the expected quote destination for each service page.' },
+      { key: 'quote-form-handoff', title: 'Verify navigation into the existing quote forms', detail: 'Check Quick Quote, Full Project, banners, stickers, signs, and product-specific magnet/window-graphics entry points.', verify: 'Open the forms, check the selected product and required-field validation. This does not verify CRM submission or email delivery.' },
+      { key: 'quote-delivery-test', title: 'Verify a complete test lead through CRM and notifications', detail: 'Use an agreed test contact and confirm the saved quote, rep attribution, uploads, and notification delivery.', verify: 'Record the test quote ID and delivery evidence. Opening a form alone is not an end-to-end delivery test.' },
+      { key: 'homepage-prerender', title: 'Make homepage body content available before JavaScript', detail: 'The six service pages are static HTML; the homepage still renders through React. Track homepage pre-rendering separately.', verify: 'Inspect the homepage raw HTML and confirm the main heading, service copy, and links are present without running JavaScript.' }
+    ]
+  },
+
+  {
     id: 'foundation',
     eyebrow: 'Phase 1',
     title: 'Technical foundation',
     timing: 'Days 1–3',
-    description: 'Give Google one clear, crawlable Fayetteville page and connect the measurement systems.',
+    description: 'Strengthen the published Fayetteville service page and connect the measurement systems.',
     actions: [
       { key: 'confirm-nap', title: 'Confirm the official business name, address, phone, hours, and service area', detail: 'Verify whether 305 Etowah Trace, Suite 106 is the correct customer-facing address before publishing it anywhere.', verify: 'Compare the website, Google profile, invoices, and public directories for one exact NAP format.' },
-      { key: 'build-fayetteville-page', title: 'Build /vehicle-wraps-fayetteville-ga', detail: 'Create the primary ranking page with original SlapWrapz work, services, process, FAQs, testimonials, calls, and quote buttons.', verify: 'Open the published URL on desktop and mobile; confirm content, calls, images, and both quote paths work.' },
+      { key: 'build-fayetteville-page', title: 'Expand /services/vehicle-wraps with original local proof', detail: 'Create the primary ranking page with original SlapWrapz work, services, process, FAQs, testimonials, calls, and quote buttons.', verify: 'Open the published URL on desktop and mobile; confirm content, calls, images, and both quote paths work.' },
       { key: 'seo-metadata', title: 'Correct titles, descriptions, canonicals, and old Famous.ai metadata', detail: 'Give the homepage and Fayetteville page accurate SlapWrapz search and sharing information.', verify: 'Inspect the rendered page source and social preview; confirm one canonical URL per public page.' },
-      { key: 'static-rendering', title: 'Pre-render public SEO pages as crawlable HTML', detail: 'Keep the interactive React quote app while making public service content available before JavaScript runs.', verify: 'Disable JavaScript or inspect raw HTML and confirm the title, H1, service copy, address, and links remain visible.' },
+      { key: 'static-rendering', title: 'Publish the six service pages as crawlable HTML', detail: 'Keep the interactive React quote app while making public service content available before JavaScript runs.', verify: 'Disable JavaScript or inspect raw HTML and confirm the title, H1, service copy, and links remain visible. Track homepage pre-rendering in the release checklist.' },
       { key: 'structured-data', title: 'Add LocalBusiness, Service, Breadcrumb, and FAQ structured data', detail: 'Describe SlapWrapz, the Fayetteville service, and page hierarchy in machine-readable JSON-LD.', verify: 'Pass Google Rich Results Test and Schema validator without critical errors.' },
       { key: 'sitemap-robots-noindex', title: 'Create sitemap.xml and clean up robots/noindex rules', detail: 'List only public canonical pages and keep admin, proof, invoice, designer, login, and upload routes out of search.', verify: 'Open sitemap.xml and robots.txt; use URL Inspection to confirm public pages are indexable and private routes are not.' },
       { key: 'search-console', title: 'Connect Google Search Console for slapwrapz.com', detail: 'Verify the Domain property, submit the sitemap, and establish the search-performance baseline.', verify: 'Confirm verified ownership, accepted sitemap, and successful live URL inspection for the Fayetteville page.' },
@@ -135,7 +151,7 @@ const formatUpdatedAt = (value?: string) => {
 
 const SeoExecutionBoard = ({ adminUserId }: { adminUserId: string }) => {
   const [progressByKey, setProgressByKey] = useState<Record<string, ActionState>>({});
-  const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({ foundation: true });
+  const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({ 'release-checks': true, foundation: true });
   const [openEvidenceKey, setOpenEvidenceKey] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -230,6 +246,32 @@ const SeoExecutionBoard = ({ adminUserId }: { adminUserId: string }) => {
           </div>
         </div>
       </section>
+
+      <Card className="border-cyan-200">
+        <CardHeader><CardTitle>Live pages & measurement status</CardTitle></CardHeader>
+        <CardContent className="space-y-5">
+          <p className="text-sm leading-6 text-slate-600">Website checks document implementation. Google indexing and ranking improvement require Search Console evidence and a dated baseline; they are not implied by a successful build.</p>
+          <nav aria-label="Published SEO pages" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ['Homepage', '/'], ['Vehicle wraps', '/services/vehicle-wraps'],
+              ['Custom banners', '/services/custom-banners'], ['Vehicle magnets', '/services/vehicle-magnets'],
+              ['Stickers & decals', '/services/stickers-decals'], ['Business signs', '/services/business-signs'],
+              ['Window graphics', '/services/window-graphics'], ['XML sitemap', '/sitemap.xml']
+            ].map(([label, href]) => <a key={href} href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-cyan-800 hover:bg-cyan-50">{label}<ExternalLink className="h-4 w-4 shrink-0" /></a>)}
+          </nav>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              ['search-console', 'Search Console connection'],
+              ['url-inspection', 'Google indexing'],
+              ['ranking-baseline', 'Search performance baseline']
+            ].map(([key, label]) => <div key={key} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-bold text-slate-950">{label}</p>
+              <p className="mt-1 text-sm text-amber-900">{loading ? 'Loading status…' : error ? 'Status unavailable' : progressByKey[key]?.verified ? 'Verification recorded — review evidence' : 'Not verified — measurement pending'}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => { setExpandedPhases(value => ({ ...value, foundation: true, 'authority-measurement': true })); setOpenEvidenceKey(key); }}>View checklist evidence</Button>
+            </div>)}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-xl bg-cyan-100 p-3 text-cyan-800"><Flag className="h-5 w-5" /></div><div><p className="text-2xl font-black">{allActions.length}</p><p className="text-xs font-semibold text-slate-500">Planned actions</p></div></CardContent></Card>

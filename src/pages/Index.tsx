@@ -41,7 +41,8 @@ const Index: React.FC<IndexProps> = () => {
           </div>
         </Link>
 
-        <Button asChild size="sm" className="h-9 shrink-0 touch-manipulation bg-cyan-400 px-3 text-xs font-bold text-slate-950 hover:bg-cyan-300 sm:hidden">
+        <a href="#services" className="inline-flex min-h-11 shrink-0 items-center px-2 text-xs font-bold text-cyan-200 sm:hidden">Services</a>
+        <Button asChild size="sm" className="h-11 shrink-0 touch-manipulation bg-cyan-400 px-3 text-xs font-bold text-slate-950 hover:bg-cyan-300 sm:hidden">
           <Link to="/login?redirect=/rep">Rep Portal</Link>
         </Button>
 
