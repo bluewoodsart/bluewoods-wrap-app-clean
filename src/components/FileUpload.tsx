@@ -161,6 +161,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           .insert({
             id: fileRecordId,
             project_id: projectUuid,
+            quote_id: quoteId || null,
             file_url: publicUrl,
             file_name: file.name,
             file_type: file.type,
@@ -186,6 +187,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         };
 
         newFiles.push(uploadedFile);
+        window.dispatchEvent(new CustomEvent('bwb-quote-files-updated', { detail: { quoteId } }));
       }
 
       const allFiles = [...uploadedFiles, ...newFiles];
