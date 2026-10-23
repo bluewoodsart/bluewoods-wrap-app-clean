@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,7 @@ interface SignageDetails {
 }
 
 const SIGN_MATERIALS = [
+  'Vehicle Magnet',
   'Coroplast',
   'Acrylic',
   'Aluminum Composite / ACM',
@@ -46,6 +47,12 @@ const createQuoteId = () =>
 
 const SignageQuoteFlow: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const service = searchParams.get('service');
+  const isMagnet = service === 'vehicle-magnets';
+  const isWindow = service === 'window-graphics';
+  const serviceLabel = isMagnet ? 'Vehicle Magnets' : isWindow ? 'Window Graphics' : 'Business Signs';
+  const defaultMaterial = isMagnet ? 'Vehicle Magnet' : isWindow ? 'Vinyl Decal / Adhesive Sign' : '';
   const [quoteId] = useState(createQuoteId);
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
     name: '',
@@ -59,7 +66,7 @@ const SignageQuoteFlow: React.FC = () => {
     height: '',
     unit: 'inches',
     quantity: '',
-    material: '',
+    material: defaultMaterial,
     signText: '',
     notes: ''
   });
@@ -160,7 +167,8 @@ const SignageQuoteFlow: React.FC = () => {
       productType: 'sign',
       quoteType: 'generic_signage_quote',
       intakeType: 'generic_signage_quote',
-      selectedService: 'Generic Signage',
+      selectedService: serviceLabel,
+      sourceServicePage: isMagnet || isWindow ? `/services/${service}` : '/services/business-signs',
       companyName: contactInfo.businessName,
       repSlug,
       uploadedFileCount: uploadedFiles.length,
@@ -244,9 +252,9 @@ const SignageQuoteFlow: React.FC = () => {
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
               Blue Woods Brands
             </p>
-            <CardTitle className="text-3xl text-slate-950">Generic Signage Quote Request</CardTitle>
+            <CardTitle className="text-3xl text-slate-950">{serviceLabel} Quote Request</CardTitle>
             <p className="text-sm text-slate-600">
-              Sign size, material, message, artwork, notes, and contact information.
+              Share your size, quantity, message, artwork, and contact information. We will review the details with you.
             </p>
           </CardHeader>
           <CardContent className="space-y-8">
@@ -403,7 +411,7 @@ const SignageQuoteFlow: React.FC = () => {
             </section>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -414,7 +422,7 @@ const SignageQuoteFlow: React.FC = () => {
               className="w-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white"
               size="lg"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Sign Quote Request'}
+              {isSubmitting ? 'Submitting...' : `Request ${serviceLabel} Quote`}
               {!isSubmitting && <CheckCircle className="ml-2 h-4 w-4" />}
             </Button>
           </CardContent>
