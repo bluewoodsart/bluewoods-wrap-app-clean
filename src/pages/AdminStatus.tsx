@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
+import NewQuoteRequest from '@/components/admin/NewQuoteRequest';
 import { QuoteInvoiceBuilder } from '@/components/QuoteInvoiceBuilder';
 import WesleyWingsProofGallery from '@/components/WesleyWingsProofGallery';
 import { CustomerContactEditor, type SavedCustomerContact } from '@/components/admin/CustomerContactEditor';
@@ -2715,10 +2716,23 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
             <h1 className="text-2xl font-semibold text-slate-950">Quote Status</h1>
             <p className="text-sm text-slate-600">Internal quote status updates</p>
           </div>
-          <Button variant="outline" onClick={() => loadQuotes()} disabled={loading}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {(currentAdminRole === 'owner_admin' || currentAdminRole === 'staff') && (
+              <NewQuoteRequest onCreated={(quote) => {
+                setQuoteListView('active');
+                setQuoteSearch('');
+                setFollowUpFilter('all');
+                setQuickQuoteFilter('all');
+                setSelectedRepFilter(ALL_REPS_FILTER_VALUE);
+                setMessage('Quote request saved. Add pricing and artwork below, then send when ready.');
+                void loadQuotes({ clearMessage: false, view: 'active' });
+                openQuoteDetail(quote as unknown as QuoteRequestRow);
+              }} />
+            )}
+            <Button variant="outline" onClick={() => loadQuotes()} disabled={loading}>
+              <RefreshCw className="mr-2 h-4 w-4" />Refresh
+            </Button>
+          </div>
         </div>
 
         {message && (
