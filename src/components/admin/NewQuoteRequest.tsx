@@ -21,17 +21,66 @@ const emptyForm = () => ({
   service: 'Vehicle Wraps', quantity: '1', dimensions: '', deadline: '', notes: ''
 });
 
-export default function NewQuoteRequest({ onCreated }: {
+export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
+  draftOwnerId?: string;
   onCreated: (quote: Record<string, unknown>) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const draftKey = draftOwnerId ? 'bwb:new-quote:v1:' + draftOwnerId : null;
+  const [restored] = useState(() => {
+    try {
+      const value = draftKey ? JSON.parse(localStorage.getItem(draftKey) || 'null') : null;
+      if (!value || value.version !== 1 || !value.form) return null;
+      const form = emptyForm();
+      for (const key of Object.keys(form) as Array<keyof typeof form>) {
+        if (typeof value.form[key] === 'string') form[key] = value.form[key];
+      }
+      if (!SERVICES.some(item => item.label === form.service)) form.service = 'Vehicle Wraps';
+      if (!['call', 'text', 'email'].includes(form.preferredContact)) form.preferredContact = 'call';
+      return { form, quoteId: typeof value.quoteId === 'string' ? value.quoteId : '', open: Boolean(value.open) };
+    } catch { return null; }
+  });
+  const [open, setOpen] = useState(restored?.open ?? false);
+  const [form, setForm] = useState(restored?.form ?? emptyForm());
+  const [draftWarning, setDraftWarning] = useState('');
+  const formRef = useRef(form);
+  const openRef = useRef(open);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
-  const quoteId = useRef('');
-  const update = (key: keyof ReturnType<typeof emptyForm>, value: string) =>
-    setForm(current => ({ ...current, [key]: value }));
+  const quoteId = useRef(restored?.quoteId ?? '');
+  const persist = (nextForm = formRef.current, nextOpen = openRef.current) => {
+    if (!draftKey) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        version: 1, form: nextForm, open: nextOpen, quoteId: quoteId.current
+      }));
+      setDraftWarning('');
+    } catch {
+      setDraftWarning('This browser could not save the draft. Keep this page open until you save the quote.');
+    }
+  };
+  const changeOpen = (next: boolean) => {
+    if (pending.current) return;
+    openRef.current = next;
+    setOpen(next);
+    persist(formRef.current, next);
+  };
+  const update = (key: keyof ReturnType<typeof emptyForm>, value: string) => {
+    const next = { ...formRef.current, [key]: value };
+    formRef.current = next;
+    setForm(next);
+    persist(next);
+  };
+  const clearDraft = () => {
+    formRef.current = emptyForm();
+    openRef.current = false;
+    setForm(formRef.current);
+    setOpen(false);
+    quoteId.current = '';
+    try { if (draftKey) localStorage.removeItem(draftKey); } catch {
+      setDraftWarning('The stored draft could not be cleared.');
+    }
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -50,6 +99,7 @@ export default function NewQuoteRequest({ onCreated }: {
     setError('');
     const service = SERVICES.find(item => item.label === form.service)!;
     if (!quoteId.current) quoteId.current = 'ADMIN-' + crypto.randomUUID();
+    persist();
     let saved: Record<string, unknown> | undefined;
     try {
       // Recover a saved request after an interrupted response before attempting another insert.
@@ -86,24 +136,23 @@ export default function NewQuoteRequest({ onCreated }: {
       setSaving(false);
     }
     if (saved?.id) {
-      setOpen(false);
-      setForm(emptyForm());
-      quoteId.current = '';
+      clearDraft();
       onCreated(saved);
     }
   };
 
   return (
     <>
-      <Button className="min-h-11" onClick={() => { setError(''); setOpen(true); }}>
+      <Button className="min-h-11" onClick={() => { setError(''); changeOpen(true); }}>
         <Plus className="mr-2 h-4 w-4" />New Quote Request
       </Button>
-      <Dialog open={open} onOpenChange={next => { if (!pending.current) setOpen(next); }}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-y-auto">
+      <Dialog open={open} onOpenChange={changeOpen}>
+        <DialogContent onInteractOutside={event => event.preventDefault()} className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New Quote Request</DialogTitle>
             <DialogDescription>Enter a customer and project to start a quote in your CRM. Add pricing, artwork, and rep assignment after saving. Saving does not send a customer email.</DialogDescription>
           </DialogHeader>
+          <p role="status" className="text-xs text-slate-600">{draftWarning || 'Draft kept on this device until saved or discarded.'}</p>
           <form onSubmit={submit} className="space-y-4">
             <fieldset disabled={saving} className="space-y-4">
               <legend className="sr-only">Customer and project details</legend>
@@ -122,7 +171,10 @@ export default function NewQuoteRequest({ onCreated }: {
             </fieldset>
             {error && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-800">{error}</p>}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => changeOpen(false)}>Close & Keep Draft</Button>
+              <Button type="button" variant="ghost" disabled={saving} onClick={() => {
+                if (window.confirm('Discard this unfinished quote?')) clearDraft();
+              }}>Discard Draft</Button>
               <Button type="submit" disabled={saving} className="min-h-11">{saving ? 'Saving request…' : 'Save & Open Quote'}</Button>
             </div>
           </form>

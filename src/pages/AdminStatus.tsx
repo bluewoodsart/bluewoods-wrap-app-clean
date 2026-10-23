@@ -941,9 +941,10 @@ const formatEventType = (eventType: string) => formatStatusLabel(eventType);
 interface AdminStatusProps {
   enableBulkActions?: boolean;
   currentAdminRole?: AdminRole;
+  currentAdminUserId?: string;
 }
 
-const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatusProps) => {
+const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdminUserId }: AdminStatusProps) => {
   const [quotes, setQuotes] = useState<QuoteRequestRow[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<QuoteRequestRow | null>(null);
   const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<QuoteRequestRow | null>(null);
@@ -2718,7 +2719,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole }: AdminStatu
           </div>
           <div className="flex flex-wrap gap-2">
             {(currentAdminRole === 'owner_admin' || currentAdminRole === 'staff') && (
-              <NewQuoteRequest onCreated={(quote) => {
+              <NewQuoteRequest key={currentAdminUserId} draftOwnerId={currentAdminUserId} onCreated={(quote) => {
                 setQuoteListView('active');
                 setQuoteSearch('');
                 setFollowUpFilter('all');
