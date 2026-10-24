@@ -28,6 +28,7 @@ import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
 import PodcastCentral from '@/components/admin/PodcastCentral';
 import BrandPortfolio from '@/components/admin/BrandPortfolio';
 import BannerLeadCampaignBoard from '@/components/admin/BannerLeadCampaignBoard';
+import VisitorConversations from '@/components/admin/VisitorConversations';
 
 export type BlueWoodsMarketingSectionId =
   | 'overview'
@@ -40,6 +41,7 @@ export type BlueWoodsMarketingSectionId =
   | 'content-calendar'
   | 'marketing'
   | 'lead-campaigns'
+  | 'conversations'
   | 'content'
   | 'partnerships'
   | 'events'
@@ -68,6 +70,7 @@ const navigation: NavigationItem[] = [
   { id: 'content-calendar', label: 'Content Calendar', icon: CalendarDays },
   { id: 'marketing', label: 'Marketing & Branding', icon: Megaphone },
   { id: 'lead-campaigns', label: 'Lead Campaigns', icon: BadgeCheck },
+  { id: 'conversations', label: 'Visitor Conversations', icon: Network },
   { id: 'content', label: 'Content Production', icon: Sparkles },
   { id: 'partnerships', label: 'Partners & Reps', icon: Network },
   { id: 'events', label: 'Events', icon: CalendarDays },
@@ -273,6 +276,10 @@ const Partners = () => {
 };
 
 const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: string; title: string; description: string; items: string[] }> = {
+  conversations: {
+    eyebrow: 'Listen and learn', title: 'Visitor Conversations',
+    description: 'What visitors need, how they found us, and the CRM inquiries they requested.', items: []
+  },
   overview: {
     eyebrow: 'Owner command center',
     title: 'Blue Woods Brands Dashboard',
@@ -458,6 +465,10 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'master-front-end', admi
   const renderSection = () => {
     if (activeSection === 'marketing') return renderMarketing();
     const section = workspaceSections[activeSection];
+    if (activeSection === 'conversations') return <div className="space-y-5">
+      <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+      <VisitorConversations />
+    </div>;
     if (activeSection === 'website-seo') {
       return (
         <div className="space-y-5">

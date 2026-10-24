@@ -78,6 +78,11 @@ const Index: React.FC<IndexProps> = () => {
                 send your artwork, and keep the project moving.
               </p>
 
+              {import.meta.env.VITE_BWB_CONVERSATIONS_ENABLED === 'true' && <div className="mt-5 rounded-xl border border-cyan-300/40 bg-slate-950/90 p-5">
+                <h2 className="text-2xl font-black">Why did you come here today?</h2>
+                <p className="mt-2 text-slate-200">Have something in mind—or just curious? Either way, welcome.</p>
+                <Button asChild className="mt-4 bg-cyan-300 text-slate-950 hover:bg-cyan-200"><Link to={`/start${window.location.search}`}>Tell us what brought you here</Link></Button>
+              </div>}
               <div className="mt-5 grid gap-3 sm:grid-cols-2 md:mt-8 md:gap-4">
                 <div className="border border-cyan-300/40 bg-black/55 p-4 shadow-2xl backdrop-blur-sm md:p-5">
                   <div className="flex items-center gap-3">
