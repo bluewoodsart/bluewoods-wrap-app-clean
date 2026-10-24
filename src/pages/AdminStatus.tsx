@@ -39,6 +39,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { supabase } from '@/lib/supabase';
+import { getDesignerCloudFolderUrl } from '@/lib/designerCloudFolder';
 
 const STATUS_OPTIONS = [
   'new',
@@ -1006,6 +1007,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
   const [designerName, setDesignerName] = useState('');
   const [designerInstructions, setDesignerInstructions] = useState('');
   const [designerCloudFolderUrl, setDesignerCloudFolderUrl] = useState('');
+  const designerQuoteIdRef = useRef<string | null>(null);
+  const designerLoadSequenceRef = useRef(0);
   const [sendingDesignerPacket, setSendingDesignerPacket] = useState(false);
   const [designerPacketMessage, setDesignerPacketMessage] = useState('');
   const [designerPacketError, setDesignerPacketError] = useState('');
@@ -1225,6 +1228,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
   };
 
   const loadDesignerPacket = async (quoteRequestId: string, activeQuote?: QuoteRequestRow) => {
+    if (designerQuoteIdRef.current !== quoteRequestId) return;
+    const sequence = ++designerLoadSequenceRef.current;
     setLoadingDesignerPacket(true);
     setDesignerPacketError('');
 
@@ -1233,6 +1238,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
         p_quote_request_id: quoteRequestId
       });
 
+    if (designerQuoteIdRef.current !== quoteRequestId || sequence !== designerLoadSequenceRef.current) return;
     setLoadingDesignerPacket(false);
 
     if (packetLoadError) {
@@ -1243,6 +1249,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
     }
 
     const nextPacket = data?.[0] as DesignerPacket | undefined;
+    if (nextPacket && nextPacket.quote_request_id !== quoteRequestId) {
+      setDesignerPacket(null);
+      setDesignerCloudFolderUrl('');
+      setDesignerPacketError('Designer packet does not belong to this quote. Reload before continuing.');
+      return;
+    }
     setDesignerPacket(nextPacket ?? null);
 
     if (nextPacket) {
@@ -1253,7 +1265,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
       return;
     }
 
-    const quoteForDefaults = activeQuote || selectedQuoteDetail || selectedQuote;
+    setDesignerCloudFolderUrl('');
+    const quoteForDefaults = activeQuote;
     if (quoteForDefaults) {
       setDesignerInstructions(getDesignerPacketDefaultInstructions(quoteForDefaults));
     }
@@ -1355,6 +1368,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
   };
 
   const openQuoteDetail = (quote: QuoteRequestRow) => {
+    designerQuoteIdRef.current = quote.id;
     setSelectedQuote(quote);
     setSelectedQuoteDetail(null);
     setStatusEvents([]);
@@ -1882,11 +1896,18 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
   };
 
   const sendDesignerPacket = async () => {
-    if (!selectedQuote || sendingDesignerPacket) return;
+    if (!selectedQuote || sendingDesignerPacket || loadingDesignerPacket) return;
 
     const activeQuote = selectedQuoteDetail || selectedQuote;
     const trimmedDesignerEmail = designerEmail.trim();
     const trimmedInstructions = designerInstructions.trim();
+    const cloudFolderUrl = getDesignerCloudFolderUrl(designerCloudFolderUrl);
+
+    if (designerCloudFolderUrl.trim() && !cloudFolderUrl) {
+      setDesignerPacketError('Use an external cloud folder URL, not a proof or designer portal link. Leave blank if no folder is linked.');
+      setDesignerPacketMessage('');
+      return;
+    }
 
     if (!trimmedDesignerEmail) {
       setDesignerPacketError('Add the designer email before sending.');
@@ -1910,7 +1931,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
         p_designer_email: trimmedDesignerEmail,
         p_designer_name: designerName.trim() || null,
         p_instructions: trimmedInstructions,
-        p_cloud_folder_url: designerCloudFolderUrl.trim() || null
+        p_cloud_folder_url: cloudFolderUrl
       });
 
     if (packetSaveError) {
@@ -1924,13 +1945,17 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
     const nextPacket = data?.[0] as DesignerPacket | undefined;
     const packetLink = getDesignerPacketLink(nextPacket?.token);
 
-    if (!nextPacket || !packetLink) {
+    if (!nextPacket || !packetLink || nextPacket.quote_request_id !== selectedQuote.id) {
       setSendingDesignerPacket(false);
       setDesignerPacketError('Designer packet was saved but no private link came back.');
       setDesignerPacketMessage('');
       return;
     }
 
+    if (designerQuoteIdRef.current !== selectedQuote.id) {
+      setSendingDesignerPacket(false);
+      return;
+    }
     setDesignerPacket(nextPacket);
     setDesignerPacketMessage('Designer packet created. Sending email...');
 
@@ -1947,7 +1972,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
         productLabel: getProductLabel(activeQuote),
         packetUrl: packetLink,
         instructions: trimmedInstructions,
-        cloudFolderUrl: designerCloudFolderUrl.trim() || null
+        cloudFolderUrl: getDesignerCloudFolderUrl(nextPacket.cloud_folder_url)
       })
     });
 
@@ -4029,6 +4054,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                           }}
                           placeholder="Google Drive / Dropbox / folder link"
                         />
+                        <p className="text-xs text-slate-500">Optional external folder for this job. Proof and designer portal links cannot be used here.</p>
                       </div>
                     </div>
 
