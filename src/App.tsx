@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
+import VisitorWelcome from "./pages/VisitorWelcome";
 import RouteSeo from "./components/RouteSeo";
 import NotFound from "./pages/NotFound";
 import ThankYou from "./pages/ThankYou";
@@ -107,6 +108,7 @@ const App = () => {
             <RouteSeo />
             <Routes>
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
+              <Route path="/start" element={import.meta.env.VITE_BWB_CONVERSATIONS_ENABLED === 'true' ? <VisitorWelcome /> : <Navigate to="/" replace />} />
               <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
               <Route path="/trapstar/local/wheelers-towing" element={<WheelersTowingLanding />} />
               <Route path="/jazzy" element={<BrandChannelLanding channel={jazzyChannel} />} />

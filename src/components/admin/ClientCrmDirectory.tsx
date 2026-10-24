@@ -115,6 +115,7 @@ const ClientCrmDirectory = ({ onOpenCompassionWorkspace }: ClientCrmDirectoryPro
       </section>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <a href="/admin?tab=owner-marketing&section=conversations" className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 font-semibold sm:col-span-2 xl:col-span-4">Visitor Conversations · Browse inquiries and their CRM handoffs →</a>
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-xl bg-cyan-100 p-3 text-cyan-800"><Users className="h-5 w-5" /></div><div><p className="text-2xl font-black">{clients.length + 1}</p><p className="text-xs font-semibold text-slate-500">Client records</p></div></CardContent></Card>
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-xl bg-emerald-100 p-3 text-emerald-800"><BriefcaseBusiness className="h-5 w-5" /></div><div><p className="text-2xl font-black">{activeRecordCount}</p><p className="text-xs font-semibold text-slate-500">Active quote/job records</p></div></CardContent></Card>
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-xl bg-blue-100 p-3 text-blue-800"><FileText className="h-5 w-5" /></div><div><p className="text-2xl font-black">{totalRecordCount}</p><p className="text-xs font-semibold text-slate-500">Total quote/job history</p></div></CardContent></Card>

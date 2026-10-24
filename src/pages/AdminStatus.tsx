@@ -447,11 +447,13 @@ const getProductLabel = (quote: QuoteRequestRow) => {
   if (productType === 'banner') return 'Banner';
   if (productType === 'sign' || productType === 'signage') return 'Generic Signage';
   if (productType === 'decal' || productType === 'sticker') return 'Stickers & Decals';
+  if (productType === 'consultation') return 'Website inquiry';
   return 'Wrap';
 };
 
 const getQuoteSearchText = (quote: QuoteRequestRow) =>
   [
+    quote.id,
     quote.customer_name,
     quote.customer_email,
     quote.customer_phone,
@@ -990,7 +992,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
   const [followUpError, setFollowUpError] = useState('');
   const [followUpSummaries, setFollowUpSummaries] = useState<Record<string, QuoteFollowUpSummary>>({});
   const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>('all');
-  const [quoteSearch, setQuoteSearch] = useState('');
+  const [quoteSearch, setQuoteSearch] = useState(() => new URLSearchParams(window.location.search).get('inquiry') || '');
   const [quickQuoteFilter, setQuickQuoteFilter] = useState<QuickQuoteFilter>('all');
   const [selectedRepFilter, setSelectedRepFilter] = useState(ALL_REPS_FILTER_VALUE);
   const [customerActionRequests, setCustomerActionRequests] = useState<QuoteCustomerActionRequest[]>([]);
@@ -3330,6 +3332,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
               </DialogHeader>
 
               <div className="flex min-w-0 flex-col gap-6">
+                {typeof activeQuote.quote_data?.conversationTranscript === 'string' && <details className="rounded border border-cyan-200 bg-cyan-50 p-4">
+                  <summary className="cursor-pointer font-semibold">Visitor conversation at handoff</summary>
+                  <p className="mt-3 whitespace-pre-wrap text-sm">{activeQuote.quote_data.conversationTranscript}</p>
+                  <a className="mt-3 inline-block text-sm underline" href="/admin?tab=owner-marketing&section=conversations">Open Visitor Conversations for later messages</a>
+                </details>}
                 {loadingDetail && (
                   <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                     Loading quote details...
