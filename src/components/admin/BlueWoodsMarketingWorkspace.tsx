@@ -28,6 +28,7 @@ import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
 import PodcastCentral from '@/components/admin/PodcastCentral';
 import BrandPortfolio from '@/components/admin/BrandPortfolio';
 import BannerLeadCampaignBoard from '@/components/admin/BannerLeadCampaignBoard';
+import MarketingProspectWorkspace from '@/components/admin/MarketingProspectWorkspace';
 
 export type BlueWoodsMarketingSectionId =
   | 'overview'
@@ -40,6 +41,7 @@ export type BlueWoodsMarketingSectionId =
   | 'content-calendar'
   | 'marketing'
   | 'lead-campaigns'
+  | 'email-leads'
   | 'content'
   | 'partnerships'
   | 'events'
@@ -68,6 +70,7 @@ const navigation: NavigationItem[] = [
   { id: 'content-calendar', label: 'Content Calendar', icon: CalendarDays },
   { id: 'marketing', label: 'Marketing & Branding', icon: Megaphone },
   { id: 'lead-campaigns', label: 'Lead Campaigns', icon: BadgeCheck },
+  { id: 'email-leads', label: 'Email & Lead Research', icon: Search },
   { id: 'content', label: 'Content Production', icon: Sparkles },
   { id: 'partnerships', label: 'Partners & Reps', icon: Network },
   { id: 'events', label: 'Events', icon: CalendarDays },
@@ -321,6 +324,7 @@ const workspaceSections: Record<Exclude<SectionId, 'marketing'>, { eyebrow: stri
     description: 'Plan what Blue Woods and SlapWrapz will publish, where it will go, who owns it, and when it should be reviewed.',
     items: ['Calendar view', 'Draft and approval queue', 'Scheduled posts', 'Published content history']
   },
+  'email-leads': { eyebrow: 'Prospecting', title: 'Email & Lead Research', description: 'Shared print prospects and reusable research playbooks.', items: [] },
   'lead-campaigns': {
     eyebrow: 'Demand generation',
     title: 'Lead Campaigns',
@@ -384,6 +388,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'master-front-end', admi
         title="Blue Woods Marketing & Branding"
         description="The company-level workspace for Blue Woods Brands, SlapWrapz, lead campaigns, creative assets, sales materials, and growth marketing. Client workspaces remain separate under Clients."
       />
+<Card className="border-cyan-200"><CardContent className="flex flex-wrap items-center justify-between gap-4 p-5"><div><h3 className="font-bold">Email &amp; Lead Research</h3><p className="text-sm text-slate-600">Print prospects, social profiles, research playbooks, and saved outreach drafts.</p></div><Button onClick={() => selectSection('email-leads')}>Open leads &amp; skill</Button></CardContent></Card>
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <Card className="overflow-hidden border-cyan-200 shadow-sm">
           <div className="bg-slate-950 p-6 text-white">
@@ -456,6 +461,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'master-front-end', admi
   );
 
   const renderSection = () => {
+    if (activeSection === 'email-leads') return <MarketingProspectWorkspace />;
     if (activeSection === 'marketing') return renderMarketing();
     const section = workspaceSections[activeSection];
     if (activeSection === 'website-seo') {
