@@ -1,3 +1,4 @@
+import { getOrCreateStickerOrder, ensureStickerArtwork, bindStickerSession } from './sticker-recovery.mjs';
 import {generateSticker,generatorReady} from './sticker-generator.js';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createHmac } from 'node:crypto';
@@ -83,16 +84,15 @@ export default async function handler(req: any,res: any) {
    const {data:allowed,error:rateError}=await db.rpc('bwb_sticker_rate_limit',{rate_key:rateKey});
    if(rateError)throw rateError;if(!allowed)return res.status(429).json({error:'Too many checkout attempts. Please try again in an hour.'});
    const artworkPath=body.id+'/approved.png';
-   const {error:insertError}=await db.from('bwb_sticker_orders').insert({id:body.id,token_hash:tokenHash,artwork_path:artworkPath,
+   order=await getOrCreateStickerOrder(db,{id:body.id,token_hash:tokenHash,artwork_path:artworkPath,
     artwork_sha256:hash(image),delivery:body.delivery,amount_total:totalFor(body.delivery),stripe_mode:mode()});
-   if(insertError)throw insertError;
-   const {error:uploadError}=await db.storage.from('sticker-artwork').upload(artworkPath,image,{contentType:'image/png',upsert:false});
-   if(uploadError){await db.from('bwb_sticker_orders').delete().eq('id',body.id);throw uploadError;}
-   order=await find(body.id);
   }
   if(Date.now()-new Date(order.created_at).getTime()>1800000)return res.status(409).json({error:'This draft has expired. Click payment again to start a new order.',restart:true});
-  const {data:storedArt,error:readError}=await db.storage.from('sticker-artwork').download(order.artwork_path);
-  if(readError || !storedArt || hash(Buffer.from(await storedArt.arrayBuffer()))!==order.artwork_sha256)throw Error('Artwork is not ready.');
+  // An interrupted upload can be retried only with the exact originally approved bytes.
+  const retryImage=validateArtwork(body.artwork);
+  if(body.approved!==true || body.delivery!==order.delivery || hash(retryImage)!==order.artwork_sha256)
+   return res.status(409).json({error:'Approved artwork or delivery changed. Please review your artwork and start a new order.',restart:true});
+  await ensureStickerArtwork(db.storage.from('sticker-artwork'),order.artwork_path,retryImage,order.artwork_sha256,(bytes:Uint8Array)=>hash(Buffer.from(bytes)));
   // Immutable stored artwork and delivery are reused on retry; the browser cannot change price.
   const form=new URLSearchParams({mode:'payment',client_reference_id:order.id,
    'metadata[sticker_order_id]':order.id,'line_items[0][price_data][currency]':'usd',
@@ -109,7 +109,7 @@ export default async function handler(req: any,res: any) {
    form.set('shipping_options[0][shipping_rate_data][display_name]','US letter mail — one 10-pack (untracked)');
   }
   const session=await stripe('checkout/sessions',form,'sticker-'+order.id);
-  const {error:saveError}=await db.from('bwb_sticker_orders').update({stripe_session_id:session.id}).eq('id',order.id);if(saveError)throw saveError;
+  await bindStickerSession(db,order.id,session.id);
   return res.status(200).json({id:order.id,url:session.url});
  }catch(error){
   // Never return Stripe, database, address or key details to the browser/logs.

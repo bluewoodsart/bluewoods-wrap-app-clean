@@ -1,7 +1,9 @@
 const fs=require('fs'),assert=require('assert/strict'),Module=require('module'),crypto=require('crypto');
 const ts=require('typescript');
 function compile(file,mocks={}){const result=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX},reportDiagnostics:true});assert.equal(result.diagnostics?.filter(d=>d.category===1).length,0);const m=new Module(file,module);m.require=name=>mocks[name]||require(name);m._compile(result.outputText,file);return m.exports;}
-const core=compile('server/sticker-core.ts');
+const pngModule=compile('server/sticker-png.mjs');
+const recoveryModule=compile('server/sticker-recovery.mjs');
+const core=compile('server/sticker-core.ts',{'./sticker-png.mjs':pngModule});
 const raw=Buffer.from('{"event":"test"}'),now=Date.now(),timestamp=Math.floor(now/1000),secret='whsec_test';
 const sig=crypto.createHmac('sha256',secret).update(timestamp+'.').update(raw).digest('hex');
 assert(core.verifySignature(raw,`t=${timestamp},v1=${sig}`,secret,now));
@@ -14,11 +16,11 @@ assert(core.validPaidSession(session,order));
 for(const patch of [{id:'other'},{amount_total:1},{currency:'eur'},{livemode:true},{payment_status:'unpaid'},{metadata:{sticker_order_id:'other'}},{client_reference_id:'other'}])assert(!core.validPaidSession({...session,...patch},order));
 assert.equal(core.totalFor('mail'),1111);assert.equal(core.totalFor('pickup'),1000);assert.equal(core.totalFor('invalid'),0);
 assert.throws(()=>core.validateArtwork(Buffer.from('<svg/>').toString('base64')));
-const png=Buffer.alloc(33);Buffer.from('89504e470d0a1a0a','hex').copy(png);png.write('IHDR',12);png.writeUInt32BE(1200,16);png.writeUInt32BE(1200,20);assert.equal(core.validateArtwork(png.toString('base64')).length,33);
+const png=Buffer.alloc(33);Buffer.from('89504e470d0a1a0a','hex').copy(png);png.write('IHDR',12);png.writeUInt32BE(1200,16);png.writeUInt32BE(1200,20);assert.throws(()=>core.validateArtwork(png.toString('base64')));
 png.writeUInt32BE(999999,16);assert.throws(()=>core.validateArtwork(png.toString('base64')));
 let existing=null,updates=[],uploadCount=0;
 const db={from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:existing,error:null}),update(value){updates.push(value);return {eq(){return this},then(resolve){resolve({error:null})}}}})};
-const handler=compile('server/sticker-handler.ts',{'@supabase/supabase-js':{createClient:()=>db},'./sticker-core.js':core,'./sticker-generator.js':{generatorReady:()=>false,generateSticker:()=>{throw Error('unexpected generation')}}}).default;
+const handler=compile('server/sticker-handler.ts',{'./sticker-recovery.mjs':recoveryModule,'@supabase/supabase-js':{createClient:()=>db},'./sticker-core.js':core,'./sticker-generator.js':{generatorReady:()=>false,generateSticker:()=>{throw Error('unexpected generation')}}}).default;
 async function call(body,headers={},method='POST'){let status,data;const req={method,headers,async *[Symbol.asyncIterator](){yield Buffer.from(typeof body==='string'?body:JSON.stringify(body))}};const res={setHeader(){},status(n){status=n;return this},json(v){data=v}};await handler(req,res);return {status,data};}
 (async()=>{
  delete process.env.STRIPE_SECRET_KEY;delete process.env.SUPABASE_SERVICE_ROLE_KEY;
