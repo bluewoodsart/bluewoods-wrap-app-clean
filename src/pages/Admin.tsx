@@ -34,7 +34,7 @@ interface AdminUser {
 
 const blueWoodsMarketingSections: BlueWoodsMarketingSectionId[] = [
   'overview', 'master-front-end', 'partners', 'brands', 'website-seo', 'social-media', 'podcasts',
-  'content-calendar', 'marketing', 'lead-campaigns', 'content', 'partnerships', 'events', 'tasks', 'files', 'settings'
+  'content-calendar', 'marketing', 'lead-campaigns', 'email-leads', 'content', 'partnerships', 'events', 'tasks', 'files', 'settings'
 ];
 
 const formatRole = (role: AdminUser['role']) =>
