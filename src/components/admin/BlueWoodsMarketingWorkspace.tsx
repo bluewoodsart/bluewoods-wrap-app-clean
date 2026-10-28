@@ -24,6 +24,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import SeoExecutionBoard from '@/components/admin/SeoExecutionBoard';
+import ServicePageMediaManager from '@/components/admin/ServicePageMediaManager';
 import SocialChannelDirectory from '@/components/admin/SocialChannelDirectory';
 import PodcastCentral from '@/components/admin/PodcastCentral';
 import BrandPortfolio from '@/components/admin/BrandPortfolio';
@@ -468,6 +469,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'master-front-end', admi
       return (
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <ServicePageMediaManager />
           <SeoExecutionBoard adminUserId={adminUserId} />
         </div>
       );

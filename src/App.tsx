@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
+import ServiceQuote from "./pages/ServiceQuote";
 import RouteSeo from "./components/RouteSeo";
 import NotFound from "./pages/NotFound";
 import ThankYou from "./pages/ThankYou";
@@ -106,6 +107,7 @@ const App = () => {
           <BrowserRouter>
             <RouteSeo />
             <Routes>
+              <Route path="/service-quote" element={<ServiceQuote />} />
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
               <Route path="/trapstar" element={<BrandChannelLanding channel={trapstarChannel} />} />
               <Route path="/trapstar/local/wheelers-towing" element={<WheelersTowingLanding />} />
