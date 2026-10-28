@@ -17,6 +17,14 @@
   ],
   "rewrites": [
     {
+      "source": "/services/images/:path*",
+      "destination": "/services/images/:path*"
+    },
+    {
+      "source": "/services/service-page.js",
+      "destination": "/services/service-page.js"
+    },
+    {
       "source": "/services/vehicle-wraps",
       "destination": "/services/vehicle-wraps.html"
     },
@@ -215,6 +223,15 @@
         {
           "key": "X-Robots-Tag",
           "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/service-quote",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
         }
       ]
     }
