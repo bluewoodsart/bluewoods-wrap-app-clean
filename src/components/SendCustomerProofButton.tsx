@@ -17,10 +17,10 @@ export default function SendCustomerProofButton({quoteId,customerEmail,disabled}
       const {data}=await supabase.auth.getSession();
       if(!data.session) throw new Error('Please sign in again.');
       requestId.current ||= crypto.randomUUID();
-      const response=await fetch('/api/send-customer-proofs',{
+      const response=await fetch('/api/send-customer-action-request',{
         method:'POST',
         headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
-        body:JSON.stringify({quoteId,expectedEmail:customerEmail.trim(),requestId:requestId.current})
+        body:JSON.stringify({requestType:'proof_portal',quoteId,expectedEmail:customerEmail.trim(),requestId:requestId.current})
       });
       const result=await response.json();
       if(!response.ok) throw new Error(result.error || 'The proof email could not be sent.');
