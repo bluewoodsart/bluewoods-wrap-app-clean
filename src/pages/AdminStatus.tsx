@@ -1,3 +1,4 @@
+import { OfficeImageDeleteGrid, useOfficeImageDeletion } from '@/components/OfficeImageDeleteControls';
 import SendCustomerProofButton from '@/components/SendCustomerProofButton';
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Calculator, CheckCircle2, Copy, Download, ExternalLink, Eye, ImagePlus, Mail, Maximize2, MessageSquare, Phone, RefreshCw, Search, Send, Trash2, Upload, X } from 'lucide-react';
@@ -1182,6 +1183,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
 
     setInternalNotes(data ?? []);
   };
+
+  const officeImageDeletion = useOfficeImageDeletion(selectedQuote?.id, loadInternalNotes);
 
   const loadFollowUpTasks = async (quoteRequestId: string) => {
     setLoadingFollowUps(true);
@@ -4527,6 +4530,11 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
 
                 <section ref={adminOfficeDialogueSectionRef} className="order-2 scroll-mt-4">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Office Dialogue</h3>
+                  <div className="my-3 flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" disabled={officeImageDeletion.busy}
+                      onClick={() => void officeImageDeletion.retry()}>Retry storage cleanup</Button>
+                    {officeImageDeletion.message && <p className="text-sm text-slate-700" role="status">{officeImageDeletion.message}</p>}
+                  </div>
                   <p className="mb-3 text-xs text-slate-600">
                     Use this customer thread for shop-to-rep messages and upsell images. Every image keeps its note in the list, and the rep can open it directly in the quote build.
                   </p>
@@ -4670,26 +4678,14 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                             {upsellIdea ? (
                               <div className="space-y-3">
                                 {upsellImages.length > 0 && (
-                                  <div className="grid gap-2 sm:grid-cols-2">
-                                    {upsellImages.map((image, index) => (
-                                      <button
-                                        key={`${image.url}-${index}`}
-                                        type="button"
-                                        className="group relative min-h-48 overflow-hidden rounded-md border border-amber-200 bg-white"
-                                        onClick={() => setUpsellImagePreview({ url: image.url, name: image.name, title: upsellIdea.title })}
-                                        aria-label={`Open ${image.name || upsellIdea.title} larger`}
-                                      >
-                                        <img
-                                          src={image.url}
-                                          alt={image.name || upsellIdea.title}
-                                          className="max-h-80 w-full object-contain transition duration-150 group-hover:scale-[1.01]"
-                                        />
-                                        <span className="absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-90 shadow-sm">
-                                          <Maximize2 className="h-4 w-4" />
-                                        </span>
-                                      </button>
-                                    ))}
-                                  </div>
+                                  <OfficeImageDeleteGrid
+                                    key={note.id}
+                                    images={upsellImages}
+                                    title={upsellIdea.title}
+                                    busy={officeImageDeletion.busy}
+                                    onDelete={(urls) => officeImageDeletion.remove(note.id, urls)}
+                                    onPreview={(image) => setUpsellImagePreview({ url: image.url, name: image.name, title: upsellIdea.title })}
+                                  />
                                 )}
                                 <div>
                                   <p className="font-semibold text-amber-950">Upsell idea: {upsellIdea.title}</p>
