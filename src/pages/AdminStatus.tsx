@@ -4578,7 +4578,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                     <Button variant="outline" disabled={officeImageBusy} onClick={() => void manageOfficeImages('', [], 'retry')}>Retry file cleanup</Button>
                     <p className="text-xs text-slate-600">Customer artwork goes to Current Proof Set. Image ideas below stay in the office thread.</p>
                   </div>
-                  {officeImageMessage && <p role="status" className="mb-3 rounded border bg-white p-3 text-sm">{officeImageMessage}</p>
+                  {officeImageMessage && <p role="status" className="mb-3 rounded border bg-white p-3 text-sm">{officeImageMessage}</p>}
                   <p className="mb-3 text-xs text-slate-600">
                     Use this customer thread for shop-to-rep messages and upsell images. Every image keeps its note in the list, and the rep can open it directly in the quote build.
                   </p>
