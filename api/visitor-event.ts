@@ -1,6 +1,7 @@
 // Vercel serverless endpoint. Requires SUPABASE_SERVICE_ROLE_KEY and VITE_SUPABASE_URL.
 // Never return database credentials to the browser.
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+type VercelRequest = { method?:string; headers:Record<string,string|string[]|undefined>; body?:unknown };
+type VercelResponse = { setHeader:(name:string,value:string)=>void; status:(code:number)=>VercelResponse; json:(body:unknown)=>void; end:()=>void };
 
 const allowedHosts = new Set(['slapwrapz.com', 'www.slapwrapz.com']);
 const eventTypes = new Set(['page_view', 'quote_start', 'quote_complete']);
@@ -8,11 +9,12 @@ const clean = (x: unknown, max = 120) => typeof x === 'string' ? x.slice(0,max).
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control','no-store');
   if (req.method !== 'POST') return res.status(405).json({error:'method_not_allowed'});
-  const origin = req.headers.origin;
+  const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
   let host: string;
   try { host = new URL(origin || '').hostname.toLowerCase(); } catch { return res.status(403).end(); }
   if (!allowedHosts.has(host)) return res.status(403).end();
-  const b = typeof req.body === 'string' ? (()=>{try{return JSON.parse(req.body)}catch{return {}}})() : (req.body || {});
+  const bodyText = req.body;
+  const b = (typeof bodyText === 'string' ? (()=>{try{return JSON.parse(bodyText)}catch{return {}}})() : (bodyText || {})) as Record<string,unknown>;
   if (b.consent !== true || !eventTypes.has(b.event_type) || typeof b.session_id !== 'string' ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(b.session_id)) return res.status(400).end();
   const path = clean(b.path,240);
