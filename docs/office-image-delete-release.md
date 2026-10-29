@@ -1,23 +1,13 @@
-# Office Dialogue image deletion — pending backend installation
+# Office Dialogue image deletion
 
-Do not merge or deploy until the backend checks below pass.
+Individual Delete, selection with Delete selected, and Delete all images in group are available in the Office Dialogue gallery. Written messages remain when images are removed. Staff confirm permanent deletion; shared files are retained. Storage failures can be retried even when the group has disappeared.
 
-Adds individual Delete buttons, selection and Delete selected, and Delete all images in group in the existing Office Dialogue gallery. The group message is preserved when attachments are removed. A confirmation explains permanent deletion. Cleanup uses the authenticated Storage API; it never deletes storage.objects via SQL. Shared references are retained, and failed storage cleanup can be retried even after the last group disappears.
+## Installed database changes
+The queue, deletion functions, storage deletion lock, and pending-only retry query are installed. The SQL files in db record these migrations; do not rerun CREATE statements on the production database.
 
-## Database state
+## Verification
+Hosted preview build passed. Rollback fixture tests passed for anonymous/unauthorized denial, mismatched quote and foreign-image rejection, partial deletion and legacy image fields, missing-object cleanup, message preservation, external URLs, empty group removal, shared-reference retention, scoped Storage authorization, and attachment guard rejection during deletion. No customer images were deleted. Cleanup queue was verified empty after tests.
 
-The office_image_cleanup_queue migration is installed. Its source is db/office-image-cleanup-queue.sql. Do not rerun that file on production. The cleanup queue is empty and no customer images were deleted during implementation.
+Browser verification was unavailable because the browser runtime failed to initialize. An actual disposable-file Storage API deletion and mobile tapping have not been exercised; SQL authorization and state transitions were verified. UI uses the existing authenticated Supabase SDK to remove storage bytes, then checks database object existence rather than trusting the client response.
 
-The connector repeatedly returned `McpServerError: Invalid or expired requestState` when installing the detach function. db/office-image-delete-functions.sql has NOT been installed. Do not enable the controls until it is installed and tested.
-
-## Required verification before release
-
-- Install remaining functions using a working migration connection; confirm all three public RPCs exist.
-- Test within rollback transactions: unauthenticated, inactive and unauthorized users denied; owner/staff permitted; wrong quote, wrong note and foreign URL rejected.
-- Verify partial group deletion preserves remaining image order and updates legacy imageUrl/imageName. Verify last image deletion preserves a nonempty message.
-- Verify shared proof, invoice, uploaded_files and other attachment references retain bytes.
-- Review concurrency: all attachment writers must participate in the URL advisory lock and guard. Test attachment insert/update racing cleanup; extend guards to any newly identified attachment tables before release.
-- Upload disposable test files through Storage API, detach/delete and verify bytes no longer download. Simulate failed storage removal, retry, verify cleanup status. Do not use real customer files as fixtures.
-- Check authorized Storage SELECT/DELETE policies, Supabase security advisors, desktop/mobile preview and delete targets, then hosted build and production deployment.
-
-No extra serverless endpoint or service key is introduced. The existing hosting function limit is preserved.
+The optional preservation of customer_files metadata IDs referenced by designer packets was not installed after connector failures. Existing FK behavior sets that ID null; the packet file URL remains and shared-reference scanning prevents storage deletion.
