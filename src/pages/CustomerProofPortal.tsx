@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, FileText, Maximize2, RefreshCw, Send, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, FileText, Maximize2, RefreshCw, Send, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -104,6 +104,8 @@ const CustomerProofPortal = () => {
   const [selectedProofImageId, setSelectedProofImageId] = useState('');
   const [proofFeedback, setProofFeedback] = useState<ProofFeedback[]>([]);
   const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  useEffect(() => { setPreviewZoom(1); }, [imagePreview]);
   const [approvedProposal, setApprovedProposal] = useState<ApprovedProposal | null>(null);
 
   const loadProof = async () => {
@@ -384,13 +386,10 @@ const CustomerProofPortal = () => {
               </CardHeader>
               <CardContent className="p-0">
                 {selectedPreviewOption ? (
-                  <div className="flex min-h-[24rem] items-center justify-center bg-white p-3 lg:min-h-[34rem]">
-                    <img
-                      src={selectedPreviewOption.image_url}
-                      alt={selectedPreviewOption.label}
-                      className="max-h-[76vh] w-full object-contain"
-                    />
-                  </div>
+                  <button type="button" className="relative flex min-h-[24rem] w-full cursor-zoom-in items-center justify-center bg-white p-3 lg:min-h-[34rem]" onClick={() => setImagePreview({ src: selectedPreviewOption.image_url, alt: selectedPreviewOption.label })} aria-label="Enlarge selected proof">
+                    <img src={selectedPreviewOption.image_url} alt={selectedPreviewOption.label} className="max-h-[76vh] w-full object-contain" />
+                    <span className="absolute bottom-3 right-3 rounded bg-slate-950/80 px-3 py-2 text-sm text-white">Enlarge / zoom</span>
+                  </button>
                 ) : (
                   <div className="flex min-h-[22rem] items-center justify-center bg-slate-100 px-6 text-center text-sm text-slate-600">
                     Proof options have not been posted yet.
@@ -514,7 +513,7 @@ const CustomerProofPortal = () => {
                         alt={selectedProofImage.original_filename || 'Current proof'}
                         className="max-h-[72vh] w-full object-contain"
                       />
-                      <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/80 p-2 text-white"><Maximize2 className="h-5 w-5" /></span>
+                      <span className="absolute bottom-3 right-3 flex items-center gap-2 rounded bg-slate-950/80 px-3 py-2 text-sm text-white"><Maximize2 className="h-5 w-5" />Enlarge / zoom</span>
                     </button>
                     {currentProofImages.length > 1 && (
                       <div className="border-t border-slate-200 p-3">
@@ -731,11 +730,25 @@ const CustomerProofPortal = () => {
         )}
       </div>
       <Dialog open={Boolean(imagePreview)} onOpenChange={(open) => !open && setImagePreview(null)}>
-        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto bg-slate-950 p-2 sm:p-4">
+        <DialogContent className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-slate-950 p-0 text-white sm:rounded-none [&>button]:hidden">
           <DialogTitle className="sr-only">{imagePreview?.alt || 'Proof image preview'}</DialogTitle>
-          <DialogDescription className="sr-only">Close this preview to return to the proof at the same position.</DialogDescription>
-          <Button type="button" size="icon" variant="secondary" className="absolute right-3 top-3 z-10" onClick={() => setImagePreview(null)} aria-label="Close image preview"><X className="h-5 w-5" /></Button>
-          {imagePreview && <img src={imagePreview.src} alt={imagePreview.alt} className="max-h-[calc(100dvh-3rem)] w-full object-contain" />}
+          <DialogDescription className="sr-only">View the full artwork, zoom in and scroll to inspect details, or open the original image.</DialogDescription>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-700 p-3">
+            <Button variant="secondary" onClick={() => setPreviewZoom((zoom) => Math.max(1, zoom - 0.5))} disabled={previewZoom === 1} aria-label="Zoom out"><ZoomOut className="h-5 w-5" /></Button>
+            <Button variant="secondary" onClick={() => setPreviewZoom((zoom) => Math.min(4, zoom + 0.5))} disabled={previewZoom === 4} aria-label="Zoom in"><ZoomIn className="h-5 w-5" /></Button>
+            <Button variant="secondary" onClick={() => setPreviewZoom(1)}>Fit whole image</Button>
+            <span className="text-sm" aria-live="polite">{previewZoom === 1 ? 'Fit' : Math.round(previewZoom * 100) + '%'}</span>
+            {imagePreview && <Button asChild variant="secondary"><a href={imagePreview.src} target="_blank" rel="noopener noreferrer">Open original <ExternalLink className="ml-2 h-4 w-4" /></a></Button>}
+            <Button variant="secondary" className="ml-auto" onClick={() => setImagePreview(null)}><X className="mr-2 h-5 w-5" />Close</Button>
+          </div>
+          <p className="shrink-0 px-3 py-2 text-sm text-slate-300">Use + to enlarge. Scroll or swipe to see every part of the enlarged artwork.</p>
+          <div key={imagePreview?.src + ':' + previewZoom} className="min-h-0 flex-1 overflow-auto overscroll-contain" tabIndex={0} role="region" aria-label="Enlarged proof artwork">
+            {imagePreview && (
+              <div style={{ width: previewZoom * 100 + '%', height: previewZoom * 100 + '%' }} className="flex items-center justify-center">
+                <img src={imagePreview.src} alt={imagePreview.alt} className="block h-full w-full object-contain" />
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </main>
