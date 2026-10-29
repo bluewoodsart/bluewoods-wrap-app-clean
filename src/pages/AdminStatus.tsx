@@ -973,6 +973,54 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
   const [upsellIdeaStatus, setUpsellIdeaStatus] = useState('');
   const [upsellIdeaError, setUpsellIdeaError] = useState('');
   const [upsellImagePreview, setUpsellImagePreview] = useState<{ url: string; name?: string; title: string } | null>(null);
+  const [selectedOfficeImages, setSelectedOfficeImages] = useState<Record<string, string[]>>({});
+  const [officeImageBusy, setOfficeImageBusy] = useState(false);
+  const officeImageLock = useRef(false);
+  const [officeImageMessage, setOfficeImageMessage] = useState('');
+  useEffect(() => { setSelectedOfficeImages({}); setOfficeImageMessage(''); setUpsellImagePreview(null); }, [selectedQuote?.id]);
+
+  const manageOfficeImages = async (noteId: string, urls: string[], action: 'proof' | 'delete' | 'retry') => {
+    if (!selectedQuote || officeImageLock.current || (action !== 'retry' && !urls.length)) return;
+    if (action === 'delete' && !window.confirm('Delete ' + urls.length + ' selected image(s) from this message? Unused files will also be permanently removed from Supabase. Files still referenced elsewhere will be kept.')) return;
+    officeImageLock.current = true;
+    setOfficeImageBusy(true);
+    setOfficeImageMessage('');
+    try {
+      const quoteId = selectedQuote.id;
+      if (action === 'proof') {
+        const note = internalNotes.find((item) => item.id === noteId);
+        const idea = note && parseUpsellImageIdea(note.note_text);
+        const images = idea?.images?.length ? idea.images : idea?.imageUrl ? [{url: idea.imageUrl, name: idea.imageName}] : [];
+        for (const url of urls) {
+          const image = images.find((item) => item.url === url);
+          if (!image || proofImages.some((item) => item.image_url === url)) continue;
+          const {error} = await supabase.rpc('add_customer_proof_image_admin', {p_quote_request_id: quoteId, p_image_url: url, p_original_filename: image.name || null});
+          if (error) throw error;
+        }
+        await loadCustomerProofImages(quoteId);
+        await loadQuoteDetail(quoteId);
+        setOfficeImageMessage('Added to Current Proof Set. Review all views before sending the customer link.');
+      } else {
+        const {data} = await supabase.auth.getSession();
+        if (!data.session) throw new Error('Please sign in again.');
+        const response = await fetch('/api/manage-office-images', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token},
+          body: JSON.stringify({quoteId, noteId, urls, action})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not delete the selected images.');
+        setOfficeImageMessage(result.message);
+        setUpsellImagePreview(null);
+        await loadInternalNotes(quoteId);
+      }
+      setSelectedOfficeImages((current) => ({...current, [noteId]: []}));
+    } catch (error) {
+      setOfficeImageMessage(error instanceof Error ? error.message : 'The image action failed. Refresh and try again.');
+      if (selectedQuote) await loadCustomerProofImages(selectedQuote.id);
+    } finally { officeImageLock.current = false; setOfficeImageBusy(false); }
+  };
+
   const [adminQuoteContinuationOpen, setAdminQuoteContinuationOpen] = useState(false);
   const [adminQuoteBuildUpsellIdea, setAdminQuoteBuildUpsellIdea] = useState<UpsellImageIdea | null>(null);
   const [adminQuotePreparationNotes, setAdminQuotePreparationNotes] = useState('');
@@ -4525,6 +4573,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
 
                 <section ref={adminOfficeDialogueSectionRef} className="order-2 scroll-mt-4">
                   <h3 className="mb-3 text-sm font-semibold text-slate-950">Office Dialogue</h3>
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <Button variant="outline" disabled={uploadingProof || savingProofPortal} onClick={() => proofUploadInputRef.current?.click()}><ImagePlus className="mr-2 h-4 w-4" />Upload customer proofs</Button>
+                    <Button variant="outline" disabled={officeImageBusy} onClick={() => void manageOfficeImages('', [], 'retry')}>Retry file cleanup</Button>
+                    <p className="text-xs text-slate-600">Customer artwork goes to Current Proof Set. Image ideas below stay in the office thread.</p>
+                  </div>
+                  {officeImageMessage && <p role="status" className="mb-3 rounded border bg-white p-3 text-sm">{officeImageMessage}</p>}
                   <p className="mb-3 text-xs text-slate-600">
                     Use this customer thread for shop-to-rep messages and upsell images. Every image keeps its note in the list, and the rep can open it directly in the quote build.
                   </p>
@@ -4670,8 +4724,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                                 {upsellImages.length > 0 && (
                                   <div className="grid gap-2 sm:grid-cols-2">
                                     {upsellImages.map((image, index) => (
+                                      <div key={`${image.url}-${index}`} className="min-w-0 rounded border border-amber-200 bg-white">
+                                      <div className="flex flex-wrap items-center justify-between gap-2 p-2">
+                                        <label className="flex min-h-11 items-center gap-2 text-sm"><Checkbox checked={(selectedOfficeImages[note.id] || []).includes(image.url)} disabled={officeImageBusy} onCheckedChange={(checked) => setSelectedOfficeImages((current) => ({...current, [note.id]: checked ? [...new Set([...(current[note.id] || []), image.url])] : (current[note.id] || []).filter((url) => url !== image.url)}))} />Select image {index + 1}</label>
+                                        <Button size="sm" variant="outline" disabled={officeImageBusy} onClick={() => void manageOfficeImages(note.id, [image.url], 'delete')}><Trash2 className="mr-1 h-4 w-4" />Delete</Button>
+                                      </div>
                                       <button
-                                        key={`${image.url}-${index}`}
                                         type="button"
                                         className="group relative min-h-48 overflow-hidden rounded-md border border-amber-200 bg-white"
                                         onClick={() => setUpsellImagePreview({ url: image.url, name: image.name, title: upsellIdea.title })}
@@ -4686,11 +4744,18 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                                           <Maximize2 className="h-4 w-4" />
                                         </span>
                                       </button>
+                                      <Button className="m-2" size="sm" variant="outline" disabled={officeImageBusy || proofImages.some((proof) => proof.image_url === image.url)} onClick={() => void manageOfficeImages(note.id, [image.url], 'proof')}>{proofImages.some((proof) => proof.image_url === image.url) ? 'In proof set' : 'Add to proof set'}</Button>
+                                      </div>
                                     ))}
                                   </div>
                                 )}
                                 <div>
-                                  <p className="font-semibold text-amber-950">Upsell idea: {upsellIdea.title}</p>
+                                  <div className="mb-3 flex flex-wrap gap-2">
+                                    <Button size="sm" variant="outline" disabled={officeImageBusy} onClick={() => setSelectedOfficeImages((current) => ({...current, [note.id]: upsellImages.map((image) => image.url)}))}>Select all</Button>
+                                    <Button size="sm" variant="outline" disabled={officeImageBusy || !(selectedOfficeImages[note.id]?.length)} onClick={() => void manageOfficeImages(note.id, selectedOfficeImages[note.id] || [], 'delete')}>Delete selected ({selectedOfficeImages[note.id]?.length || 0})</Button>
+                                    <Button size="sm" variant="outline" disabled={officeImageBusy || !(selectedOfficeImages[note.id]?.length)} onClick={() => void manageOfficeImages(note.id, selectedOfficeImages[note.id] || [], 'proof')}>Add selected to proof set</Button>
+                                  </div>
+                                  <p className="font-semibold text-amber-950">Image idea: {upsellIdea.title}</p>
                                   {upsellIdea.message && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{upsellIdea.message}</p>}
                                   <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                                     <Button
@@ -4826,43 +4891,26 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
           })()}
         </Dialog>
 
-        {upsellImagePreview && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/85 p-3 sm:p-6">
-            <div className="relative flex max-h-[94dvh] w-full max-w-6xl flex-col rounded-lg bg-white shadow-2xl">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-950">{upsellImagePreview.name || upsellImagePreview.title}</p>
-                  <p className="text-xs text-slate-500">Upsell image preview</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 flex-none"
-                  onClick={() => setUpsellImagePreview(null)}
-                  aria-label="Close image preview"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
+        <Dialog open={Boolean(upsellImagePreview)} onOpenChange={(open) => { if (!open) setUpsellImagePreview(null); }}>
+          <DialogContent className="z-[80] flex max-h-[94dvh] w-[calc(100vw-1rem)] max-w-6xl flex-col gap-0 overflow-hidden p-0 [&>button]:hidden">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b p-3">
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-sm">{upsellImagePreview?.name || upsellImagePreview?.title || 'Image preview'}</DialogTitle>
+                <DialogDescription>Review attached image</DialogDescription>
               </div>
-              <div className="min-h-0 flex-1 overflow-auto bg-slate-100 p-2">
-                <img
-                  src={upsellImagePreview.url}
-                  alt={upsellImagePreview.name || upsellImagePreview.title}
-                  className="mx-auto max-h-[78dvh] w-auto max-w-full rounded-md object-contain"
-                />
-              </div>
-              <div className="flex justify-end border-t border-slate-200 p-3">
-                <Button variant="outline" asChild>
-                  <a href={upsellImagePreview.url} target="_blank" rel="noreferrer">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Original
-                  </a>
-                </Button>
-              </div>
+              <Button type="button" variant="outline" className="min-h-12 min-w-12 shrink-0 touch-manipulation" onClick={() => setUpsellImagePreview(null)} aria-label="Close image preview"><X className="mr-1 h-5 w-5" />Close</Button>
             </div>
-          </div>
-        )}
+            {upsellImagePreview && <>
+              <div className="min-h-0 flex-1 overflow-auto bg-slate-100 p-2">
+                <img src={upsellImagePreview.url} alt={upsellImagePreview.name || upsellImagePreview.title} className="mx-auto max-h-[72dvh] w-auto max-w-full object-contain" />
+              </div>
+              <div className="flex shrink-0 justify-between gap-2 border-t p-3">
+                <Button variant="outline" className="min-h-12" onClick={() => setUpsellImagePreview(null)}>Close preview</Button>
+                <Button variant="outline" asChild><a href={upsellImagePreview.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Open original</a></Button>
+              </div>
+            </>}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
