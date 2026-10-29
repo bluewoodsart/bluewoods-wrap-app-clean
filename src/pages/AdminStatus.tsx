@@ -1,3 +1,4 @@
+import SendCustomerProofButton from '@/components/SendCustomerProofButton';
 import { type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Calculator, CheckCircle2, Copy, Download, ExternalLink, Eye, ImagePlus, Mail, Maximize2, MessageSquare, Phone, RefreshCw, Search, Send, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -3920,6 +3921,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                                 : 'Create Proof Link'}
                           </Button>
                         )}
+                        <SendCustomerProofButton key={activeQuote.id + ':' + activeQuote.customer_email} quoteId={activeQuote.id} customerEmail={activeQuote.customer_email || ''} disabled={savingProofPortal || uploadingProof || uploadingProofOptions || loadingProofImages || !activeQuote.customer_proof_token} />
                         <Button
                           type="button"
                           variant="outline"

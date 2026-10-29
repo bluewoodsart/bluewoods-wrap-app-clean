@@ -1,3 +1,4 @@
+import SendCustomerProofButton from '@/components/SendCustomerProofButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
@@ -2412,8 +2413,12 @@ const RepPortal = () => {
           >
             <DialogHeader>
               <DialogTitle className="break-words">{selectedQuote.quote_id || selectedQuote.customer_name}</DialogTitle>
-              <DialogDescription>Read-only assigned quote details</DialogDescription>
+              <DialogDescription>Assigned order details and customer proof delivery</DialogDescription>
             </DialogHeader>
+            <section className="rounded-md border border-blue-200 bg-blue-50 p-3" aria-label="Send customer proofs">
+              <h3 className="mb-2 font-semibold">Customer proofs</h3>
+              <SendCustomerProofButton key={selectedQuote.id + ':' + selectedQuote.customer_email} quoteId={selectedQuote.id} customerEmail={selectedQuote.customer_email || ''} />
+            </section>
 
             <div className="space-y-6">
               <section ref={quoteDetailsSectionRef}>
