@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
+import BwbAnalyticsConsent from "./components/BwbAnalyticsConsent";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import ServiceQuote from "./pages/ServiceQuote";
@@ -106,6 +107,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <RouteSeo />
+            <BwbAnalyticsConsent />
             <Routes>
               <Route path="/service-quote" element={<ServiceQuote />} />
               <Route path="/" element={<RootRoute isPreviewMode={isPreviewMode} />} />
