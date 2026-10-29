@@ -48,7 +48,7 @@ export function useOfficeImageDeletion(quoteId: string | undefined, refresh: (id
       setBusy(false);
     }
   };
-  return { busy, message: result?.quoteId === quoteId ? result.message : '', remove: (noteId: string, urls: string[]) => run(noteId, urls), retry: () => run() };
+  return { busy, message: result && result.quoteId === quoteId ? result.message : '', remove: (noteId: string, urls: string[]) => run(noteId, urls), retry: () => run() };
 }
 
 export function OfficeImageDeleteGrid({ images, title, busy, onDelete, onPreview }: {
