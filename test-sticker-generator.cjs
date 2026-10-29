@@ -12,8 +12,9 @@ async function run(body,origin='https://www.slapwrapz.com'){let status,data;awai
  assert.equal((await run(valid,'https://evil.example')).status,403);assert.equal(calls.length,0);
  assert.equal((await run({...valid,prompt:'a'})).status,400);assert.equal(calls.length,0);
  assert.equal((await run({...valid,style:'unlimited expensive'})).status,400);
- quota=false;assert.equal((await run(valid)).status,429);assert.equal(calls.length,1);assert(!JSON.stringify(calls).includes('192.0.2.10'));
- quota=true;calls=[];let r=await run(valid);assert.equal(r.status,200);assert.equal(r.data.image,'data:image/png;base64,iVBORtest');assert.equal(calls.length,2);assert.equal(calls[1].body.n,1);assert.equal(calls[1].body.quality,'low');assert.equal(calls[1].body.size,'1024x1024');
+ let r;quota=false;r=await run(valid);assert.equal(r.status,429);assert.equal(r.data.attemptStatus,'not_reserved');assert.equal(calls.length,1);assert(!JSON.stringify(calls).includes('192.0.2.10'));
+ quota=true;calls=[];r=await run(valid);assert.equal(r.status,200);assert.equal(r.data.attemptStatus,'reserved');assert.equal(r.data.image,'data:image/png;base64,iVBORtest');assert.equal(calls.length,2);assert.equal(calls[1].body.n,1);assert.equal(calls[1].body.quality,'low');assert.equal(calls[1].body.size,'1024x1024');
+ serviceStatus=400;serviceBody={error:{code:'moderation_blocked'}};r=await run(valid);assert.equal(r.status,400);assert.equal(r.data.attemptStatus,'reserved');assert.match(r.data.error,/content rules/);
  serviceStatus=429;serviceBody={error:{code:'insufficient_quota'}};assert.equal((await run(valid)).status,503);
  serviceStatus=401;assert.equal((await run(valid)).status,503);
  serviceStatus=200;serviceBody={data:[]};assert.equal((await run(valid)).status,502);

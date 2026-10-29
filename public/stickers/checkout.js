@@ -2,7 +2,25 @@
  const $=s=>document.querySelector(s);
  const message=document.createElement('p');message.className='notice';message.setAttribute('role','status');
  $('#studio').prepend(message);
- let available=false,busy=false;
+ let available=false,busy=false,generating=false,uploading=false,testMode=true,uploadVersion=0,uploadUrl=null;
+ // Own upload decoding so an older asynchronous image cannot replace approved artwork.
+ $('#upload').onchange=async event=>{
+  if(busy||generating||uploading)return;
+  const file=event.target.files[0];if(!file)return;
+  const version=++uploadVersion;approval.checked=false;
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>10*1024*1024){
+   $('#uploadStatus').textContent='Please choose a PNG, JPG, or WebP smaller than 10 MB.';event.target.value='';refresh();return;
+  }
+  uploading=true;refresh();$('#uploadStatus').textContent='Opening artwork… Please wait before approving it.';
+  const url=URL.createObjectURL(file),img=new Image();img.alt='Your artwork cropped to a circle';img.src=url;
+  try{
+   await img.decode();if(version!==uploadVersion){URL.revokeObjectURL(url);return;}
+   if(uploadUrl)URL.revokeObjectURL(uploadUrl);uploadUrl=url;
+   $('#preview').replaceChildren(img);$('#previewLabel').textContent='YOUR ARTWORK · CIRCLE CROP PREVIEW';
+   $('#uploadStatus').textContent='Artwork loaded. Check that important details fit inside the circle.';
+  }catch{URL.revokeObjectURL(url);$('#uploadStatus').textContent='This image could not be opened. Any artwork still shown is your previous selection. Please try another file.';}
+  finally{if(version===uploadVersion){uploading=false;approval.checked=false;refresh();}}
+ };
  const banner=$('.demo');
  const approval=$('#artApproval'),button=$('#checkout');
  $('#packQty').value='1';$('#packQty').min='1';$('#packQty').max='1';$('#packQty').disabled=true;
@@ -12,19 +30,20 @@
  $('#uploadPanel .notice').textContent='PNG, JPG, or WebP, up to 10 MB. Your approved circular crop is saved securely when you continue to checkout. Keep important details near the center.';
  const faq=[...document.querySelectorAll('details')].find(d=>d.querySelector('summary')?.textContent.includes('today'));
  if(faq)faq.querySelector('p').textContent='Upload your own artwork to order a ten-pack when checkout is available. The AI generator is still a demonstration. You approve the circular crop and spelling before paying.';
+ document.addEventListener('sticker-generation-state',event=>{generating=event.detail.busy;approval.checked=false;refresh();});
  function refresh(){
-  ['upload','artApproval','delivery','example'].forEach(id=>$('#'+id).disabled=busy);
+  ['upload','artApproval','delivery','example','generate'].forEach(id=>$('#'+id).disabled=busy||generating||uploading);
   $('#packQty').value='1';
   const img=$('#preview img');
   const valid=!!img?.complete && img.naturalWidth>0;
-  button.disabled=busy||!available||!valid||!approval.checked;
+  button.disabled=busy||generating||uploading||!available||!valid||!approval.checked;
   button.textContent=busy?'Saving artwork…':available?'Continue to secure payment':'Checkout setup in progress';
-  $('#checkoutStatus').textContent=available?'We save your approved crop with an order number, then send you to Stripe. Your order enters production after payment is confirmed.':'Checkout is being connected. You can preview your artwork now.';
+  $('#checkoutStatus').textContent=available?(testMode?'TEST CHECKOUT: your crop is saved for testing only. No real payment or production order will be created.':'We save your approved crop with an order number, then send you to Stripe. Your order enters production after payment is confirmed.'):'Checkout is being connected. You can preview your artwork now.';
   $('#totalLabel').textContent='Total';$('#postage').textContent=$('#delivery').value==='mail'?'$1.11':'$0.00';
  }
  // Run after the existing cart listener, which manages crop approval and totals.
  ['artApproval','delivery'].forEach(id=>$('#'+id).addEventListener('change',refresh));
- new MutationObserver(refresh).observe($('#preview'),{childList:true});
+ new MutationObserver(()=>{approval.checked=false;$('#cartThumb').replaceChildren(...Array.from($('#preview').childNodes).map(n=>n.cloneNode(true)));refresh();}).observe($('#preview'),{childList:true});
  $('#review').addEventListener('click',refresh);
  const readSaved=()=>{try{return JSON.parse(localStorage.getItem('bwb-sticker-order')||'null')}catch{return null}};
  async function api(body){const r=await fetch('/api/sticker-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok){if(data.restart)localStorage.removeItem('bwb-sticker-order');throw Error(data.error||'Please try again.');}return data;}
@@ -65,8 +84,9 @@
   }
  }
  fetch('/api/sticker-store').then(r=>r.json()).then(data=>{
-  available=data.enabled===true;
-  banner.textContent=data.generatorEnabled?'AI STICKER PREVIEWS ARE LIVE · Ordering is being connected.':available?(data.mode==='test'?'TEST CHECKOUT — no real payments or production orders. AI generation is a demo.':'Custom ten-packs — $10 + postage. Upload your artwork to order. AI generation is a demo.'):'STOREFRONT PREVIEW — checkout setup in progress. AI generation is a demo.';
+  available=data.enabled===true;testMode=data.mode!=='live';
+  banner.textContent=available?(data.mode==='test'?'TEST CHECKOUT — no real payments or production orders.':'Custom ten-packs — $10 + postage. Approve your artwork before payment.'):'STOREFRONT PREVIEW — checkout is not open yet.';
+  if(faq)faq.querySelector('p').textContent=(data.generatorEnabled?'Generate a preview or upload your own artwork. ':'Upload your own artwork. ')+(available?(data.mode==='test'?'Checkout is in test mode; no real order will be placed.':'Approve the circular crop and spelling, then continue to secure payment.'):'Ordering is not open yet.');
   refresh();
  }).catch(refresh);
  refresh();checkReturn();

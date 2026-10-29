@@ -1,3 +1,4 @@
+import { validateCanvasPng } from './sticker-png.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const totalFor = (delivery: string) => delivery === 'mail' ? 1111 : delivery === 'pickup' ? 1000 : 0;
@@ -18,5 +19,6 @@ export function validateArtwork(base64: unknown) {
   if (typeof base64 !== 'string' || base64.length > 2800000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw Error('Invalid artwork.');
   const bytes = Buffer.from(base64, 'base64');
   if (bytes.length > 2097152 || bytes.length < 33 || bytes.subarray(0,8).toString('hex') !== '89504e470d0a1a0a' || bytes.toString('ascii',12,16) !== 'IHDR' || bytes.readUInt32BE(16) !== 1200 || bytes.readUInt32BE(20) !== 1200) throw Error('Artwork must be a 1200 by 1200 PNG under 2 MB.');
+  validateCanvasPng(bytes);
   return bytes;
 }
