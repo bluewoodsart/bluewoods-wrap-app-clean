@@ -37,6 +37,7 @@ function visit() {
   if (path === previousPath) return;
   previousPath = path;
   recordBwbEvent('page_view');
+  if (/^\/(thank-you|confirmation)(\/|$)/.test(path)) recordBwbEvent('quote_complete');
   if (/^\/(service-quote|quote|banner|banners)(\/|$)/.test(path)) recordBwbEvent('quote_start');
 }
 export function startBwbTracking() {
