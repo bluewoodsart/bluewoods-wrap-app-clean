@@ -53,6 +53,9 @@ Each portal keeps its own brand identity, purpose, permissions, content, and wor
 7. **Keep rollback simple.**
    Every implementation pass must be isolated enough to revert without undoing unrelated portal work.
 
+8. **Resolve job links from the current record only.**
+   Never fall back to another quote, portal, job, cached selection, or customer token. Designer packet cloud-folder buttons must use only that packet's explicit `cloud_folder_url`, validated as an external folder URL; proof/customer portal and designer token routes are separate destinations. If the folder is absent or invalid, hide/disable the action and display “No cloud folder linked”. Reject portal URLs in the folder field, discard stale responses after switching records, and verify quote IDs across packets, files, and tokens without exposing private tokens.
+
 ## What Counts as One Change
 
 Valid single changes:
