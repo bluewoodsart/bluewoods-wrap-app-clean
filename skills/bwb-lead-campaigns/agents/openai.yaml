@@ -1,0 +1,4 @@
+interface:
+  display_name: "BWB Lead Campaigns"
+  short_description: "Recover leads and manage seasonal bookings"
+  default_prompt: "Use $bwb-lead-campaigns to recover Christmas leads and organize this season's bookings."
