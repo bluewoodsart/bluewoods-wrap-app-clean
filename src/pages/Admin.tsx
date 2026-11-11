@@ -9,6 +9,7 @@ import CompassionMinistriesWorkspace from '@/components/admin/CompassionMinistri
 import BlueWoodsMarketingWorkspace, { type BlueWoodsMarketingSectionId } from '@/components/admin/BlueWoodsMarketingWorkspace';
 import ClientCrmDirectory from '@/components/admin/ClientCrmDirectory';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
+import StaticClingMaterialCosts from '@/components/admin/StaticClingMaterialCosts';
 import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
 import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
 import ProductionHub from '@/components/admin/ProductionHub';
@@ -474,7 +475,8 @@ const Admin = () => {
           </TabsContent>
 
           {canViewPricingSandbox && (
-            <TabsContent value="pricing-sandbox" className="mt-0">
+            <TabsContent value="pricing-sandbox" className="mt-0 space-y-5">
+              <StaticClingMaterialCosts />
               <PricingSandboxErrorBoundary>
                 <PricingCalculatorSandbox />
               </PricingSandboxErrorBoundary>
