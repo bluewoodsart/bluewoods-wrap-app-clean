@@ -18,6 +18,7 @@ export default defineConfig({
     configurePreviewServer(server) {
       server.middlewares.use((req, _res, next) => {
         const url = new URL(req.url || '/', 'http://localhost');
+        if (url.pathname === '/') req.url = '/home.html' + url.search;
         if (/^\/services\/(vehicle-wraps|custom-banners|vehicle-magnets|stickers-decals|business-signs|window-graphics)\/?$/.test(url.pathname)) {
           req.url = url.pathname.replace(/\/$/, '') + '.html' + url.search;
         }
