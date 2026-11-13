@@ -52,7 +52,7 @@ export default function ServicePageMediaManager() {
    return <section key={service.slug} className="min-w-0 rounded-xl border p-4">
     <h3 className="font-bold">{service.name}</h3>
     <a href={'/services/'+service.slug} target="_blank" rel="noreferrer" className="my-2 inline-block text-sm text-blue-700 underline">Open service page ↗</a>
-    {row?.video_path ? <video className="mb-3 aspect-video w-full rounded bg-black" controls playsInline preload="metadata" crossOrigin="anonymous" src={serviceAssetUrl(row.video_path)}>{row.captions_path && <track kind="captions" src={serviceAssetUrl(row.captions_path)} srcLang="en" label="English" default />}</video> : <img className="mb-3 aspect-video w-full rounded object-cover" src={serviceAssetUrl(row?.image_path)||'/services/images/'+service.slug+'.png'} alt={service.alt} loading="lazy" />}
+    {row?.video_path ? <video className="mb-3 aspect-video w-full rounded bg-black" controls playsInline preload="metadata" crossOrigin="anonymous" src={serviceAssetUrl(row.video_path)}>{row.captions_path && <track kind="captions" src={serviceAssetUrl(row.captions_path)} srcLang="en" label="English" default />}</video> : <img className="mb-3 aspect-video w-full rounded object-cover" src={serviceAssetUrl(row?.image_path)||(service.slug==='vehicle-wraps'?'/services/images/philly-me-up-sunlit-van-wrap.png':'/services/images/'+service.slug+'.png')} alt={service.alt} loading="lazy" />}
     {!row && <p className="text-sm text-slate-600">Loading media controls…</p>}
     {(['video','image','captions'] as const).map(kind=><div key={kind} className="mt-3">
      <label className="block text-sm font-semibold">{kind==='video'?'Upload / replace video':kind==='image'?'Upload / replace photo':'Upload captions for current video'}
@@ -65,3 +65,4 @@ export default function ServicePageMediaManager() {
   })}</div>
  </CardContent></Card>;
 }
+

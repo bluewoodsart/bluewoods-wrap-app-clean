@@ -4,7 +4,7 @@ export const servicePages = [
     "slug": "vehicle-wraps",
     "name": "Vehicle wraps & fleet graphics",
     "type": "wrap",
-    "alt": "White cargo van with charcoal and cyan partial wrap concept",
+    "alt": "Sunlit side view of the Philly Me Up Water Ice van with a colorful purple wrap and frozen dessert graphics, parked on grass",
     "hint": "Vehicle year, make and model, coverage, fleet size, and deadline"
   },
   {

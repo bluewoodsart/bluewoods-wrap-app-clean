@@ -68,7 +68,7 @@ function ServiceIntake({service}: {service: typeof servicePages[number]}) {
   } catch {setError('We could not confirm your request. Your details are still here. Please retry, or call 770-669-0861. Retrying will not create a second request.');}
   finally {pending.current=false;setSaving(false);}
  };
- const image = serviceAssetUrl(media?.image_path) || '/services/images/'+service.slug+'.png';
+ const image = serviceAssetUrl(media?.image_path) || (service.slug==='vehicle-wraps' ? '/services/images/philly-me-up-sunlit-van-wrap.png' : '/services/images/'+service.slug+'.png');
  const inputClass='mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-950 focus:outline-cyan-600';
  return <div ref={root} className="bg-slate-950 p-1 text-white">
   <div className="grid items-start gap-6 lg:grid-cols-2">
@@ -77,7 +77,7 @@ function ServiceIntake({service}: {service: typeof servicePages[number]}) {
      <source src={serviceAssetUrl(media.video_path)} />
      {media.captions_path && <track kind="captions" src={serviceAssetUrl(media.captions_path)} srcLang="en" label="English" default />}
     </video> : <img src={image} alt={service.alt} width={1536} height={1024} className="aspect-[3/2] w-full rounded-xl object-cover" fetchPriority="high" />}
-    <p className="mt-2 text-xs text-slate-400">{media?.video_path && !videoFailed ? service.name+' — SlapWrapz' : media?.image_path ? service.name : 'Illustrative example with fictional business branding.'}</p>
+    <p className="mt-2 text-xs text-slate-400">{media?.video_path && !videoFailed ? service.name+' — SlapWrapz' : media?.image_path ? service.name : service.slug==='vehicle-wraps' ? 'Philly Me Up Water Ice — completed vehicle wrap.' : 'Illustrative example with fictional business branding.'}</p>
     <div className="mt-5 rounded-xl border border-slate-700 p-5">
      <p className="text-lg font-bold">Start with your idea. We’ll help with the details.</p>
      <p className="mt-2 text-sm leading-6 text-slate-300">Tell us about your project, artwork, and timing. Our team will review the request and follow up to confirm scope and pricing.</p>
