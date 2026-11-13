@@ -17,6 +17,10 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/home.html"
+    },
+    {
       "source": "/portfolio/:path*",
       "destination": "/portfolio/:path*"
     },
