@@ -13,6 +13,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import FileUpload from '@/components/FileUpload';
 import { supabase } from '@/lib/supabase';
+import { getDesignerCloudFolderUrl } from '@/lib/designerCloudFolder';
 
 type DesignerPacketStatus = 'sent' | 'in_design' | 'proof_ready' | 'needs_info' | 'completed';
 
@@ -133,8 +134,11 @@ const DesignerPacketPortal = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const submittedFileIdsRef = useRef(new Set<string>());
   const submittingFileIdsRef = useRef(new Set<string>());
+  const packetLoadSequenceRef = useRef(0);
+  const cloudFolderUrl = getDesignerCloudFolderUrl(details?.cloud_folder_url);
 
   const loadPacket = async () => {
+    const sequence = ++packetLoadSequenceRef.current;
     setLoading(true);
     setError('');
 
@@ -143,6 +147,7 @@ const DesignerPacketPortal = () => {
         p_token: token
       });
 
+    if (sequence !== packetLoadSequenceRef.current) return;
     setLoading(false);
 
     if (loadError) {
@@ -168,6 +173,7 @@ const DesignerPacketPortal = () => {
 
   useEffect(() => {
     void loadPacket();
+    return () => { packetLoadSequenceRef.current += 1; };
   }, [token]);
 
   const customerFiles = useMemo(
@@ -337,13 +343,15 @@ const DesignerPacketPortal = () => {
                     <p className="mt-2 whitespace-pre-wrap text-sm text-amber-950">{details.instructions}</p>
                   </div>
 
-                  {details.cloud_folder_url && (
+                  {cloudFolderUrl ? (
                     <Button asChild variant="outline">
-                      <a href={details.cloud_folder_url} target="_blank" rel="noreferrer">
+                      <a href={cloudFolderUrl} target="_blank" rel="noreferrer">
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Open cloud folder
                       </a>
                     </Button>
+                  ) : (
+                    <p className="text-sm text-slate-500">No cloud folder linked</p>
                   )}
                 </CardContent>
               </Card>
