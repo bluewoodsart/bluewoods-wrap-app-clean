@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "prebuild": "node --test scripts/office-image-delete-render.test.cjs"
+    "prebuild": "node --test scripts/office-image-delete-render.test.cjs",
+    "postbuild": "node scripts/prerender-homepage.mjs && node --test scripts/homepage-seo.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
