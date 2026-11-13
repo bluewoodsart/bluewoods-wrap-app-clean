@@ -1,3 +1,4 @@
+import WrapPortfolioLibrary from '@/components/admin/WrapPortfolioLibrary';
 import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -469,6 +470,7 @@ const BlueWoodsMarketingWorkspace = ({ initialSection = 'master-front-end', admi
       return (
         <div className="space-y-5">
           <SectionTitle eyebrow={section.eyebrow} title={section.title} description={section.description} />
+          <WrapPortfolioLibrary />
           <ServicePageMediaManager />
           <SeoExecutionBoard adminUserId={adminUserId} />
         </div>

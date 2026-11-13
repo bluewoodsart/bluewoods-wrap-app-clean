@@ -1,3 +1,4 @@
+import WrapPortfolio from '@/components/WrapPortfolio';
 import { Link } from 'react-router-dom';
 
 const services = [
@@ -41,6 +42,7 @@ const faqs = [
 ];
 export default function HomeSeoContent() {
   return <>
+    <WrapPortfolio />
     <section id="services" aria-labelledby="services-heading" className="mx-auto max-w-7xl scroll-mt-6 px-4 py-16 md:px-8 md:py-24">
       <p className="text-sm font-bold uppercase tracking-widest text-cyan-300">Print your brand. Make it visible.</p>
       <h2 id="services-heading" className="mt-3 text-3xl font-black md:text-5xl">Vehicle wraps, signs, and custom printing in Fayetteville, GA</h2>
