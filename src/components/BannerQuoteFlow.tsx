@@ -16,6 +16,7 @@ import { getRepAttributionForSlug } from '@/lib/salesReps';
 import { stringToUuid } from '@/lib/utils';
 import { UploadedFile } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import { createBannerProofSvg } from '@/lib/bannerProof';
 
 interface ContactInfo {
   name: string;
@@ -48,93 +49,6 @@ interface BannerDetails {
 
 const createQuoteId = () =>
   `banner_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-
-const escapeSvgText = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
-const getPreviewPalette = (colors: string) => {
-  const normalizedColors = colors.toLowerCase();
-
-  if (normalizedColors.includes('gold') || normalizedColors.includes('charcoal')) {
-    return { background: '#17140d', accent: '#d6c08a', secondary: '#f1e4bd' };
-  }
-  if (normalizedColors.includes('blue')) {
-    return { background: '#0f2f57', accent: '#38bdf8', secondary: '#dbeafe' };
-  }
-  if (normalizedColors.includes('green')) {
-    return { background: '#123326', accent: '#34d399', secondary: '#dcfce7' };
-  }
-  if (normalizedColors.includes('red')) {
-    return { background: '#3b1111', accent: '#f87171', secondary: '#fee2e2' };
-  }
-
-  return { background: '#111827', accent: '#60a5fa', secondary: '#f8fafc' };
-};
-
-const parsePositiveNumber = (value: string) => {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-};
-
-const wrapText = (value: string, maxChars: number, maxLines: number) => {
-  const words = value.trim().split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let currentLine = '';
-
-  words.forEach((word) => {
-    const nextLine = currentLine ? `${currentLine} ${word}` : word;
-    if (nextLine.length > maxChars && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-      return;
-    }
-    currentLine = nextLine;
-  });
-
-  if (currentLine) lines.push(currentLine);
-  return lines.slice(0, maxLines);
-};
-
-const looksLikeCreativeDirection = (value: string) =>
-  /award-winning|creative director|your job|never create|always leave|senior advertising|dominant focal point/i.test(value);
-
-const getBannerHeadline = (bannerText: string, businessName: string, aiPrompt: string) => {
-  const directText = bannerText.trim();
-
-  if (/coming soon/i.test(directText)) return 'Coming Soon';
-  if (/grand opening/i.test(directText)) return 'Grand Opening';
-  if (/now open/i.test(directText)) return 'Now Open';
-  if (/sale/i.test(directText)) return directText.split(/[.!?]/)[0].slice(0, 46);
-
-  if (directText) {
-    return directText
-      .replace(/\b\d+\s*x\s*\d+\s*(?:ft|feet|inches|inch|in|')?\b/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .split(/[.!?]/)[0]
-      .slice(0, 54);
-  }
-
-  const promptText = aiPrompt.trim();
-  if (promptText && !looksLikeCreativeDirection(promptText)) {
-    return promptText.split(/[.!?]/)[0].slice(0, 54);
-  }
-
-  return businessName.trim() || 'Your Message Here';
-};
-
-const getProofDirection = (aiPrompt: string) => {
-  const promptText = aiPrompt.trim();
-  if (!promptText) return 'Clean, readable layout with strong contrast and room for logo/contact info.';
-  if (looksLikeCreativeDirection(promptText)) {
-    return 'Premium agency-style direction saved. Keep headline readable, uncluttered, and production-ready.';
-  }
-  return promptText.split(/[.!?]/)[0].slice(0, 110);
-};
 
 const BannerQuoteFlow: React.FC = () => {
   const navigate = useNavigate();
@@ -188,6 +102,13 @@ const BannerQuoteFlow: React.FC = () => {
 
   const updateBanner = (key: keyof BannerDetails, value: string) => {
     setBanner((current) => ({ ...current, [key]: value }));
+    if (['bannerText', 'aiDesignPrompt', 'brandColors', 'width', 'height', 'unit'].includes(key)) {
+      setDesignPreviewSaved(false);
+      setGeneratedProofFile(null);
+      setDesignPreviewUrl('');
+      setDesignPreviewSvg('');
+      setUploadedFiles((current) => current.filter((file) => !file.tags?.includes('ai_generated_proof')));
+    }
   };
 
   const hasValidContact = () =>
@@ -214,65 +135,19 @@ const BannerQuoteFlow: React.FC = () => {
     setIsGeneratingDesign(true);
     setDesignPreviewSaved(false);
     setGeneratedProofFile(null);
-
-    window.setTimeout(() => {
-      const palette = getPreviewPalette(banner.brandColors);
-      const widthValue = parsePositiveNumber(banner.width);
-      const heightValue = parsePositiveNumber(banner.height);
-      const aspectRatio = widthValue && heightValue ? Math.min(Math.max(widthValue / heightValue, 1.4), 8) : 4;
-      const proofWidth = 1600;
-      const proofHeight = Math.round(proofWidth / aspectRatio);
-      const canvasHeight = Math.max(proofHeight, 360);
-      const headline = getBannerHeadline(banner.bannerText, contactInfo.businessName, banner.aiDesignPrompt);
-      const titleLines = wrapText(headline, aspectRatio > 3 ? 28 : 20, 2);
-      const styleLines = wrapText(getProofDirection(banner.aiDesignPrompt), 92, 2);
-      const placementLines = wrapText(banner.placementNotes || 'Placement photos guide scale, spacing, and proof direction.', 92, 2);
-      const businessName = escapeSvgText((contactInfo.businessName || 'Business Name').trim().slice(0, 54));
-      const contactLine = escapeSvgText(contactInfo.phone || contactInfo.email || 'Contact info');
-      const titleFontSize = aspectRatio > 4 ? 136 : aspectRatio > 2.4 ? 112 : 84;
-      const titleStartY = Math.max(152, Math.round(canvasHeight * 0.45) - ((titleLines.length - 1) * titleFontSize * 0.42));
-      const titleMarkup = titleLines
-        .map((line, index) => `<text x="86" y="${titleStartY + index * titleFontSize * 0.92}" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="900" fill="${palette.secondary}">${escapeSvgText(line)}</text>`)
-        .join('');
-      const styleMarkup = styleLines
-        .map((line, index) => `<text x="88" y="${canvasHeight - 128 + index * 28}" font-family="Arial, sans-serif" font-size="23" fill="#e5e7eb">${escapeSvgText(line)}</text>`)
-        .join('');
-      const placementMarkup = placementLines
-        .map((line, index) => `<text x="88" y="${canvasHeight - 60 + index * 24}" font-family="Arial, sans-serif" font-size="20" fill="#cbd5e1">${escapeSvgText(line)}</text>`)
-        .join('');
-      const sizeLabel = escapeSvgText(`${banner.width || '?'} x ${banner.height || '?'} ${banner.unit}`);
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${proofWidth}" height="${canvasHeight}" viewBox="0 0 ${proofWidth} ${canvasHeight}">
-          <defs>
-            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="${palette.background}"/>
-              <stop offset="1" stop-color="#020617"/>
-            </linearGradient>
-            <radialGradient id="glow" cx="78%" cy="12%" r="70%">
-              <stop offset="0" stop-color="${palette.accent}" stop-opacity="0.42"/>
-              <stop offset="1" stop-color="${palette.accent}" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <rect width="${proofWidth}" height="${canvasHeight}" fill="url(#bg)"/>
-          <rect width="${proofWidth}" height="${canvasHeight}" fill="url(#glow)"/>
-          <rect x="44" y="44" width="${proofWidth - 88}" height="${canvasHeight - 88}" rx="28" fill="none" stroke="${palette.accent}" stroke-width="8"/>
-          <rect x="86" y="76" width="210" height="46" rx="23" fill="${palette.accent}"/>
-          <text x="191" y="106" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="800" fill="${palette.background}">PROOF DRAFT</text>
-          <text x="${proofWidth - 86}" y="114" text-anchor="end" font-family="Arial, sans-serif" font-size="25" font-weight="800" fill="${palette.accent}">${sizeLabel}</text>
-          <text x="88" y="184" font-family="Arial, sans-serif" font-size="42" font-weight="900" letter-spacing="3" fill="${palette.accent}">${businessName}</text>
-          ${titleMarkup}
-          <text x="${proofWidth - 86}" y="${canvasHeight - 88}" text-anchor="end" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="${palette.accent}">${contactLine}</text>
-          ${styleMarkup}
-          ${placementMarkup}
-          <path d="M${proofWidth - 360} 110 C${proofWidth - 220} 160 ${proofWidth - 210} ${canvasHeight - 210} ${proofWidth - 94} ${canvasHeight - 96}" fill="none" stroke="${palette.accent}" stroke-width="18" stroke-linecap="round" opacity="0.44"/>
-          <circle cx="${proofWidth - 216}" cy="168" r="92" fill="${palette.accent}" opacity="0.16"/>
-        </svg>
-      `;
-
+    setUploadedFiles((current) => current.filter((file) => !file.tags?.includes('ai_generated_proof')));
+    setDesignPreviewUrl('');
+    setDesignPreviewSvg('');
+    try {
+      const svg = createBannerProofSvg(banner);
       setDesignPreviewSvg(svg);
       setDesignPreviewUrl(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+      setError('');
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : 'Could not build the layout preview.');
+    } finally {
       setIsGeneratingDesign(false);
-    }, 900);
+    }
   };
 
   const saveDesignPreview = async () => {
@@ -298,7 +173,7 @@ const BannerQuoteFlow: React.FC = () => {
 
       const proofFile: UploadedFile = {
         id: fileRecordId,
-        name: 'Generated banner proof draft.svg',
+        name: 'Banner layout preview.svg',
         url: publicUrlData.publicUrl,
         type: 'image/svg+xml',
         size: proofBlob.size,
@@ -673,10 +548,20 @@ const BannerQuoteFlow: React.FC = () => {
                 </RadioGroup>
               </div>
               <div>
+                <Label htmlFor="banner-text">Banner Text</Label>
+                <Textarea
+                  id="banner-text"
+                  value={banner.bannerText}
+                  onChange={(event) => updateBanner('bannerText', event.target.value)}
+                  className="mt-2"
+                  rows={4}
+                />
+              </div>
+              <div>
                 <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="banner-ai-prompt">AI Design Prompt</Label>
+                  <Label htmlFor="banner-ai-prompt">Design Instructions</Label>
                   <VoiceDictationButton
-                    fieldName="AI Design Prompt"
+                    fieldName="Design Instructions"
                     compact
                     onTranscript={(transcript) => {
                       const currentPrompt = banner.aiDesignPrompt.trimEnd();
@@ -695,14 +580,14 @@ const BannerQuoteFlow: React.FC = () => {
                   placeholder="Describe the banner look you want. Example: Create a refined hotel renovation banner for a lobby refresh. Use a clean luxury style, gold and charcoal colors, bold readable text, and a professional call-to-action."
                 />
                 <p className="mt-2 text-sm text-slate-500">
-                  Tell us the style, audience, colors, message, and feeling. This gives the design team a stronger starting point.
+                  Put the exact wording in Banner Text above. Use this field for styling, for example: red letters, white background, Impact font. Fonts may vary by device; this preview is not print-ready artwork.
                 </p>
                 <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h3 className="font-semibold text-slate-950">Banner Proof Draft</h3>
+                      <h3 className="font-semibold text-slate-950">Basic Banner Layout Preview</h3>
                       <p className="text-sm text-slate-600">
-                        Generate a proof-style banner draft using the actual text, size ratio, colors, prompt, and placement notes.
+                        Basic text layout, not AI-generated artwork. Supports simple text/background colors and Impact or Georgia font requests. Your full instructions and reference photos go to the design team.
                       </p>
                     </div>
                     <Button
@@ -712,7 +597,7 @@ const BannerQuoteFlow: React.FC = () => {
                       className="bg-blue-700 text-white hover:bg-blue-600"
                     >
                       <Wand2 className="mr-2 h-4 w-4" />
-                      {isGeneratingDesign ? 'Building Proof...' : 'Generate Banner Proof'}
+                      {isGeneratingDesign ? 'Building Proof...' : 'Generate Layout Preview'}
                     </Button>
                   </div>
 
@@ -721,7 +606,7 @@ const BannerQuoteFlow: React.FC = () => {
                       <div className="overflow-hidden rounded-xl border border-blue-200 bg-white p-2 shadow-sm">
                         <img
                           src={designPreviewUrl}
-                          alt="Generated banner proof draft"
+                          alt="Banner layout preview"
                           className="h-auto w-full rounded-lg"
                         />
                       </div>
@@ -747,21 +632,11 @@ const BannerQuoteFlow: React.FC = () => {
                       <p className={`text-sm font-medium ${designPreviewSaved ? 'text-emerald-700' : 'text-amber-700'}`}>
                         {designPreviewSaved
                           ? 'Saved as an attached proof draft file. Submit the quote to send it with the banner request.'
-                          : 'Review the proof draft. Save it if this is the direction, or edit the prompt and generate again.'}
+                          : 'Review the layout. Only the banner wording is printed; contact details and design notes are not added automatically. Save it or edit the instructions and generate again.'}
                       </p>
                     </div>
                   )}
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="banner-text">Banner Text</Label>
-                <Textarea
-                  id="banner-text"
-                  value={banner.bannerText}
-                  onChange={(event) => updateBanner('bannerText', event.target.value)}
-                  className="mt-2"
-                  rows={4}
-                />
               </div>
               <div>
                 <Label htmlFor="banner-colors">Brand Colors</Label>
