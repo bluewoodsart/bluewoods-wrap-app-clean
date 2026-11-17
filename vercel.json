@@ -17,6 +17,14 @@
   ],
   "rewrites": [
     {
+      "source": "/network-advertising",
+      "destination": "/network-advertising.html"
+    },
+    {
+      "source": "/network-advertising.html",
+      "destination": "/network-advertising.html"
+    },
+    {
       "source": "/portfolio/:path*",
       "destination": "/portfolio/:path*"
     },

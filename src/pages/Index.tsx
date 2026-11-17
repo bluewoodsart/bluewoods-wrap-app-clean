@@ -155,6 +155,12 @@ const Index: React.FC<IndexProps> = () => {
             </div>
           </div>
         </section>
+        <section className="mx-auto max-w-7xl px-4 py-10 md:px-8" aria-labelledby="ad-network-title">
+          <p className="text-xs font-semibold uppercase tracking-widest text-cyan-200">Introducing the BWB Ad Network</p>
+          <h2 id="ad-network-title" className="mt-3 text-2xl font-bold md:text-3xl">Delivery truck advertising. Local routes. Real connections.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">Explore a proposed local pilot with ad placements, GPS verification, unique QR codes and BWB-managed landing pages.</p>
+          <a href="/network-advertising" className="mt-5 inline-flex min-h-11 items-center rounded bg-cyan-400 px-5 text-sm font-bold text-slate-950 hover:bg-cyan-300">Explore truck advertising <span aria-hidden="true" className="ml-2">→</span></a>
+        </section>
         <HomeSeoContent />
       </main>
     </div>
