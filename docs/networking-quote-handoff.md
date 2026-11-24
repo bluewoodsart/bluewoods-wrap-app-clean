@@ -1,0 +1,9 @@
+# Networking to Quote handoff
+
+Open **BWB Admin → Networking**. On a verified prospect, choose **Quote** in the status selector. This opens the normal quote form with the business and contact prefilled; review the service, contact method, and enter a project description. **Save & Open Quote** moves the prospect out of **Active networking**, opens the linked CRM request, and does not publish, send, or request payment. **Quote phase** in Networking shows converted prospects with their prior stage and an **Open CRM quote** button. Closing the form before saving leaves the prospect in Networking. The original networking data and card remain on the source record; private notes are recorded in Office Dialogue, not the customer-facing quote fields.
+
+## Staging verification before rollout
+
+Apply the migration to an isolated staging database where `bwb_internal` is not an exposed API schema. Use a synthetic verified prospect with a valid contact route, a private note, and a known previous status. Check that the mobile dropdown opens the form and that cancel leaves the prospect and quote counts unchanged. Save once, verify the CRM quote opens, compare the copied contact and office-only notes, and check that no messages were sent. Verify the Networking filters and query URL reopen the same quote. Repeat/concurrently submit with the same source to confirm exactly one quote is linked and the original quote is not modified. Also exercise an unverified synthetic lead, a non-admin session, an anonymous session, and a missing/invalid contact route; none should create a quote. Recheck the standalone New Quote Request path. Do not test with a real prospect or send a quote as part of this check.
+
+Apply the database migration before rolling out the frontend. Existing Networking statuses and prior records need no backfill.

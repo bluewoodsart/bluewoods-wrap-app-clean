@@ -944,9 +944,10 @@ interface AdminStatusProps {
   enableBulkActions?: boolean;
   currentAdminRole?: AdminRole;
   currentAdminUserId?: string;
+  initialQuoteId?: string | null;
 }
 
-const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdminUserId }: AdminStatusProps) => {
+const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdminUserId, initialQuoteId }: AdminStatusProps) => {
   const [syncedFiles, setSyncedFiles] = useState<{ quoteId: string; files: UploadedFileSummary[] }>({ quoteId: '', files: [] });
   const [fileSyncError, setFileSyncError] = useState('');
   const [quotes, setQuotes] = useState<QuoteRequestRow[]>([]);
@@ -1416,6 +1417,27 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
     void loadCustomerActionRequests(quote.id);
     void loadDesignerPacket(quote.id, quote);
   };
+
+  useEffect(() => {
+    if (!initialQuoteId || !/^[0-9a-f-]{36}$/i.test(initialQuoteId) ||
+        (currentAdminRole !== 'owner_admin' && currentAdminRole !== 'staff')) return;
+    let active = true;
+    const loadLinkedQuote = async () => {
+      const { data, error: linkedQuoteError } = await supabase.rpc('get_admin_quote_request_detail', {
+        quote_request_id: initialQuoteId
+      });
+      if (!active) return;
+      if (linkedQuoteError || !data?.[0]) {
+        setError('Could not open the linked quote. Refresh to retry.');
+        return;
+      }
+      openQuoteDetail(data[0] as QuoteRequestRow);
+    };
+    void loadLinkedQuote();
+    return () => { active = false; };
+    // Reopen on a new route ID, not on unrelated quote editor updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuoteId, currentAdminRole]);
 
   const saveProofPortalSettings = async () => {
     if (!selectedQuote || savingProofPortal) return;
