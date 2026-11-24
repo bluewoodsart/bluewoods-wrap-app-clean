@@ -21,16 +21,33 @@ const emptyForm = () => ({
   service: 'Vehicle Wraps', quantity: '1', dimensions: '', deadline: '', notes: ''
 });
 
-export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
+export type NetworkingQuoteSeed = {
+  id: string;
+  businessName: string;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+export default function NewQuoteRequest({ onCreated, draftOwnerId, networkingLead, onNetworkingClose }: {
   draftOwnerId?: string;
+  networkingLead?: NetworkingQuoteSeed;
+  onNetworkingClose?: () => void;
   onCreated: (quote: Record<string, unknown>) => void;
 }) {
-  const draftKey = draftOwnerId ? 'bwb:new-quote:v1:' + draftOwnerId : null;
+  const draftKey = draftOwnerId
+    ? 'bwb:new-quote:v1:' + draftOwnerId + (networkingLead ? ':networking:' + networkingLead.id : '')
+    : null;
+  const initialForm = () => networkingLead ? {
+    ...emptyForm(), name: networkingLead.contactName || networkingLead.businessName,
+    company: networkingLead.businessName, email: networkingLead.email || '', phone: networkingLead.phone || '',
+    preferredContact: networkingLead.email ? 'email' : 'call', service: 'Other Project'
+  } : emptyForm();
   const [restored] = useState(() => {
     try {
       const value = draftKey ? JSON.parse(localStorage.getItem(draftKey) || 'null') : null;
       if (!value || value.version !== 1 || !value.form) return null;
-      const form = emptyForm();
+      const form = initialForm();
       for (const key of Object.keys(form) as Array<keyof typeof form>) {
         if (typeof value.form[key] === 'string') form[key] = value.form[key];
       }
@@ -39,8 +56,8 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
       return { form, quoteId: typeof value.quoteId === 'string' ? value.quoteId : '', open: Boolean(value.open) };
     } catch { return null; }
   });
-  const [open, setOpen] = useState(restored?.open ?? false);
-  const [form, setForm] = useState(restored?.form ?? emptyForm());
+  const [open, setOpen] = useState(Boolean(networkingLead) || (restored?.open ?? false));
+  const [form, setForm] = useState(() => restored?.form ?? initialForm());
   const [draftWarning, setDraftWarning] = useState('');
   const formRef = useRef(form);
   const openRef = useRef(open);
@@ -64,6 +81,7 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
     openRef.current = next;
     setOpen(next);
     persist(formRef.current, next);
+    if (!next && networkingLead) onNetworkingClose?.();
   };
   const update = (key: keyof ReturnType<typeof emptyForm>, value: string) => {
     const next = { ...formRef.current, [key]: value };
@@ -72,7 +90,7 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
     persist(next);
   };
   const clearDraft = () => {
-    formRef.current = emptyForm();
+    formRef.current = initialForm();
     openRef.current = false;
     setForm(formRef.current);
     setOpen(false);
@@ -85,9 +103,18 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending.current) return;
-    if (!form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) ||
-        form.phone.replace(/\D/g, '').length < 7 || !form.notes.trim()) {
-      setError('Enter a customer name, valid email, phone number, and project description.');
+    const email = form.email.trim();
+    const phone = form.phone.trim();
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const validPhone = phone.replace(/\D/g, '').length >= 7;
+    const validContact = networkingLead
+      ? ((!email || validEmail) && (!phone || validPhone) &&
+        (form.preferredContact === 'email' ? validEmail : validPhone))
+      : validEmail && validPhone;
+    if (!form.name.trim() || !validContact || !form.notes.trim()) {
+      setError(networkingLead
+        ? 'Enter a customer name, project description, and a valid email or phone for the selected contact method.'
+        : 'Enter a customer name, valid email, phone number, and project description.');
       return;
     }
     if (!Number.isInteger(Number(form.quantity)) || Number(form.quantity) < 1) {
@@ -98,35 +125,47 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
     setSaving(true);
     setError('');
     const service = SERVICES.find(item => item.label === form.service)!;
-    if (!quoteId.current) quoteId.current = 'ADMIN-' + crypto.randomUUID();
+    if (!networkingLead && !quoteId.current) quoteId.current = 'ADMIN-' + crypto.randomUUID();
     persist();
     let saved: Record<string, unknown> | undefined;
     try {
-      // Recover a saved request after an interrupted response before attempting another insert.
-      const { data: existing, error: lookupError } = await supabase.rpc('get_admin_quote_requests');
-      if (lookupError) throw lookupError;
-      saved = existing?.find((row: { quote_id: string }) => row.quote_id === quoteId.current);
-      if (!saved) {
-        const { data, error: saveError } = await supabase.rpc('finalize_quote_request_public', {
-          p_quote_id: quoteId.current,
-          p_customer_name: form.name.trim(),
-          p_customer_email: form.email.trim(),
-          p_customer_phone: form.phone.trim(),
-          p_preferred_contact: form.preferredContact,
-          p_rep_slug: null, p_rep_email: null, p_assigned_rep_name: null,
-          p_product_type: service.type,
-          p_uploaded_files: [],
-          p_quote_data: {
-            intakeType: 'admin_manual', selectedService: service.label,
-            companyName: form.company.trim(), businessName: form.company.trim(),
-            quantity: Number(form.quantity), dimensions: form.dimensions.trim(),
-            deadline: form.deadline, notes: form.notes.trim(),
-            productType: service.type
-          }
+      if (networkingLead) {
+        const { data, error: handoffError } = await supabase.rpc('convert_networking_lead_to_quote', {
+          p_lead_id: networkingLead.id,
+          p_name: form.name.trim(), p_company: form.company.trim(), p_email: email, p_phone: phone,
+          p_preferred_contact: form.preferredContact, p_service: service.label, p_quantity: Number(form.quantity),
+          p_dimensions: form.dimensions.trim(), p_deadline: form.deadline || null, p_notes: form.notes.trim()
         });
-        if (saveError) throw saveError;
-        saved = data?.[0];
-        if (!saved?.id) throw new Error('The save response could not be confirmed. Try again to check for the saved request.');
+        if (handoffError) throw handoffError;
+        if (typeof data !== 'string' || !data) throw new Error('Quote handoff could not be confirmed. Retry to reopen the saved draft.');
+        saved = { id: data };
+      } else {
+        // Recover a saved request after an interrupted response before attempting another insert.
+        const { data: existing, error: lookupError } = await supabase.rpc('get_admin_quote_requests');
+        if (lookupError) throw lookupError;
+        saved = existing?.find((row: { quote_id: string }) => row.quote_id === quoteId.current);
+        if (!saved) {
+          const { data, error: saveError } = await supabase.rpc('finalize_quote_request_public', {
+            p_quote_id: quoteId.current,
+            p_customer_name: form.name.trim(),
+            p_customer_email: form.email.trim(),
+            p_customer_phone: form.phone.trim(),
+            p_preferred_contact: form.preferredContact,
+            p_rep_slug: null, p_rep_email: null, p_assigned_rep_name: null,
+            p_product_type: service.type,
+            p_uploaded_files: [],
+            p_quote_data: {
+              intakeType: 'admin_manual', selectedService: service.label,
+              companyName: form.company.trim(), businessName: form.company.trim(),
+              quantity: Number(form.quantity), dimensions: form.dimensions.trim(),
+              deadline: form.deadline, notes: form.notes.trim(),
+              productType: service.type
+            }
+          });
+          if (saveError) throw saveError;
+          saved = data?.[0];
+          if (!saved?.id) throw new Error('The save response could not be confirmed. Try again to check for the saved request.');
+        }
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message :
@@ -143,14 +182,16 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
 
   return (
     <>
-      <Button className="min-h-11" onClick={() => { setError(''); changeOpen(true); }}>
+      {!networkingLead && <Button className="min-h-11" onClick={() => { setError(''); changeOpen(true); }}>
         <Plus className="mr-2 h-4 w-4" />New Quote Request
-      </Button>
+      </Button>}
       <Dialog open={open} onOpenChange={changeOpen}>
         <DialogContent onInteractOutside={event => event.preventDefault()} className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>New Quote Request</DialogTitle>
-            <DialogDescription>Enter a customer and project to start a quote in your CRM. Add pricing, artwork, and rep assignment after saving. Saving does not send a customer email.</DialogDescription>
+            <DialogTitle>{networkingLead ? 'Move to Quote' : 'New Quote Request'}</DialogTitle>
+            <DialogDescription>{networkingLead
+              ? 'Review the networking contact and add the project details. Saving moves the prospect to the Quote phase and opens one linked, unsent quote. The original networking record stays intact.'
+              : 'Enter a customer and project to start a quote in your CRM. Add pricing, artwork, and rep assignment after saving. Saving does not send a customer email.'}</DialogDescription>
           </DialogHeader>
           <p role="status" className="text-xs text-slate-600">{draftWarning || 'Draft kept on this device until saved or discarded.'}</p>
           <form onSubmit={submit} className="space-y-4">
@@ -159,8 +200,8 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1"><Label htmlFor="new-quote-name">Customer name *</Label><Input id="new-quote-name" autoComplete="name" required maxLength={200} value={form.name} onChange={e => update('name', e.target.value)} /></div>
                 <div className="space-y-1"><Label htmlFor="new-quote-company">Business / company</Label><Input id="new-quote-company" autoComplete="organization" maxLength={200} value={form.company} onChange={e => update('company', e.target.value)} /></div>
-                <div className="space-y-1"><Label htmlFor="new-quote-email">Email *</Label><Input id="new-quote-email" type="email" autoComplete="email" required maxLength={320} value={form.email} onChange={e => update('email', e.target.value)} /></div>
-                <div className="space-y-1"><Label htmlFor="new-quote-phone">Phone *</Label><Input id="new-quote-phone" type="tel" autoComplete="tel" required minLength={7} maxLength={50} value={form.phone} onChange={e => update('phone', e.target.value)} /></div>
+                <div className="space-y-1"><Label htmlFor="new-quote-email">Email{(!networkingLead || form.preferredContact === 'email') ? ' *' : ''}</Label><Input id="new-quote-email" type="email" autoComplete="email" required={!networkingLead || form.preferredContact === 'email'} maxLength={320} value={form.email} onChange={e => update('email', e.target.value)} /></div>
+                <div className="space-y-1"><Label htmlFor="new-quote-phone">Phone{(!networkingLead || form.preferredContact !== 'email') ? ' *' : ''}</Label><Input id="new-quote-phone" type="tel" autoComplete="tel" required={!networkingLead || form.preferredContact !== 'email'} minLength={7} maxLength={50} value={form.phone} onChange={e => update('phone', e.target.value)} /></div>
                 <div className="space-y-1"><Label htmlFor="new-quote-contact">Preferred contact</Label><select id="new-quote-contact" className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.preferredContact} onChange={e => update('preferredContact', e.target.value)}><option value="call">Call</option><option value="text">Text</option><option value="email">Email</option></select></div>
                 <div className="space-y-1"><Label htmlFor="new-quote-service">Service</Label><select id="new-quote-service" className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.service} onChange={e => update('service', e.target.value)}>{SERVICES.map(item => <option key={item.label}>{item.label}</option>)}</select></div>
                 <div className="space-y-1"><Label htmlFor="new-quote-quantity">Quantity *</Label><Input id="new-quote-quantity" type="number" required min={1} step={1} value={form.quantity} onChange={e => update('quantity', e.target.value)} /></div>
@@ -173,7 +214,7 @@ export default function NewQuoteRequest({ onCreated, draftOwnerId }: {
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" disabled={saving} onClick={() => changeOpen(false)}>Close & Keep Draft</Button>
               <Button type="button" variant="ghost" disabled={saving} onClick={() => {
-                if (window.confirm('Discard this unfinished quote?')) clearDraft();
+                if (window.confirm('Discard this unfinished quote?')) { clearDraft(); onNetworkingClose?.(); }
               }}>Discard Draft</Button>
               <Button type="submit" disabled={saving} className="min-h-11">{saving ? 'Saving request…' : 'Save & Open Quote'}</Button>
             </div>

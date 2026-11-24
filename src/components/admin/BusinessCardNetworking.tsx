@@ -21,8 +21,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
+import NewQuoteRequest from '@/components/admin/NewQuoteRequest';
 
 type LeadStatus = 'discovered' | 'contacted' | 'interviewed' | 'product_featured' | 'tiktok_ready' | 'selling' | 'parked';
+type StatusFilter = 'active' | 'all' | 'quote' | LeadStatus;
 type VerificationStatus = 'needs_review' | 'verified' | 'rejected';
 
 interface NetworkingLead {
@@ -43,6 +45,7 @@ interface NetworkingLead {
   tiktok_opportunity: boolean;
   can_ship: boolean | null;
   status: LeadStatus;
+  quote_request_id?: string | null;
   verification_status: VerificationStatus;
   episode_name: string | null;
   social_profiles?: Record<string, string | null>;
@@ -95,7 +98,7 @@ const statuses: Array<{ value: LeadStatus; label: string }> = [
 const statusLabel = (value: string) => statuses.find((item) => item.value === value)?.label ?? value;
 const cleanNullable = (value: string) => value.trim() || null;
 
-const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
+const BusinessCardNetworking = ({ adminUserId, onOpenQuote }: { adminUserId: string; onOpenQuote: (quoteRequestId: string) => void }) => {
   const [leads, setLeads] = useState<NetworkingLead[]>([]);
   const [draft, setDraft] = useState<LeadDraft>(emptyDraft);
   const [cardFile, setCardFile] = useState<File | null>(null);
@@ -106,7 +109,8 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | LeadStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [quoteLead, setQuoteLead] = useState<NetworkingLead | null>(null);
 
   const loadLeads = async () => {
     setLoading(true);
@@ -131,7 +135,9 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
   const filteredLeads = useMemo(() => {
     const term = search.trim().toLowerCase();
     return leads.filter((lead) => {
-      if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
+      if (statusFilter === 'active' && lead.quote_request_id) return false;
+      if (statusFilter === 'quote' && !lead.quote_request_id) return false;
+      if (!['active', 'all', 'quote'].includes(statusFilter) && (lead.quote_request_id || lead.status !== statusFilter)) return false;
       if (!term) return true;
       return [lead.business_name, lead.contact_name, lead.business_category, lead.where_met, lead.product_summary]
         .some((value) => value?.toLowerCase().includes(term));
@@ -305,7 +311,7 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
         </Card>
 
         <Card className="min-w-0 border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-200"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><CardTitle>Local business discoveries</CardTitle><p className="mt-1 text-sm text-slate-600">Review first. Contact details from wide group photos should never be trusted automatically.</p></div><div className="flex flex-col gap-2 sm:flex-row"><div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads" className="pl-9" /></div><div className="relative"><Filter className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" /><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | LeadStatus)} className="h-10 rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm"><option value="all">All statuses</option>{statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div></div></div></CardHeader>
+          <CardHeader className="border-b border-slate-200"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><CardTitle>Local business discoveries</CardTitle><p className="mt-1 text-sm text-slate-600">Review first. Contact details from wide group photos should never be trusted automatically.</p></div><div className="flex flex-col gap-2 sm:flex-row"><div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads" className="pl-9" /></div><div className="relative"><Filter className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" /><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="h-10 rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm"><option value="active">Active networking</option><option value="quote">Quote phase</option><option value="all">All phases</option>{statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div></div></div></CardHeader>
           <CardContent className="p-0">
             {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Loading networking leads...</div> : filteredLeads.length === 0 ? <div className="p-12 text-center"><BriefcaseBusiness className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 font-black text-slate-700">No matching networking leads yet</p><p className="mt-1 text-sm text-slate-500">Add the first verified business card from your local stack.</p></div> : <div className="divide-y divide-slate-100">{filteredLeads.map((lead) => (
               <article key={lead.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_190px]">
@@ -317,12 +323,29 @@ const BusinessCardNetworking = ({ adminUserId }: { adminUserId: string }) => {
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">{lead.where_met && <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"><MapPin className="h-3 w-3" />{lead.where_met}</span>}{lead.can_ship !== null && <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"><PackageCheck className="h-3 w-3" />{lead.can_ship ? 'Can ship' : 'Local only'}</span>}{lead.episode_name && <span className="rounded-full bg-violet-100 px-2.5 py-1 text-violet-800">{lead.episode_name}</span>}</div>
                   <div className="mt-4 flex flex-wrap gap-2">{lead.card_image_path && <Button size="sm" variant="outline" onClick={() => void openCard(lead.card_image_path!)}><ExternalLink className="mr-2 h-3.5 w-3.5" />View original card</Button>}{lead.verification_status !== 'verified' && <Button size="sm" onClick={() => void updateLead(lead.id, { verification_status: 'verified' })} className="bg-emerald-700 text-white hover:bg-emerald-800"><CheckCircle2 className="mr-2 h-3.5 w-3.5" />Approve as CRM lead</Button>}</div>
                 </div>
-                <div><Label>Status</Label><select value={lead.status} onChange={(e) => void updateLead(lead.id, { status: e.target.value as LeadStatus })} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold">{statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><p className="mt-3 text-xs leading-5 text-slate-500">Added {new Date(lead.created_at).toLocaleDateString()}</p>{lead.phone && <a className="mt-2 block text-xs font-bold text-blue-700" href={`tel:${lead.phone}`}>{lead.phone}</a>}{lead.email && <a className="mt-1 block break-all text-xs font-bold text-blue-700" href={`mailto:${lead.email}`}>{lead.email}</a>}{lead.website && <a className="mt-1 block break-all text-xs font-bold text-blue-700" href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noreferrer">Website</a>}{Object.entries(lead.social_profiles || {}).filter(([, url]) => url).map(([network, url]) => <a key={network} className="mt-1 block break-all text-xs font-bold capitalize text-violet-700" href={url!} target="_blank" rel="noreferrer">{network}</a>)}</div>
+                <div><Label htmlFor={`networking-status-${lead.id}`}>Status</Label><select id={`networking-status-${lead.id}`} value={lead.quote_request_id ? 'quote' : lead.status} disabled={Boolean(lead.quote_request_id)} onChange={(e) => {
+                  const phase = e.target.value;
+                  if (phase === 'quote') setQuoteLead(lead);
+                  else void updateLead(lead.id, { status: phase as LeadStatus });
+                }} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold">{statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}<option value="quote" disabled={lead.verification_status !== 'verified'}>Quote</option></select>{lead.quote_request_id ? <><p className="mt-2 text-xs text-slate-500">Previous networking stage: {statusLabel(lead.status)}</p><Button size="sm" variant="outline" className="mt-2" onClick={() => onOpenQuote(lead.quote_request_id!)}>Open CRM quote</Button></> : lead.verification_status !== 'verified' && <p className="mt-2 text-xs text-slate-500">Verify this lead before moving it to Quote.</p>}<p className="mt-3 text-xs leading-5 text-slate-500">Added {new Date(lead.created_at).toLocaleDateString()}</p>{lead.phone && <a className="mt-2 block text-xs font-bold text-blue-700" href={`tel:${lead.phone}`}>{lead.phone}</a>}{lead.email && <a className="mt-1 block break-all text-xs font-bold text-blue-700" href={`mailto:${lead.email}`}>{lead.email}</a>}{lead.website && <a className="mt-1 block break-all text-xs font-bold text-blue-700" href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noreferrer">Website</a>}{Object.entries(lead.social_profiles || {}).filter(([, url]) => url).map(([network, url]) => <a key={network} className="mt-1 block break-all text-xs font-bold capitalize text-violet-700" href={url!} target="_blank" rel="noreferrer">{network}</a>)}</div>
               </article>
             ))}</div>}
           </CardContent>
         </Card>
       </div>
+      {quoteLead && <NewQuoteRequest
+        key={quoteLead.id}
+        draftOwnerId={adminUserId}
+        networkingLead={{ id: quoteLead.id, businessName: quoteLead.business_name, contactName: quoteLead.contact_name, email: quoteLead.email, phone: quoteLead.phone }}
+        onNetworkingClose={() => setQuoteLead(null)}
+        onCreated={(quote) => {
+          if (typeof quote.id !== 'string') return;
+          const id = quote.id;
+          setLeads(current => current.map(lead => lead.id === quoteLead.id ? { ...lead, quote_request_id: id } : lead));
+          setQuoteLead(null);
+          onOpenQuote(id);
+        }}
+      />}
     </div>
   );
 };

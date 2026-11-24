@@ -128,7 +128,7 @@ interface QuoteRequestRow {
   id: string;
   quote_id: string | null;
   customer_name: string;
-  customer_email: string;
+  customer_email: string | null;
   customer_phone: string | null;
   preferred_contact: string | null;
   rep_slug: string | null;
@@ -944,9 +944,10 @@ interface AdminStatusProps {
   enableBulkActions?: boolean;
   currentAdminRole?: AdminRole;
   currentAdminUserId?: string;
+  initialQuoteId?: string | null;
 }
 
-const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdminUserId }: AdminStatusProps) => {
+const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdminUserId, initialQuoteId }: AdminStatusProps) => {
   const [syncedFiles, setSyncedFiles] = useState<{ quoteId: string; files: UploadedFileSummary[] }>({ quoteId: '', files: [] });
   const [fileSyncError, setFileSyncError] = useState('');
   const [quotes, setQuotes] = useState<QuoteRequestRow[]>([]);
@@ -1361,6 +1362,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
   const openQuoteDetail = (quote: QuoteRequestRow) => {
     setSelectedQuote(quote);
     setSelectedQuoteDetail(null);
+    setPdfRecipientEmail('');
+    setPdfSendMessage('');
     setStatusEvents([]);
     setInternalNotes([]);
     setFollowUpTasks([]);
@@ -1416,6 +1419,27 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
     void loadCustomerActionRequests(quote.id);
     void loadDesignerPacket(quote.id, quote);
   };
+
+  useEffect(() => {
+    if (!initialQuoteId || !/^[0-9a-f-]{36}$/i.test(initialQuoteId) ||
+        (currentAdminRole !== 'owner_admin' && currentAdminRole !== 'staff')) return;
+    let active = true;
+    const loadLinkedQuote = async () => {
+      const { data, error: linkedQuoteError } = await supabase.rpc('get_admin_quote_request_detail', {
+        quote_request_id: initialQuoteId
+      });
+      if (!active) return;
+      if (linkedQuoteError || !data?.[0]) {
+        setError('Could not open the linked quote. Refresh to retry.');
+        return;
+      }
+      openQuoteDetail(data[0] as QuoteRequestRow);
+    };
+    void loadLinkedQuote();
+    return () => { active = false; };
+    // Reopen on a new route ID, not on unrelated quote editor updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuoteId, currentAdminRole]);
 
   const saveProofPortalSettings = async () => {
     if (!selectedQuote || savingProofPortal) return;
@@ -2137,9 +2161,12 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
 
   const sendAdminPdfProposal = async (file: { url: string; name?: string }) => {
     const quote = selectedQuoteDetail || selectedQuote;
-    if (!quote) return;
-    const recipientEmail = (pdfRecipientEmail || quote.customer_email).trim();
-    if (!recipientEmail) return;
+    if (!quote || sendingPdf) return;
+    const recipientEmail = pdfRecipientEmail.trim() || quote.customer_email?.trim() || '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      setPdfSendMessage('Enter a valid recipient email before sending the PDF.');
+      return;
+    }
 
     setSendingPdf(true);
     setPdfSendMessage(`Sending to ${recipientEmail}…`);
@@ -2412,7 +2439,8 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
       return;
     }
 
-    if (!selectedQuote.customer_email) {
+    const recipientEmail = (selectedQuoteDetail || selectedQuote).customer_email?.trim();
+    if (!recipientEmail) {
       setCustomerActionError('This quote does not have a customer email.');
       setCustomerActionMessageStatus('');
       return;
@@ -2454,7 +2482,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        customerEmail: selectedQuote.customer_email,
+        customerEmail: recipientEmail,
         customerName: selectedQuote.customer_name,
         quoteId: selectedQuote.quote_id,
         requestType: customerActionRequestTypes[0],
@@ -2481,7 +2509,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
         p_quote_request_id: selectedQuote.id,
         p_request_type: customerActionRequestTypes[0],
         p_message: trimmedMessage,
-        p_customer_email: selectedQuote.customer_email,
+        p_customer_email: recipientEmail,
         p_create_follow_up: true,
         p_request_types: customerActionRequestTypes
       });
@@ -3393,7 +3421,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                     quoteRequestId={activeQuote.id}
                     customerName={activeQuote.customer_name}
                     companyName={String(getCompanyName(activeQuote) || '')}
-                    email={activeQuote.customer_email}
+                    email={activeQuote.customer_email || ''}
                     phone={activeQuote.customer_phone}
                     preferredContact={activeQuote.preferred_contact}
                     quoteData={activeQuote.quote_data}
@@ -3963,7 +3991,7 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                     quoteRequestId={activeQuote.id}
                     orderNumber={activeQuote.quote_id || activeQuote.id}
                     customerName={activeQuote.customer_name}
-                    customerEmail={activeQuote.customer_email}
+                    customerEmail={activeQuote.customer_email || ''}
                     customerPhone={activeQuote.customer_phone || ''}
                     customerCompany={String(getCompanyName(activeQuote) || '')}
                     projectDescription={[
@@ -4315,11 +4343,13 @@ const AdminStatus = ({ enableBulkActions = false, currentAdminRole, currentAdmin
                     </div>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-xs text-slate-500">
-                        Sends to {activeQuote.customer_email}. Customer should reply by email with the requested files or information.
+                        {activeQuote.customer_email?.trim()
+                          ? `Sends to ${activeQuote.customer_email}. Customer should reply by email with the requested files or information.`
+                          : 'Add a customer email before sending a request.'}
                       </p>
                       <Button
                         onClick={sendCustomerActionRequest}
-                        disabled={sendingCustomerAction || !customerActionMessage.trim()}
+                        disabled={sendingCustomerAction || !customerActionMessage.trim() || !activeQuote.customer_email?.trim()}
                       >
                         {sendingCustomerAction ? 'Sending...' : 'Send Request'}
                       </Button>

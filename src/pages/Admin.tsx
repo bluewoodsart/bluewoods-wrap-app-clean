@@ -316,6 +316,7 @@ const Admin = () => {
                 : 'social';
     nextParams.set('tab', tabValue);
     nextParams.delete('section');
+    nextParams.delete('request');
     if (nextTab !== 'clients') nextParams.delete('client');
     if (nextTab !== 'rep-onboarding') {
       nextParams.delete('rep');
@@ -455,7 +456,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="quote-requests" className="mt-0">
-            <AdminStatus key={adminUser.id} enableBulkActions currentAdminRole={adminUser.role} currentAdminUserId={adminUser.id} />
+            <AdminStatus key={adminUser.id} enableBulkActions currentAdminRole={adminUser.role} currentAdminUserId={adminUser.id} initialQuoteId={routeParams.get('request')} />
           </TabsContent>
 
           <TabsContent value="rep-onboarding" className="mt-0">
@@ -467,7 +468,10 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="networking" className="mt-0">
-            <BusinessCardNetworking adminUserId={adminUser.id} />
+            <BusinessCardNetworking adminUserId={adminUser.id} onOpenQuote={(id) => {
+              const next = new URLSearchParams({ tab: 'quotes', request: id });
+              navigate({ pathname: '/admin', search: `?${next.toString()}` });
+            }} />
           </TabsContent>
 
           <TabsContent value="whatsapp" className="mt-0">
