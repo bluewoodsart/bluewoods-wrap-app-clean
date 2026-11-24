@@ -150,3 +150,60 @@ test('handoff route and staff-only idempotent transaction remain wired', () => {
   assert.match(migration, /insert into public.quote_internal_notes/);
   assert.match(migration, /from public, anon;\ngrant execute on function public.convert_networking_lead_to_quote/);
 });
+
+test('phone-only Networking handoff saves without an invented email', async () => {
+  const calls = [];
+  const h = harness(files.form, { rpc: async (name, params) => {
+    calls.push({ name, params });
+    return { data: 'quote-id', error: null };
+  } });
+  const opened = [];
+  const props = { networkingLead: { id: 'phone-lead', businessName: 'Example Co',
+    contactName: 'Jane', email: null, phone: '770-555-0132' }, onCreated: row => opened.push(row.id) };
+  let view = h.render(props);
+  assert.equal(one(view, n => n.props?.id === 'new-quote-email').required, false);
+  assert.equal(one(view, n => n.props?.id === 'new-quote-contact').value, 'call');
+  one(view, n => n.props?.id === 'new-quote-notes').onChange({ target: { value: 'Storefront graphics' } });
+  view = h.render(props);
+  await one(view, n => n.type === 'form').onSubmit({ preventDefault() {} });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, 'convert_networking_lead_to_quote');
+  assert.equal(calls[0].params.p_email, '');
+  assert.equal(calls[0].params.p_phone, '770-555-0132');
+  assert.deepEqual(opened, ['quote-id']);
+});
+
+test('PDF send prompts without an email and accepts an explicit valid override', async () => {
+  const status = read(files.status);
+  assert.match(status, /setSelectedQuote\(quote\);\s*setSelectedQuoteDetail\(null\);\s*setPdfRecipientEmail\(''\)/);
+  const adminSend = status.slice(status.indexOf('  const sendAdminPdfProposal ='), status.indexOf('  const closeAdminQuoteBuild ='));
+  const source = ts.transpileModule(adminSend, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const messages = [];
+  const requests = [];
+  let sessions = 0;
+  const options = {
+    selectedQuoteDetail: null,
+    selectedQuote: { id: 'phone-quote', customer_name: 'Jane', customer_email: null },
+    pdfRecipientEmail: '',
+    sendingPdf: false,
+    setSendingPdf() {},
+    setPdfSendMessage(message) { messages.push(message); },
+    supabase: { auth: { async getSession() { sessions++; return { data: { session: { access_token: 'test' } } }; } } },
+    async fetch(url, request) {
+      requests.push({ url, body: JSON.parse(request.body) });
+      return { ok: true, json: async () => ({}) };
+    }
+  };
+  const handler = (input) => vm.runInNewContext(source + '\n;sendAdminPdfProposal', { ...options, ...input });
+  const pdf = { url: 'https://example.com/sample.pdf', name: 'sample.pdf' };
+  await handler({})(pdf);
+  await handler({ pdfRecipientEmail: 'not an email' })(pdf);
+  assert.equal(sessions, 0);
+  assert.equal(requests.length, 0);
+  assert.match(messages.at(-1), /Enter a valid recipient email/);
+  await handler({ pdfRecipientEmail: ' jane@example.com ' })(pdf);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/api/send-pdf-proposal');
+  assert.equal(requests[0].body.customerEmail, 'jane@example.com');
+  assert.equal(sessions, 1);
+});
