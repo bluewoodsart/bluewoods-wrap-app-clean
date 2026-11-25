@@ -9,6 +9,7 @@ import CompassionMinistriesWorkspace from '@/components/admin/CompassionMinistri
 import BlueWoodsMarketingWorkspace, { type BlueWoodsMarketingSectionId } from '@/components/admin/BlueWoodsMarketingWorkspace';
 import ClientCrmDirectory from '@/components/admin/ClientCrmDirectory';
 import PricingCalculatorSandbox from '@/components/admin/PricingCalculatorSandbox';
+import BillsExpenses from '@/components/admin/BillsExpenses';
 import StaticClingMaterialCosts from '@/components/admin/StaticClingMaterialCosts';
 import RepOnboardingPromptCard from '@/components/admin/RepOnboardingPromptCard';
 import VideoInstructionReview from '@/components/admin/VideoInstructionReview';
@@ -273,7 +274,8 @@ const Admin = () => {
   const activeMarketingSection: BlueWoodsMarketingSectionId = blueWoodsMarketingSections.includes(requestedMarketingSection as BlueWoodsMarketingSectionId)
     ? requestedMarketingSection as BlueWoodsMarketingSectionId
     : 'master-front-end';
-  const activeTab = requestedTab === 'projects' && adminUser.role === 'owner_admin' ? 'projects' : requestedTab === 'stickers' && adminUser.role === 'owner_admin' ? 'stickers' : requestedTab === 'marketing'
+  const canViewBills = adminUser.role === 'owner_admin';
+  const activeTab = requestedTab === 'bills' && canViewBills ? 'bills' : requestedTab === 'projects' && adminUser.role === 'owner_admin' ? 'projects' : requestedTab === 'stickers' && adminUser.role === 'owner_admin' ? 'stickers' : requestedTab === 'marketing'
     ? 'owner-marketing'
     : requestedTab === 'clients'
     ? 'clients'
@@ -295,7 +297,7 @@ const Admin = () => {
 
   const changeAdminTab = (nextTab: string) => {
     const nextParams = new URLSearchParams(location.search);
-    const tabValue = nextTab === 'projects' ? 'projects' : nextTab === 'stickers' ? 'stickers' : nextTab === 'owner-marketing'
+    const tabValue = nextTab === 'bills' && canViewBills ? 'bills' : nextTab === 'projects' ? 'projects' : nextTab === 'stickers' ? 'stickers' : nextTab === 'owner-marketing'
       ? 'marketing'
       : nextTab === 'clients'
       ? 'clients'
@@ -414,6 +416,7 @@ const Admin = () => {
               <TabsTrigger value="production" className="min-h-11 min-w-max flex-1 px-3">Production</TabsTrigger>
               <TabsTrigger value="networking" className="min-h-11 min-w-max flex-1 px-3">Networking</TabsTrigger>
               <TabsTrigger value="whatsapp" className="min-h-11 min-w-max flex-1 gap-2 px-3">WhatsApp{pendingWhatsAppCount > 0 && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">{pendingWhatsAppCount}</span>}</TabsTrigger>
+              {canViewBills && <TabsTrigger value="bills" className="min-h-11 min-w-max flex-1 px-3">Bills &amp; Expenses</TabsTrigger>}
               {canViewPricingSandbox && (
                 <TabsTrigger value="pricing-sandbox" className="min-h-11 min-w-max flex-1 px-3">Pricing Sandbox</TabsTrigger>
               )}
@@ -474,6 +477,7 @@ const Admin = () => {
             <WhatsAppSalesInbox />
           </TabsContent>
 
+          {canViewBills && <TabsContent value="bills" className="mt-0"><BillsExpenses key={adminUser.id} /></TabsContent>}
           {canViewPricingSandbox && (
             <TabsContent value="pricing-sandbox" className="mt-0 space-y-5">
               <StaticClingMaterialCosts />
