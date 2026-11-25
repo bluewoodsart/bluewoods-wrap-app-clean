@@ -51,6 +51,7 @@ export default function HomeSeoContent() {
         {services.map(service => <article key={service.slug} className="rounded-xl border border-slate-700 bg-slate-900 p-6">
           <h3 className="text-xl font-bold">{service.name}</h3><p className="mt-4 leading-7 text-slate-300">{service.intro}</p>
           <a className="mt-5 inline-block font-bold text-cyan-300 underline underline-offset-4 hover:text-cyan-100" href={'/services/' + service.slug}>Explore {service.name.toLowerCase()}</a>
+          {service.slug === 'vehicle-wraps' && <a className="mt-3 block font-bold text-cyan-300 underline underline-offset-4 hover:text-cyan-100" href="/services/commercial-vehicle-wraps">Commercial wraps for work vehicles</a>}
         </article>)}
       </div>
     </section>
