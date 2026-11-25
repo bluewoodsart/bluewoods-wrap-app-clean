@@ -37,6 +37,10 @@
       "destination": "/services/service-page.js"
     },
     {
+      "source": "/services/commercial-vehicle-wraps",
+      "destination": "/services/commercial-vehicle-wraps.html"
+    },
+    {
       "source": "/services/vehicle-wraps",
       "destination": "/services/vehicle-wraps.html"
     },
